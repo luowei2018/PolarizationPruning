@@ -83,7 +83,7 @@ def prune_resnet(num_classes: int, sparse_model: torch.nn.Module, pruning_strate
     pruned_model.cpu()
 
     if prune_type == 'polarization':
-        pruner = lambda weight: search_threshold(weight, pruning_strategy)
+        pruner = lambda weight: search_threshold(weight, pruning_strategy) # find the cut of factors
         prune_on = 'factor'
     elif prune_type == 'l1-norm':
         pruner = lambda weight: l1_norm_threshold(weight, ratio=l1_norm_ratio)
@@ -127,9 +127,9 @@ def prune_resnet(num_classes: int, sparse_model: torch.nn.Module, pruning_strate
         if param_name in saved_model.state_dict():
             pruned_state_dict[param_name] = param
         else:
-            if "_conv" not in param_name:
+            #if "_conv" not in param_name:
                 # when the entire block is pruned, the conv parameter will miss, which is expected
-                print(f"[WARNING] missing parameter: {param_name}")
+                #print(f"[WARNING] missing parameter: {param_name}")
 
     saved_model.load_state_dict(pruned_state_dict)
 
