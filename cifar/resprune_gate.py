@@ -126,7 +126,7 @@ def prune_resnet(num_classes: int, sparse_model: torch.nn.Module, pruning_strate
     for param_name, param in pruned_model.state_dict().items():
         if param_name in saved_model.state_dict():
             pruned_state_dict[param_name] = param
-        else:
+        #else:
             #if "_conv" not in param_name:
                 # when the entire block is pruned, the conv parameter will miss, which is expected
                 #print(f"[WARNING] missing parameter: {param_name}")
