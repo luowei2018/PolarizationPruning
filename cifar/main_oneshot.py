@@ -481,10 +481,11 @@ def log_quantization(model):
     args.ista_err = torch.tensor([0.0]).cuda(0)
     # locations of bins should fit original dist
     num_bins = 4
+    # start can be tuned to find a best one
     bin_start = -6
     # distance between bins min=2
     bin_stride = 2
-    # how centralize the bin is
+    # how centralize the bin is, relax this may improve prec
     bin_width = 1e-1
     # locations we want to quantize
     bins = torch.pow(10.,torch.tensor([bin_start+bin_stride*x for x in range(num_bins)])).cuda(0)
@@ -562,13 +563,13 @@ def log_quantization(model):
         ch_start += ch_len
     
     
-def logq_visual(iter, model):
+def factor_visualization(iter, model):
     scale_factors = torch.tensor([]).cuda()
     bn_modules = model.get_sparse_layers()
     for bn_module in bn_modules:
         scale_factors = torch.cat((scale_factors,torch.abs(bn_module.weight.data.view(-1))))
     # plot figure
-    save_dir = args.save + 'logq/'
+    save_dir = args.save + 'factor/'
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
     fig, axs = plt.subplots(ncols=2, figsize=(10,4))
@@ -771,6 +772,9 @@ for epoch in range(args.start_epoch, args.epochs):
         epoch=epoch,
         max_backup=args.max_backup
     )
+    
+    # visualize scale factors
+    factor_visualization(epoch, model)
 
     # write the tensorboard
     writer.add_scalar("train/average_loss", history_score[epoch][0], epoch)
@@ -797,7 +801,6 @@ for epoch in range(args.start_epoch, args.epochs):
     if args.loss in {LossType.LOG_QUANTIZATION}:
         print('BinErr:', " ".join(format(x, ".3f") for x in args.ista_err_bins))
         print('BinCnt:', " ".join(format(x, "05d") for x in args.ista_cnt_bins))
-        logq_visual(epoch, model)
 
 if args.loss == LossType.POLARIZATION and args.target_flops and (
         flops_grad / baseline_flops) > args.target_flops and args.gate:
