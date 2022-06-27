@@ -502,9 +502,9 @@ def prune_while_training(model: nn.Module, arch: str, prune_mode: str, num_class
         raise NotImplementedError(f"do not support arch {arch}")
 
     saved_flops_grad = compute_conv_flops(saved_model_grad, cuda=True)
+    saved_flops_25 = compute_conv_flops(saved_model_25, cuda=True)
     saved_flops_50 = compute_conv_flops(saved_model_50, cuda=True)
-    saved_flops_75 = compute_conv_flops(saved_model_50, cuda=True)
-    saved_flops_25 = compute_conv_flops(saved_model_50, cuda=True)
+    saved_flops_75 = compute_conv_flops(saved_model_75, cuda=True)
     baseline_flops = compute_conv_flops(baseline_model, cuda=True)
 
     return saved_flops_grad, saved_flops_25, saved_flops_50, saved_flops_75, baseline_flops
@@ -672,9 +672,9 @@ for epoch in range(args.start_epoch, args.epochs):
                                                                    prune_mode="default",
                                                                    num_classes=num_classes)
     print(f" --> FLOPs in epoch (grad) {epoch}: {flops_grad:,}, ratio: {flops_grad / baseline_flops}")
-    print(f" --> FLOPs in epoch (fixed) {epoch}: {flops_25:,}, ratio: {flops_fixed25 / baseline_flops}")
-    print(f" --> FLOPs in epoch (fixed) {epoch}: {flops_50:,}, ratio: {flops_fixed50 / baseline_flops}")
-    print(f" --> FLOPs in epoch (fixed) {epoch}: {flops_75:,}, ratio: {flops_fixed75 / baseline_flops}")
+    print(f" --> FLOPs in epoch (fixed) {epoch}: {flops_25:,}, ratio: {flops_fixed_25 / baseline_flops}")
+    print(f" --> FLOPs in epoch (fixed) {epoch}: {flops_50:,}, ratio: {flops_fixed_50 / baseline_flops}")
+    print(f" --> FLOPs in epoch (fixed) {epoch}: {flops_75:,}, ratio: {flops_fixed_75 / baseline_flops}")
     writer.add_scalar("train/flops", flops_grad, epoch)
     writer.add_scalar("train/flops_25", flops_25, epoch)
     writer.add_scalar("train/flops_50", flops_50, epoch)
