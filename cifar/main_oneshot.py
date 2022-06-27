@@ -478,6 +478,7 @@ def prune_while_training(model: nn.Module, arch: str, prune_mode: str, num_class
         from models.resnet_expand import resnet56 as resnet50_expand
         saved_model_grad = prune_resnet(sparse_model=model, pruning_strategy='grad',
                                         sanity_check=False, prune_mode=prune_mode, num_classes=num_classes)
+        prec1_grad = test(saved_model_grad.cuda())
         saved_model_25 = prune_resnet(sparse_model=model, pruning_strategy='fixed', prune_type='ns', l1_norm_ratio=.25,
                                          sanity_check=False, prune_mode=prune_mode, num_classes=num_classes)
         prec1_25 = test(saved_model_25.cuda())
@@ -506,6 +507,11 @@ def prune_while_training(model: nn.Module, arch: str, prune_mode: str, num_class
     saved_flops_50 = compute_conv_flops(saved_model_50, cuda=True)
     saved_flops_75 = compute_conv_flops(saved_model_75, cuda=True)
     baseline_flops = compute_conv_flops(baseline_model, cuda=True)
+    
+    print(f" --> FLOPs in epoch (grad) {epoch}: {flops_grad:,}, ratio: {flops_grad / baseline_flops}, prec1: {prec1_grad}")
+    print(f" --> FLOPs in epoch (fixed) {epoch}: {flops_25:,}, ratio: {flops_25 / baseline_flops}, prec1: {prec1_25}")
+    print(f" --> FLOPs in epoch (fixed) {epoch}: {flops_50:,}, ratio: {flops_50 / baseline_flops}, prec1: {prec1_50}")
+    print(f" --> FLOPs in epoch (fixed) {epoch}: {flops_75:,}, ratio: {flops_75 / baseline_flops}, prec1: {prec1_75}")
 
     return saved_flops_grad, saved_flops_25, saved_flops_50, saved_flops_75, baseline_flops
 
@@ -575,9 +581,6 @@ def test(modelx):
             correct += pred.eq(target.data.view_as(pred)).cpu().sum()
 
     test_loss /= len(test_loader.dataset)
-    print('\nTest set: Average loss: {:.4f}, Accuracy: {}/{} ({:.4f}%)\n'.format(
-        test_loss, correct, len(test_loader.dataset),
-        100. * float(correct) / len(test_loader.dataset)))
     return float(correct) / float(len(test_loader.dataset))
 
 
@@ -671,10 +674,6 @@ for epoch in range(args.start_epoch, args.epochs):
     flops_grad, flops_25, flops_50, flops_75, baseline_flops = prune_while_training(model, arch=args.arch,
                                                                    prune_mode="default",
                                                                    num_classes=num_classes)
-    print(f" --> FLOPs in epoch (grad) {epoch}: {flops_grad:,}, ratio: {flops_grad / baseline_flops}")
-    print(f" --> FLOPs in epoch (fixed) {epoch}: {flops_25:,}, ratio: {flops_25 / baseline_flops}")
-    print(f" --> FLOPs in epoch (fixed) {epoch}: {flops_50:,}, ratio: {flops_50 / baseline_flops}")
-    print(f" --> FLOPs in epoch (fixed) {epoch}: {flops_75:,}, ratio: {flops_75 / baseline_flops}")
     writer.add_scalar("train/flops", flops_grad, epoch)
     writer.add_scalar("train/flops_25", flops_25, epoch)
     writer.add_scalar("train/flops_50", flops_50, epoch)
