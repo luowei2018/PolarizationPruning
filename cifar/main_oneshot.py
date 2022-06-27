@@ -573,7 +573,7 @@ def logq_visual(iter, model):
     sns.histplot(scale_factors.detach().cpu().numpy(), ax=axs[0])
     scale_factors = torch.clamp(scale_factors,min=1e-10)
     sns.histplot(torch.log10(scale_factors).detach().cpu().numpy(), ax=axs[1])
-    fig.savefig(save_dir + f'{iter:03d}_{print_str}.png')
+    fig.savefig(save_dir + f'{iter:03d}.png')
     plt.close('all')
         
 
