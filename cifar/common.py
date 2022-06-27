@@ -9,6 +9,7 @@ class LossType(Enum):
     L1_SPARSITY_REGULARIZATION = 1
     POLARIZATION = 4
     L2_POLARIZATION = 6
+    LOG_QUANTIZATION = 8
 
     @staticmethod
     def from_string(desc: str):
@@ -21,6 +22,7 @@ class LossType(Enum):
                 "sr": LossType.L1_SPARSITY_REGULARIZATION,
                 "zol": LossType.POLARIZATION,
                 "zol2": LossType.L2_POLARIZATION,
+                "logq": LossType.LOG_QUANTIZATION,
                 }
 
 

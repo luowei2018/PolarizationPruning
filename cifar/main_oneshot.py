@@ -20,6 +20,8 @@ import models
 from common import LossType, compute_conv_flops
 from models.common import SparseGate, Identity
 from models.resnet_expand import BasicBlock
+import seaborn as sns
+import matplotlib.pyplot as plt
 
 # Training settings
 parser = argparse.ArgumentParser(description='PyTorch CIFAR training with Polarization')
@@ -470,7 +472,110 @@ def bn_sparsity(model, loss_type, sparsity, t, alpha,
             return sparsity_loss
     else:
         raise ValueError()
-
+        
+def log_quantization(model):
+    #############SETUP###############
+    args.ista_err = torch.tensor([0.0]).cuda(0)
+    # locations of bins should fit original dist
+    num_bins = 4
+    bin_start = -6
+    # distance between bins min=2
+    bin_stride = 2
+    # how centralize the bin is
+    bin_width = 1e-1
+    # locations we want to quantize
+    bins = torch.pow(10.,torch.tensor([bin_start+bin_stride*x for x in range(num_bins)])).cuda(0)
+    # trade-off of original distribution and new distribution
+    # big: easy to get new distribution, but may degrade performance
+    # small: maintain good performance but may not affect distribution much
+    decay_factor = 1e-3 # lower this to improve perf
+    # how small/low rank bins get more advantage
+    amp_factors = torch.tensor([2**(num_bins-1-x) for x in range(num_bins)]).cuda()
+    args.ista_err_bins = [0 for _ in range(num_bins)]
+    args.ista_cnt_bins = [0 for _ in range(num_bins)]
+    
+    #################START###############
+    def get_bin_distribution(x):
+        x = torch.clamp(torch.abs(x), min=1e-6) * torch.sign(x)
+        bins = torch.pow(10.,torch.tensor([bin_start+bin_stride*x for x in range(num_bins)])).to(x.device)
+        dist = torch.abs(torch.log10(torch.abs(x).unsqueeze(-1)/bins))
+        _,min_idx = dist.min(dim=-1)
+        all_err = torch.log10(bins[min_idx]/torch.abs(x))
+        abs_err = torch.abs(all_err)
+        # calculate total error
+        args.ista_err += abs_err.sum()
+        # calculating err for each bin
+        for i in range(num_bins):
+            if torch.sum(min_idx==i)>0:
+                args.ista_err_bins[i] += abs_err[min_idx==i].sum().cpu().item()
+                args.ista_cnt_bins[i] += torch.numel(abs_err[min_idx==i])
+                
+    def redistribute(x,bin_indices):
+        tar_bins = bins[bin_indices]
+        # amplifier based on rank of bin
+        amp = amp_factors[bin_indices]
+        all_err = torch.log10(tar_bins/torch.abs(x))
+        abs_err = torch.abs(all_err)
+        # more distant larger multiplier
+        # pull force relates to distance and target bin (how off-distribution is it?)
+        # low rank bin gets higher pull force
+        distance = torch.log10(tar_bins/torch.abs(x))
+        multiplier = 10**(distance*decay_factor*amp)
+        x[abs_err>bin_width] *= multiplier[abs_err>bin_width]
+        return x
+        
+    all_scale_factors = torch.tensor([]).cuda()
+        
+    bn_modules = model.get_sparse_layers()
+    for bn_module in bn_modules:
+        with torch.no_grad():
+            get_bin_distribution(bn_module.weight.data)
+        all_scale_factors = torch.cat((all_scale_factors,torch.abs(bn_module.weight.data)))
+                
+    # total channels
+    total_channels = len(all_scale_factors)
+    ch_per_bin = total_channels//num_bins
+    _,bin_indices = torch.tensor(args.ista_cnt_bins).sort()
+    remain = torch.ones(total_channels).long().cuda()
+    assigned_binindices = torch.zeros(total_channels).long().cuda()
+    
+    for bin_idx in bin_indices[:-1]:
+        dist = torch.abs(torch.log10(bins[bin_idx]/all_scale_factors)) 
+        not_assigned = remain.nonzero()
+        # remaining channels importance
+        chan_imp = dist[not_assigned] 
+        tmp,ch_indices = chan_imp.sort(dim=0)
+        selected_in_remain = ch_indices[:ch_per_bin]
+        selected = not_assigned[selected_in_remain]
+        remain[selected] = 0
+        assigned_binindices[selected] = bin_idx
+    assigned_binindices[remain.nonzero()] = bin_indices[-1]
+    
+    ch_start = 0
+    for bn_module in bn_modules:
+        with torch.no_grad():
+            ch_len = len(bn_module.weight.data)
+            bn_module.weight.data = redistribute(bn_module.weight.data, assigned_binindices[ch_start:ch_start+ch_len])
+        ch_start += ch_len
+    
+    
+def logq_visual(iter, model):
+    scale_factors = torch.tensor([]).cuda()
+    bn_modules = model.get_sparse_layers()
+    for bn_module in bn_modules:
+        scale_factors = torch.cat((scale_factors,torch.abs(bn_module.weight.data.view(-1))))
+    # plot figure
+    save_dir = f'logq/'
+    if not os.path.exists(save_dir):
+        os.makedirs(save_dir)
+    fig, axs = plt.subplots(ncols=2, figsize=(10,4))
+    # plots
+    sns.histplot(scale_factors.detach().cpu().numpy(), ax=axs[0])
+    scale_factors = torch.clamp(scale_factors,min=1e-10)
+    sns.histplot(torch.log10(scale_factors).detach().cpu().numpy(), ax=axs[1])
+    fig.savefig(save_dir + f'{iter:03d}_{print_str}.png')
+    plt.close('all')
+        
 
 def prune_while_training(model: nn.Module, arch: str, prune_mode: str, num_classes: int):
     if arch == "resnet56":
@@ -549,15 +654,23 @@ def train(epoch):
         loss.backward()
         if args.loss in {LossType.L1_SPARSITY_REGULARIZATION}:
             updateBN()
+        if args.loss in {LossType.LOG_QUANTIZATION}:
+            log_quantization()
         optimizer.step()
         if args.loss in {LossType.POLARIZATION,
                          LossType.L2_POLARIZATION}:
             clamp_bn(model, upper_bound=args.clamp)
         global_step += 1
         if batch_idx % args.log_interval == 0:
-            print('Step: {} Train Epoch: {} [{}/{} ({:.1f}%)]\tLoss: {:.6f}'.format(
-                global_step, epoch, batch_idx * len(data), len(train_loader.dataset),
-                                    100. * batch_idx / len(train_loader), loss.data.item()))
+            if args.loss not in {LossType.LOG_QUANTIZATION}:
+                print('Step: {} Train Epoch: {} [{}/{} ({:.1f}%)]\tLoss: {:.6f}'.format(
+                    global_step, epoch, batch_idx * len(data), len(train_loader.dataset),
+                                        100. * batch_idx / len(train_loader), loss.data.item()))
+            else:
+                ista_err = args.ista_err.cpu().item()
+                print('Step: {} Train Epoch: {} [{}/{} ({:.1f}%)]\tLoss: {:.6f}\tISTA-Err: {ista_err:.4f}'.format(
+                    global_step, epoch, batch_idx * len(data), len(train_loader.dataset),
+                                        100. * batch_idx / len(train_loader), loss.data.item(), ista_err))
 
     history_score[epoch][0] = avg_loss / len(train_loader)
     history_score[epoch][1] = float(train_acc) / float(total_data)
@@ -682,6 +795,12 @@ for epoch in range(args.start_epoch, args.epochs):
     writer.add_scalar("train/flops_25_ratio", flops_25 / baseline_flops, epoch)
     writer.add_scalar("train/flops_50_ratio", flops_50 / baseline_flops, epoch)
     writer.add_scalar("train/flops_75_ratio", flops_75 / baseline_flops, epoch)
+    
+    # show log quantization result
+    if args.loss in {LossType.LOG_QUANTIZATION}:
+        print('BinErr:', " ".join(format(x, ".3f") for x in args.ista_err_bins))
+        print('BinCnt:', " ".join(format(x, "05d") for x in args.ista_cnt_bins))
+        logq_visual(epoch, model)
 
 if args.loss == LossType.POLARIZATION and args.target_flops and (
         flops_grad / baseline_flops) > args.target_flops and args.gate:
