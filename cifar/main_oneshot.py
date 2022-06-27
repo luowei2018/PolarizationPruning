@@ -102,6 +102,8 @@ parser.add_argument('--width-multiplier', default=1.0, type=float,
                          "Unavailable for other networks. (default 1.0)")
 parser.add_argument('--debug', action='store_true',
                     help='Debug mode.')
+parser.add_argument('--q_factor', type=float, default=0.001,
+                    help='decay factor (default: 0.001)')
 
 args = parser.parse_args()
 args.cuda = not args.no_cuda and torch.cuda.is_available()
@@ -488,7 +490,7 @@ def log_quantization(model):
     # trade-off of original distribution and new distribution
     # big: easy to get new distribution, but may degrade performance
     # small: maintain good performance but may not affect distribution much
-    decay_factor = 1e-3 # lower this to improve perf
+    decay_factor = args.q_factor # lower this to improve perf
     # how small/low rank bins get more advantage
     amp_factors = torch.tensor([2**(num_bins-1-x) for x in range(num_bins)]).cuda()
     args.ista_err_bins = [0 for _ in range(num_bins)]
@@ -565,7 +567,7 @@ def logq_visual(iter, model):
     for bn_module in bn_modules:
         scale_factors = torch.cat((scale_factors,torch.abs(bn_module.weight.data.view(-1))))
     # plot figure
-    save_dir = f'logq/'
+    save_dir = args.save + 'logq/'
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
     fig, axs = plt.subplots(ncols=2, figsize=(10,4))
@@ -581,9 +583,6 @@ def prune_while_training(model: nn.Module, arch: str, prune_mode: str, num_class
     if arch == "resnet56":
         from resprune_gate import prune_resnet
         from models.resnet_expand import resnet56 as resnet50_expand
-        saved_model_grad = prune_resnet(sparse_model=model, pruning_strategy='grad',
-                                        sanity_check=False, prune_mode=prune_mode, num_classes=num_classes)
-        prec1_grad = test(saved_model_grad.cuda())
         saved_model_25 = prune_resnet(sparse_model=model, pruning_strategy='fixed', prune_type='ns', l1_norm_ratio=.25,
                                          sanity_check=False, prune_mode=prune_mode, num_classes=num_classes)
         prec1_25 = test(saved_model_25.cuda())
@@ -607,18 +606,16 @@ def prune_while_training(model: nn.Module, arch: str, prune_mode: str, num_class
         # not available
         raise NotImplementedError(f"do not support arch {arch}")
 
-    saved_flops_grad = compute_conv_flops(saved_model_grad, cuda=True)
     saved_flops_25 = compute_conv_flops(saved_model_25, cuda=True)
     saved_flops_50 = compute_conv_flops(saved_model_50, cuda=True)
     saved_flops_75 = compute_conv_flops(saved_model_75, cuda=True)
     baseline_flops = compute_conv_flops(baseline_model, cuda=True)
     
-    print(f" --> FLOPs in epoch (grad) {epoch}: {saved_flops_grad:,}, ratio: {saved_flops_grad / baseline_flops}, prec1: {prec1_grad}")
     print(f" --> FLOPs in epoch (fixed) {epoch}: {saved_flops_25:,}, ratio: {saved_flops_25 / baseline_flops}, prec1: {prec1_25}")
     print(f" --> FLOPs in epoch (fixed) {epoch}: {saved_flops_50:,}, ratio: {saved_flops_50 / baseline_flops}, prec1: {prec1_50}")
     print(f" --> FLOPs in epoch (fixed) {epoch}: {saved_flops_75:,}, ratio: {saved_flops_75 / baseline_flops}, prec1: {prec1_75}")
 
-    return saved_flops_grad, saved_flops_25, saved_flops_50, saved_flops_75, baseline_flops
+    return saved_flops_25, saved_flops_50, saved_flops_75, baseline_flops
 
 
 def train(epoch):
@@ -784,14 +781,13 @@ for epoch in range(args.start_epoch, args.epochs):
 
     # flops
     # peek the remaining flops
-    flops_grad, flops_25, flops_50, flops_75, baseline_flops = prune_while_training(model, arch=args.arch,
+    flops_25, flops_50, flops_75, baseline_flops = prune_while_training(model, arch=args.arch,
                                                                    prune_mode="default",
                                                                    num_classes=num_classes)
-    writer.add_scalar("train/flops", flops_grad, epoch)
+    print(f" --> FLOPs in epoch (fixed) {epoch}: {baseline_flops:,}, prec1: {prec1}")
     writer.add_scalar("train/flops_25", flops_25, epoch)
     writer.add_scalar("train/flops_50", flops_50, epoch)
     writer.add_scalar("train/flops_75", flops_75, epoch)
-    writer.add_scalar("train/flops_grad_ratio", flops_grad / baseline_flops, epoch)
     writer.add_scalar("train/flops_25_ratio", flops_25 / baseline_flops, epoch)
     writer.add_scalar("train/flops_50_ratio", flops_50 / baseline_flops, epoch)
     writer.add_scalar("train/flops_75_ratio", flops_75 / baseline_flops, epoch)
