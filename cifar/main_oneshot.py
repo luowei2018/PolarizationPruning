@@ -478,8 +478,15 @@ def prune_while_training(model: nn.Module, arch: str, prune_mode: str, num_class
         from models.resnet_expand import resnet56 as resnet50_expand
         saved_model_grad = prune_resnet(sparse_model=model, pruning_strategy='grad',
                                         sanity_check=False, prune_mode=prune_mode, num_classes=num_classes)
-        saved_model_fixed = prune_resnet(sparse_model=model, pruning_strategy='fixed',
+        saved_model_25 = prune_resnet(sparse_model=model, pruning_strategy='fixed', prune_type='ns', l1_norm_ratio=.25,
                                          sanity_check=False, prune_mode=prune_mode, num_classes=num_classes)
+        prec1_25 = test(saved_model_25)
+        saved_model_50 = prune_resnet(sparse_model=model, pruning_strategy='fixed', prune_type='ns', l1_norm_ratio=.5,
+                                         sanity_check=False, prune_mode=prune_mode, num_classes=num_classes)
+        prec1_50 = test(saved_model_50)
+        saved_model_75 = prune_resnet(sparse_model=model, pruning_strategy='fixed', prune_type='ns', l1_norm_ratio=.75,
+                                         sanity_check=False, prune_mode=prune_mode, num_classes=num_classes)
+        prec1_75 = test(saved_model_75)
         baseline_model = resnet50_expand(num_classes=num_classes, gate=False, aux_fc=False)
     elif arch == 'vgg16_linear':
         from vggprune_gate import prune_vgg
@@ -495,10 +502,12 @@ def prune_while_training(model: nn.Module, arch: str, prune_mode: str, num_class
         raise NotImplementedError(f"do not support arch {arch}")
 
     saved_flops_grad = compute_conv_flops(saved_model_grad, cuda=True)
-    saved_flops_fixed = compute_conv_flops(saved_model_fixed, cuda=True)
+    saved_flops_50 = compute_conv_flops(saved_model_50, cuda=True)
+    saved_flops_75 = compute_conv_flops(saved_model_50, cuda=True)
+    saved_flops_25 = compute_conv_flops(saved_model_50, cuda=True)
     baseline_flops = compute_conv_flops(baseline_model, cuda=True)
 
-    return saved_flops_grad, saved_flops_fixed, baseline_flops
+    return saved_flops_grad, saved_flops_25, saved_flops_50, saved_flops_75, baseline_flops
 
 
 def train(epoch):
@@ -550,15 +559,15 @@ def train(epoch):
     pass
 
 
-def test():
-    model.eval()
+def test(modelx):
+    modelx.eval()
     test_loss = 0
     correct = 0
     with torch.no_grad():
         for data, target in test_loader:
             if args.cuda:
                 data, target = data.cuda(), target.cuda()
-            output = model(data)
+            output = modelx(data)
             if isinstance(output, tuple):
                 output, output_aux = output
             test_loss += F.cross_entropy(output, target, size_average=False).data.item()  # sum up batch loss
@@ -632,7 +641,7 @@ for epoch in range(args.start_epoch, args.epochs):
 
     train(epoch) # train with regularization
 
-    prec1 = test()
+    prec1 = test(model)
     history_score[epoch][2] = prec1
     np.savetxt(os.path.join(args.save, 'record.txt'), history_score, fmt='%10.5f', delimiter=',')
     is_best = prec1 > best_prec1
@@ -660,15 +669,21 @@ for epoch in range(args.start_epoch, args.epochs):
     # flops
     # peek the remaining flops
     if args.loss in {LossType.POLARIZATION, LossType.L2_POLARIZATION}:
-        flops_grad, flops_fixed, baseline_flops = prune_while_training(model, arch=args.arch,
+        flops_grad, flops_25, flops_50, flops_75, baseline_flops = prune_while_training(model, arch=args.arch,
                                                                        prune_mode="default",
                                                                        num_classes=num_classes)
         print(f" --> FLOPs in epoch (grad) {epoch}: {flops_grad:,}, ratio: {flops_grad / baseline_flops}")
-        print(f" --> FLOPs in epoch (fixed) {epoch}: {flops_fixed:,}, ratio: {flops_fixed / baseline_flops}")
+        print(f" --> FLOPs in epoch (fixed) {epoch}: {flops_25:,}, ratio: {flops_fixed25 / baseline_flops}")
+        print(f" --> FLOPs in epoch (fixed) {epoch}: {flops_50:,}, ratio: {flops_fixed50 / baseline_flops}")
+        print(f" --> FLOPs in epoch (fixed) {epoch}: {flops_75:,}, ratio: {flops_fixed75 / baseline_flops}")
         writer.add_scalar("train/flops", flops_grad, epoch)
-        writer.add_scalar("train/flops_fixed", flops_fixed, epoch)
+        writer.add_scalar("train/flops_25", flops_25, epoch)
+        writer.add_scalar("train/flops_50", flops_50, epoch)
+        writer.add_scalar("train/flops_75", flops_75, epoch)
         writer.add_scalar("train/flops_grad_ratio", flops_grad / baseline_flops, epoch)
-        writer.add_scalar("train/flops_fixed_ratio", flops_fixed / baseline_flops, epoch)
+        writer.add_scalar("train/flops_25_ratio", flops_25 / baseline_flops, epoch)
+        writer.add_scalar("train/flops_50_ratio", flops_50 / baseline_flops, epoch)
+        writer.add_scalar("train/flops_75_ratio", flops_75 / baseline_flops, epoch)
 
         if args.loss == LossType.POLARIZATION and args.target_flops and (
                 flops_grad / baseline_flops) <= args.target_flops and args.gate:

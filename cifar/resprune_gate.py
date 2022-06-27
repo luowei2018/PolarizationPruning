@@ -170,6 +170,7 @@ def main():
     print(f"=> Loading the model...\n=> Epoch: {checkpoint['epoch']}, Acc.: {checkpoint['best_prec1']}")
 
     # build the sparse model
+    # do not support those with cfg
     sparse_model: ResNetExpand = resnet50_expand(num_classes=num_classes, aux_fc=False,
                                                  gate=args.gate, use_input_mask=args.input_mask)
     sparse_model.load_state_dict(checkpoint['state_dict'])
