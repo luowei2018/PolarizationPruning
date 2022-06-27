@@ -668,34 +668,21 @@ for epoch in range(args.start_epoch, args.epochs):
 
     # flops
     # peek the remaining flops
-    if args.loss in {LossType.POLARIZATION, LossType.L2_POLARIZATION}:
-        flops_grad, flops_25, flops_50, flops_75, baseline_flops = prune_while_training(model, arch=args.arch,
-                                                                       prune_mode="default",
-                                                                       num_classes=num_classes)
-        print(f" --> FLOPs in epoch (grad) {epoch}: {flops_grad:,}, ratio: {flops_grad / baseline_flops}")
-        print(f" --> FLOPs in epoch (fixed) {epoch}: {flops_25:,}, ratio: {flops_fixed25 / baseline_flops}")
-        print(f" --> FLOPs in epoch (fixed) {epoch}: {flops_50:,}, ratio: {flops_fixed50 / baseline_flops}")
-        print(f" --> FLOPs in epoch (fixed) {epoch}: {flops_75:,}, ratio: {flops_fixed75 / baseline_flops}")
-        writer.add_scalar("train/flops", flops_grad, epoch)
-        writer.add_scalar("train/flops_25", flops_25, epoch)
-        writer.add_scalar("train/flops_50", flops_50, epoch)
-        writer.add_scalar("train/flops_75", flops_75, epoch)
-        writer.add_scalar("train/flops_grad_ratio", flops_grad / baseline_flops, epoch)
-        writer.add_scalar("train/flops_25_ratio", flops_25 / baseline_flops, epoch)
-        writer.add_scalar("train/flops_50_ratio", flops_50 / baseline_flops, epoch)
-        writer.add_scalar("train/flops_75_ratio", flops_75 / baseline_flops, epoch)
-
-        if args.loss == LossType.POLARIZATION and args.target_flops and (
-                flops_grad / baseline_flops) <= args.target_flops and args.gate:
-            print("The grad pruning FLOPs archieve the target FLOPs.")
-            print(f"Current pruning ratio: {flops_grad / baseline_flops}")
-            print("Stop polarization from current epoch and continue training.")
-
-            # do not apply polarization loss
-            args.lbd = 0
-            freeze_sparse_gate(model)
-            if args.backup_freq > 20:
-                args.backup_freq = 20
+    flops_grad, flops_25, flops_50, flops_75, baseline_flops = prune_while_training(model, arch=args.arch,
+                                                                   prune_mode="default",
+                                                                   num_classes=num_classes)
+    print(f" --> FLOPs in epoch (grad) {epoch}: {flops_grad:,}, ratio: {flops_grad / baseline_flops}")
+    print(f" --> FLOPs in epoch (fixed) {epoch}: {flops_25:,}, ratio: {flops_fixed25 / baseline_flops}")
+    print(f" --> FLOPs in epoch (fixed) {epoch}: {flops_50:,}, ratio: {flops_fixed50 / baseline_flops}")
+    print(f" --> FLOPs in epoch (fixed) {epoch}: {flops_75:,}, ratio: {flops_fixed75 / baseline_flops}")
+    writer.add_scalar("train/flops", flops_grad, epoch)
+    writer.add_scalar("train/flops_25", flops_25, epoch)
+    writer.add_scalar("train/flops_50", flops_50, epoch)
+    writer.add_scalar("train/flops_75", flops_75, epoch)
+    writer.add_scalar("train/flops_grad_ratio", flops_grad / baseline_flops, epoch)
+    writer.add_scalar("train/flops_25_ratio", flops_25 / baseline_flops, epoch)
+    writer.add_scalar("train/flops_50_ratio", flops_50 / baseline_flops, epoch)
+    writer.add_scalar("train/flops_75_ratio", flops_75 / baseline_flops, epoch)
 
 if args.loss == LossType.POLARIZATION and args.target_flops and (
         flops_grad / baseline_flops) > args.target_flops and args.gate:
