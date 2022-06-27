@@ -480,13 +480,13 @@ def prune_while_training(model: nn.Module, arch: str, prune_mode: str, num_class
                                         sanity_check=False, prune_mode=prune_mode, num_classes=num_classes)
         saved_model_25 = prune_resnet(sparse_model=model, pruning_strategy='fixed', prune_type='ns', l1_norm_ratio=.25,
                                          sanity_check=False, prune_mode=prune_mode, num_classes=num_classes)
-        prec1_25 = test(saved_model_25)
+        prec1_25 = test(saved_model_25.cuda())
         saved_model_50 = prune_resnet(sparse_model=model, pruning_strategy='fixed', prune_type='ns', l1_norm_ratio=.5,
                                          sanity_check=False, prune_mode=prune_mode, num_classes=num_classes)
-        prec1_50 = test(saved_model_50)
+        prec1_50 = test(saved_model_50.cuda())
         saved_model_75 = prune_resnet(sparse_model=model, pruning_strategy='fixed', prune_type='ns', l1_norm_ratio=.75,
                                          sanity_check=False, prune_mode=prune_mode, num_classes=num_classes)
-        prec1_75 = test(saved_model_75)
+        prec1_75 = test(saved_model_75.cuda())
         baseline_model = resnet50_expand(num_classes=num_classes, gate=False, aux_fc=False)
     elif arch == 'vgg16_linear':
         from vggprune_gate import prune_vgg
