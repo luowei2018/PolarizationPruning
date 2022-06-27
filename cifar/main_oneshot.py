@@ -672,9 +672,9 @@ for epoch in range(args.start_epoch, args.epochs):
                                                                    prune_mode="default",
                                                                    num_classes=num_classes)
     print(f" --> FLOPs in epoch (grad) {epoch}: {flops_grad:,}, ratio: {flops_grad / baseline_flops}")
-    print(f" --> FLOPs in epoch (fixed) {epoch}: {flops_25:,}, ratio: {flops_fixed_25 / baseline_flops}")
-    print(f" --> FLOPs in epoch (fixed) {epoch}: {flops_50:,}, ratio: {flops_fixed_50 / baseline_flops}")
-    print(f" --> FLOPs in epoch (fixed) {epoch}: {flops_75:,}, ratio: {flops_fixed_75 / baseline_flops}")
+    print(f" --> FLOPs in epoch (fixed) {epoch}: {flops_25:,}, ratio: {flops_25 / baseline_flops}")
+    print(f" --> FLOPs in epoch (fixed) {epoch}: {flops_50:,}, ratio: {flops_50 / baseline_flops}")
+    print(f" --> FLOPs in epoch (fixed) {epoch}: {flops_75:,}, ratio: {flops_75 / baseline_flops}")
     writer.add_scalar("train/flops", flops_grad, epoch)
     writer.add_scalar("train/flops_25", flops_25, epoch)
     writer.add_scalar("train/flops_50", flops_50, epoch)
