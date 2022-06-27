@@ -508,10 +508,10 @@ def prune_while_training(model: nn.Module, arch: str, prune_mode: str, num_class
     saved_flops_75 = compute_conv_flops(saved_model_75, cuda=True)
     baseline_flops = compute_conv_flops(baseline_model, cuda=True)
     
-    print(f" --> FLOPs in epoch (grad) {epoch}: {flops_grad:,}, ratio: {flops_grad / baseline_flops}, prec1: {prec1_grad}")
-    print(f" --> FLOPs in epoch (fixed) {epoch}: {flops_25:,}, ratio: {flops_25 / baseline_flops}, prec1: {prec1_25}")
-    print(f" --> FLOPs in epoch (fixed) {epoch}: {flops_50:,}, ratio: {flops_50 / baseline_flops}, prec1: {prec1_50}")
-    print(f" --> FLOPs in epoch (fixed) {epoch}: {flops_75:,}, ratio: {flops_75 / baseline_flops}, prec1: {prec1_75}")
+    print(f" --> FLOPs in epoch (grad) {epoch}: {saved_flops_grad:,}, ratio: {saved_flops_grad / baseline_flops}, prec1: {prec1_grad}")
+    print(f" --> FLOPs in epoch (fixed) {epoch}: {saved_flops_25:,}, ratio: {saved_flops_25 / baseline_flops}, prec1: {prec1_25}")
+    print(f" --> FLOPs in epoch (fixed) {epoch}: {saved_flops_50:,}, ratio: {saved_flops_50 / baseline_flops}, prec1: {prec1_50}")
+    print(f" --> FLOPs in epoch (fixed) {epoch}: {saved_flops_75:,}, ratio: {saved_flops_75 / baseline_flops}, prec1: {prec1_75}")
 
     return saved_flops_grad, saved_flops_25, saved_flops_50, saved_flops_75, baseline_flops
 
