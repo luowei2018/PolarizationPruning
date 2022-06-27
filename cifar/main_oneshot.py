@@ -655,7 +655,7 @@ def train(epoch):
         if args.loss in {LossType.L1_SPARSITY_REGULARIZATION}:
             updateBN()
         if args.loss in {LossType.LOG_QUANTIZATION}:
-            log_quantization()
+            log_quantization(model)
         optimizer.step()
         if args.loss in {LossType.POLARIZATION,
                          LossType.L2_POLARIZATION}:
