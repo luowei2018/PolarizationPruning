@@ -656,7 +656,7 @@ def main_worker(gpu, ngpus_per_node, args):
         writer.add_text("train/conv_flops_weight", flops_weight_string, global_step=0)
         
     #prune_while_training(model, args.arch, args.prune_mode, args.width_multiplier, val_loader, criterion, epoch, args)
-    factor_visualization(0, model)
+    factor_visualization(0, model, args)
 
     for epoch in range(args.start_epoch, args.epochs):
         if args.distributed:
@@ -791,7 +791,7 @@ def main_worker(gpu, ngpus_per_node, args):
         report_prune_result(model)  # do not really prune the model
         
         # visualize scale factors
-        factor_visualization(epoch, model)
+        factor_visualization(epoch, model, args)
 
         writer.add_scalar("train/lr", optimizer.param_groups[0]['lr'], epoch)
 
@@ -1153,7 +1153,7 @@ def bn_sparsity(model, loss_type, sparsity, t, alpha, gate, keep_out, arch,
         raise NotImplementedError(f"Unsupported loss: {loss_type}")
 
 
-def log_quantization(model):
+def log_quantization(model,args):
     #############SETUP###############
     args.ista_err = torch.tensor([0.0]).cuda(0)
     # locations of bins should fit original dist
@@ -1243,7 +1243,7 @@ def log_quantization(model):
         ch_start += ch_len
     
     
-def factor_visualization(iter, model):
+def factor_visualization(iter, model, args):
     scale_factors = torch.tensor([]).cuda()
     bn_modules = model.module.get_sparse_layer(gate=args.gate,
                                            sparse1=True,
@@ -1509,7 +1509,7 @@ def train(train_loader, model, criterion, optimizer, epoch, sparsity, args, is_d
                      exclude_out=args.keep_out)
         # BN_grad_zero(model)
         if args.loss in {LossType.LOG_QUANTIZATION}:
-            log_quantization(model)
+            log_quantization(model, args)
         optimizer.step()
         if args.loss in {LossType.POLARIZATION,
                          LossType.POLARIZATION_GRAD,
