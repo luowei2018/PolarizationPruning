@@ -105,6 +105,8 @@ parser.add_argument('--debug', action='store_true',
                     help='Debug mode.')
 parser.add_argument('--q_factor', type=float, default=0.001,
                     help='decay factor (default: 0.001)')
+parser.add_argument('--bin_mode', default=2, type=int, 
+                    help='Setup location of bins.')
 
 args = parser.parse_args()
 args.cuda = not args.no_cuda and torch.cuda.is_available()
@@ -482,8 +484,13 @@ def log_quantization(model):
     # locations of bins should fit original dist
     # start can be tuned to find a best one
     # distance between bins min=2
-    num_bins, bin_start, bin_stride = 4, -6, 2
-    #num_bins, bin_start, bin_stride = 6, -5, 1
+    if args.bin_mode ==2:
+        num_bins, bin_start, bin_stride = 4, -6, 2
+    elif args.bin_mode == 1:
+        num_bins, bin_start, bin_stride = 6, -5, 1
+    else:
+        print("Bin mode not supported")
+        exit(1)
     # how centralize the bin is, relax this may improve prec
     bin_width = 1e-1
     # locations we want to quantize
@@ -612,8 +619,6 @@ def prune_while_training(model: nn.Module, arch: str, prune_mode: str, num_class
     
     for flop,prec1 in zip(saved_flops,saved_prec1s):
         print(f" --> FLOPs in epoch (fixed) {epoch}: {flop:,}, ratio: {flop / baseline_flops}, prec1: {prec1}")
-    
-    print(f" --> FLOPs in epoch (fixed) {epoch}: {baseline_flops:,}, prec1: {prec1}")
 
 
 def train(epoch):
@@ -756,6 +761,7 @@ for epoch in range(args.start_epoch, args.start_epoch + args.epochs):
     train(epoch) # train with regularization
 
     prec1 = test(model)
+    print(f"All Prec1: {prec1}")
     history_score[epoch][2] = prec1
     np.savetxt(os.path.join(args.save, 'record.txt'), history_score, fmt='%10.5f', delimiter=',')
     is_best = prec1 > best_prec1
