@@ -667,7 +667,7 @@ def train(epoch):
             else:
                 ista_err = args.ista_err.cpu().item()
                 train_iter.set_description(
-                    'Step: {} Train Epoch: {} [{}/{} ({:.1f}%)]. Loss: {:.6f}\tISTA-Err: {:.4f}'.format(
+                    'Step: {} Train Epoch: {} [{}/{} ({:.1f}%)]. Loss: {:.6f}. ISTA-Err: {:.4f}'.format(
                     global_step, epoch, batch_idx * len(data), len(train_loader.dataset),
                                         100. * batch_idx / len(train_loader), loss.data.item(), ista_err))
 
