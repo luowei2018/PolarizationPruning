@@ -124,8 +124,8 @@ def prune_resnet(sparse_model: torch.nn.Module, pruning_strategy: str, sanity_ch
 
     pruned_model.prune_model(pruner=pruner,
                              prune_mode=prune_mode)
-    print("Pruning finished. cfg:")
-    print(pruned_model.config())
+    #print("Pruning finished. cfg:")
+    #print(pruned_model.config())
 
     if sanity_check:
         # sanity check: check if pruned model is as same as sparse model
