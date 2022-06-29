@@ -656,10 +656,9 @@ def main_worker(gpu, ngpus_per_node, args):
         
     print('Evaluating FLOPs ...')
     start_time = time.time()
-    flops_25, flops_50, flops_75, baseline_flops = prune_while_training(model, args.arch, prune_mode=args.prune_mode,
-                                                     width_multiplier=args.width_multiplier)
+    prune_while_training(model, args.arch, args.prune_mode, args.width_multiplier,
+                         val_loader, criterion, epoch, args)
     end_time = time.time()
-    print(f"FLOPs {baseline_flops} Prec1: {prec1}")
     print(f"Evaluate cost: {end_time - start_time} seconds.")
 
     for epoch in range(args.start_epoch, args.epochs):
@@ -802,11 +801,10 @@ def main_worker(gpu, ngpus_per_node, args):
         # prune the network and record FLOPs at each epoch
         print('Evaluating FLOPs ...')
         start_time = time.time()
-        flops_25, flops_50, flops_75, baseline_flops = prune_while_training(model, args.arch, prune_mode=args.prune_mode,
-                                                         width_multiplier=args.width_multiplier)
+        prune_while_training(model, args.arch, args.prune_mode, args.width_multiplier,
+                            val_loader, criterion, epoch, args)
         end_time = time.time()
-        print(f"FLOPs {baseline_flops} Prec1: {prec1}")
-        print(f"Evaluate cost: {end_time - start_time} seconds.")
+        print(f"Evaluate cost: {end_time - start_time} seconds. Prec1: {prec1}")
 
         # save checkpoint in debug mode
         if args.debug:
@@ -1313,18 +1311,23 @@ def report_prune_result(model):
     print("****************************")
 
 
-def prune_while_training(model: nn.Module, arch: int, prune_mode: str, width_multiplier=1.):
+def prune_while_training(model, arch, prune_mode, width_multiplier, val_loader, model, criterion, epoch, args):
     if isinstance(model, nn.DataParallel) or isinstance(model, nn.parallel.DistributedDataParallel):
         model = model.module
 
+    target_ratios = [.25, .5, .75]
+    saved_flops = []
+    saved_prec1s = []
+
     if arch == "resnet50":
         from resprune_expand_gate import prune_resnet
-        saved_model_25 = prune_resnet(model, pruning_strategy='percent', percent=0.25,
-                                   sanity_check=False, prune_mode=prune_mode)
-        saved_model_50 = prune_resnet(model, pruning_strategy='percent', percent=0.5,
-                                   sanity_check=False, prune_mode=prune_mode)
-        saved_model_75 = prune_resnet(model, pruning_strategy='percent', percent=0.75,
-                                   sanity_check=False, prune_mode=prune_mode)
+        for ratio in target_ratios:
+            saved_model = prune_resnet(model, pruning_strategy='percent', percent=ratio,
+                                       sanity_check=False, prune_mode=prune_mode)
+            prec1 = validate(val_loader, model, criterion, epoch=epoch, args=args, writer=None)
+            flop = compute_conv_flops(saved_model, cuda=True)
+            saved_prec1s += [prec1]
+            saved_flops += [flop]
         baseline_model = resnet50(width_multiplier=1., gate=False, aux_fc=False)
     elif arch == 'mobilenetv2':
         from prune_mobilenetv2 import prune_mobilenet
@@ -1343,16 +1346,12 @@ def prune_while_training(model: nn.Module, arch: int, prune_mode: str, width_mul
         # not available
         raise NotImplementedError(f"do not support arch {arch}")
 
-    saved_flops_25 = compute_conv_flops(saved_model_25, cuda=True)
-    saved_flops_50 = compute_conv_flops(saved_model_50, cuda=True)
-    saved_flops_75 = compute_conv_flops(saved_model_75, cuda=True)
     baseline_flops = compute_conv_flops(baseline_model, cuda=True)
     
-    print(f"FLOPs {saved_flops_25} (ratio: {saved_flops_25 / baseline_flops:.4f})")
-    print(f"FLOPs {saved_flops_50} (ratio: {saved_flops_50 / baseline_flops:.4f})")
-    print(f"FLOPs {saved_flops_75} (ratio: {saved_flops_75 / baseline_flops:.4f})")
-
-    return saved_flops_25, saved_flops_50, saved_flops_75, baseline_flops
+    for flop,prec in zip(saved_flops,saved_prec1s):
+        print(f"FLOPs {flop} (ratio: {flop / baseline_flops:.4f}), prec1: {prec1}")
+    
+    print(f"FLOPs {baseline_flops}")
 
 
 def train(train_loader, model, criterion, optimizer, epoch, sparsity, args, is_debug=False,
