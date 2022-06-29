@@ -31,6 +31,7 @@ from utils import common
 from utils.common import adjust_learning_rate, compute_conv_flops, freeze_gate
 from utils.evaluation import AverageMeter, accuracy
 from vgg import slimmingvgg as vgg11
+from tqdm import tqdm
 
 model_names = ["resnet50", "mobilenetv2"]
 
