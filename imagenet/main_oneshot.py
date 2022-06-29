@@ -655,12 +655,7 @@ def main_worker(gpu, ngpus_per_node, args):
     if args.flops_weighted:
         writer.add_text("train/conv_flops_weight", flops_weight_string, global_step=0)
         
-    print('Evaluating FLOPs ...')
-    start_time = time.time()
-    prune_while_training(model, args.arch, args.prune_mode, args.width_multiplier,
-                         val_loader, criterion, epoch, args)
-    end_time = time.time()
-    print(f"Evaluate cost: {end_time - start_time} seconds.")
+    #prune_while_training(model, args.arch, args.prune_mode, args.width_multiplier, val_loader, criterion, epoch, args)
 
     for epoch in range(args.start_epoch, args.epochs):
         if args.distributed:
@@ -1527,7 +1522,7 @@ def train(train_loader, model, criterion, optimizer, epoch, sparsity, args, is_d
         if args.rank == 0:
             if args.loss not in {LossType.LOG_QUANTIZATION}:
                 train_iter.set_description(
-                      'Epoch: [{03d]. '
+                      'Epoch: [{03d}]. '
                       'Time {batch_time.val:.3f} ({batch_time.avg:.3f}). '
                       'Data {data_time.val:.3f} ({data_time.avg:.3f}). '
                       'Loss {loss.val:.4f} ({loss.avg:.4f}). '
