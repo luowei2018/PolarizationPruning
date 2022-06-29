@@ -1206,10 +1206,11 @@ def log_quantization(model):
         return x
         
     all_scale_factors = torch.tensor([]).cuda()
-    bn_modules = model.module.get_sparse_layer(gate=model.use_gate,
+    bn_modules = model.module.get_sparse_layer(gate=args.gate,
                                            sparse1=True,
                                            sparse2=True,
-                                           sparse3=True)
+                                           sparse3=True,
+                                           with_weight=args.flops_weighted)
     for bn_module in bn_modules:
         with torch.no_grad():
             get_bin_distribution(bn_module.weight.data)
@@ -1244,10 +1245,11 @@ def log_quantization(model):
     
 def factor_visualization(iter, model):
     scale_factors = torch.tensor([]).cuda()
-    bn_modules = model.module.get_sparse_layer(gate=model.use_gate,
+    bn_modules = model.module.get_sparse_layer(gate=args.gate,
                                            sparse1=True,
                                            sparse2=True,
-                                           sparse3=True)
+                                           sparse3=True,
+                                           with_weight=args.flops_weighted)
     for bn_module in bn_modules:
         scale_factors = torch.cat((scale_factors,torch.abs(bn_module.weight.data.view(-1))))
     # plot figure
