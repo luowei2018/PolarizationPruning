@@ -682,8 +682,7 @@ def test(modelx):
     test_loss = 0
     correct = 0
     with torch.no_grad():
-        test_iter = tqdm(test_loader)
-        for data, target in enumerate(test_iter):
+        for data, target in enumerate(test_loader):
             if args.cuda:
                 data, target = data.cuda(), target.cuda()
             output = modelx(data)
