@@ -1324,7 +1324,7 @@ def prune_while_training(model, arch, prune_mode, width_multiplier, val_loader, 
         for ratio in target_ratios:
             saved_model = prune_resnet(model, pruning_strategy='percent', percent=ratio,
                                        sanity_check=False, prune_mode=prune_mode)
-            prec1 = validate(val_loader, saved_model, criterion, epoch=epoch, args=args, writer=None)
+            prec1 = validate(val_loader, saved_model.cuda(), criterion, epoch=epoch, args=args, writer=None)
             flop = compute_conv_flops(saved_model, cuda=True)
             saved_prec1s += [prec1]
             saved_flops += [flop]
