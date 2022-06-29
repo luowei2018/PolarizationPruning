@@ -22,6 +22,7 @@ from models.common import SparseGate, Identity
 from models.resnet_expand import BasicBlock
 import seaborn as sns
 import matplotlib.pyplot as plt
+from tqdm import tqdm
 
 # Training settings
 parser = argparse.ArgumentParser(description='PyTorch CIFAR training with Polarization')
@@ -581,18 +582,19 @@ def factor_visualization(iter, model):
         
 
 def prune_while_training(model: nn.Module, arch: str, prune_mode: str, num_classes: int):
+    target_ratios = [0.1 + 0.1*x for x in range(9)]
+    saved_flops = []
+    saved_prec1s = []
     if arch == "resnet56":
         from resprune_gate import prune_resnet
         from models.resnet_expand import resnet56 as resnet50_expand
-        saved_model_25 = prune_resnet(sparse_model=model, pruning_strategy='fixed', prune_type='ns', l1_norm_ratio=.25,
-                                         sanity_check=False, prune_mode=prune_mode, num_classes=num_classes)
-        prec1_25 = test(saved_model_25.cuda())
-        saved_model_50 = prune_resnet(sparse_model=model, pruning_strategy='fixed', prune_type='ns', l1_norm_ratio=.5,
-                                         sanity_check=False, prune_mode=prune_mode, num_classes=num_classes)
-        prec1_50 = test(saved_model_50.cuda())
-        saved_model_75 = prune_resnet(sparse_model=model, pruning_strategy='fixed', prune_type='ns', l1_norm_ratio=.75,
-                                         sanity_check=False, prune_mode=prune_mode, num_classes=num_classes)
-        prec1_75 = test(saved_model_75.cuda())
+        for ratio in target_ratios:
+            saved_model = prune_resnet(sparse_model=model, pruning_strategy='fixed', prune_type='ns', l1_norm_ratio=ratio,
+                                             sanity_check=False, prune_mode=prune_mode, num_classes=num_classes)
+            prec1 = test(saved_model.cuda())
+            flop = compute_conv_flops(saved_model, cuda=True)
+            saved_prec1s += [prec1]
+            saved_flops += [flop]
         baseline_model = resnet50_expand(num_classes=num_classes, gate=False, aux_fc=False)
     elif arch == 'vgg16_linear':
         from vggprune_gate import prune_vgg
@@ -607,16 +609,12 @@ def prune_while_training(model: nn.Module, arch: str, prune_mode: str, num_class
         # not available
         raise NotImplementedError(f"do not support arch {arch}")
 
-    saved_flops_25 = compute_conv_flops(saved_model_25, cuda=True)
-    saved_flops_50 = compute_conv_flops(saved_model_50, cuda=True)
-    saved_flops_75 = compute_conv_flops(saved_model_75, cuda=True)
     baseline_flops = compute_conv_flops(baseline_model, cuda=True)
     
-    print(f" --> FLOPs in epoch (fixed) {epoch}: {saved_flops_25:,}, ratio: {saved_flops_25 / baseline_flops}, prec1: {prec1_25}")
-    print(f" --> FLOPs in epoch (fixed) {epoch}: {saved_flops_50:,}, ratio: {saved_flops_50 / baseline_flops}, prec1: {prec1_50}")
-    print(f" --> FLOPs in epoch (fixed) {epoch}: {saved_flops_75:,}, ratio: {saved_flops_75 / baseline_flops}, prec1: {prec1_75}")
-
-    return saved_flops_25, saved_flops_50, saved_flops_75, baseline_flops
+    for flop,prec1 in zip(saved_flops,saved_prec1s):
+        print(f" --> FLOPs in epoch (fixed) {epoch}: {flop:,}, ratio: {flop / baseline_flops}, prec1: {prec1}")
+    
+    print(f" --> FLOPs in epoch (fixed) {epoch}: {baseline_flops:,}, prec1: {prec1}")
 
 
 def train(epoch):
@@ -626,7 +624,8 @@ def train(epoch):
     avg_sparsity_loss = 0.
     train_acc = 0.
     total_data = 0
-    for batch_idx, (data, target) in enumerate(train_loader):
+    train_iter = tqdm(train_loader)
+    for batch_idx, (data, target) in enumerate(train_iter):
         if args.cuda:
             data, target = data.cuda(), target.cuda()
         optimizer.zero_grad()
@@ -661,12 +660,14 @@ def train(epoch):
         global_step += 1
         if batch_idx % args.log_interval == 0:
             if args.loss not in {LossType.LOG_QUANTIZATION}:
-                print('Step: {} Train Epoch: {} [{}/{} ({:.1f}%)]\tLoss: {:.6f}'.format(
+                train_iter.set_description(
+                    'Step: {} Train Epoch: {} [{}/{} ({:.1f}%)]\tLoss: {:.6f}'.format(
                     global_step, epoch, batch_idx * len(data), len(train_loader.dataset),
                                         100. * batch_idx / len(train_loader), loss.data.item()))
             else:
                 ista_err = args.ista_err.cpu().item()
-                print('Step: {} Train Epoch: {} [{}/{} ({:.1f}%)]\tLoss: {:.6f}\tISTA-Err: {:.4f}'.format(
+                train_iter.set_description(
+                    'Step: {} Train Epoch: {} [{}/{} ({:.1f}%)]\tLoss: {:.6f}\tISTA-Err: {:.4f}'.format(
                     global_step, epoch, batch_idx * len(data), len(train_loader.dataset),
                                         100. * batch_idx / len(train_loader), loss.data.item(), ista_err))
 
@@ -681,7 +682,8 @@ def test(modelx):
     test_loss = 0
     correct = 0
     with torch.no_grad():
-        for data, target in test_loader:
+        test_iter = tqdm(test_loader)
+        for data, target in enumerate(test_iter):
             if args.cuda:
                 data, target = data.cuda(), target.cuda()
             output = modelx(data)
@@ -785,16 +787,9 @@ for epoch in range(args.start_epoch, args.start_epoch + args.epochs):
 
     # flops
     # peek the remaining flops
-    flops_25, flops_50, flops_75, baseline_flops = prune_while_training(model, arch=args.arch,
-                                                                   prune_mode="default",
-                                                                   num_classes=num_classes)
-    print(f" --> FLOPs in epoch (fixed) {epoch}: {baseline_flops:,}, prec1: {prec1}")
-    writer.add_scalar("train/flops_25", flops_25, epoch)
-    writer.add_scalar("train/flops_50", flops_50, epoch)
-    writer.add_scalar("train/flops_75", flops_75, epoch)
-    writer.add_scalar("train/flops_25_ratio", flops_25 / baseline_flops, epoch)
-    writer.add_scalar("train/flops_50_ratio", flops_50 / baseline_flops, epoch)
-    writer.add_scalar("train/flops_75_ratio", flops_75 / baseline_flops, epoch)
+    prune_while_training(model, arch=args.arch,
+                       prune_mode="default",
+                       num_classes=num_classes)
     
     # show log quantization result
     if args.loss in {LossType.LOG_QUANTIZATION}:

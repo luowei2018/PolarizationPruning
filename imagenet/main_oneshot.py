@@ -653,6 +653,14 @@ def main_worker(gpu, ngpus_per_node, args):
 
     if args.flops_weighted:
         writer.add_text("train/conv_flops_weight", flops_weight_string, global_step=0)
+        
+    print('Evaluating FLOPs ...')
+    start_time = time.time()
+    flops_25, flops_50, flops_75, baseline_flops = prune_while_training(model, args.arch, prune_mode=args.prune_mode,
+                                                     width_multiplier=args.width_multiplier)
+    end_time = time.time()
+    print(f"FLOPs {baseline_flops} Prec1: {prec1}")
+    print(f"Evaluate cost: {end_time - start_time} seconds.")
 
     for epoch in range(args.start_epoch, args.epochs):
         if args.distributed:
@@ -792,20 +800,13 @@ def main_worker(gpu, ngpus_per_node, args):
         writer.add_scalar("train/lr", optimizer.param_groups[0]['lr'], epoch)
 
         # prune the network and record FLOPs at each epoch
-        if args.arch in {"resnet50", "mobilenetv2"}:
-            print('Evaluating FLOPs ...')
-            start_time = time.time()
-            flops_25, flops_50, flops_75, baseline_flops = prune_while_training(model, args.arch, prune_mode=args.prune_mode,
-                                                             width_multiplier=args.width_multiplier)
-            end_time = time.time()
-            print(f"FLOPs {baseline_flops} Prec1: {prec1}")
-            print(f"Evaluate cost: {end_time - start_time} seconds.")
-            writer.add_scalar("train/flops25", flops_25, epoch)
-            writer.add_scalar("train/flops25_ratio", flops_25 / baseline_flops, epoch)
-            writer.add_scalar("train/flops50", flops_50, epoch)
-            writer.add_scalar("train/flops50_ratio", flops_50 / baseline_flops, epoch)
-            writer.add_scalar("train/flops75", flops_75, epoch)
-            writer.add_scalar("train/flops75_ratio", flops_75 / baseline_flops, epoch)
+        print('Evaluating FLOPs ...')
+        start_time = time.time()
+        flops_25, flops_50, flops_75, baseline_flops = prune_while_training(model, args.arch, prune_mode=args.prune_mode,
+                                                         width_multiplier=args.width_multiplier)
+        end_time = time.time()
+        print(f"FLOPs {baseline_flops} Prec1: {prec1}")
+        print(f"Evaluate cost: {end_time - start_time} seconds.")
 
         # save checkpoint in debug mode
         if args.debug:
@@ -1369,7 +1370,8 @@ def train(train_loader, model, criterion, optimizer, epoch, sparsity, args, is_d
     model.train()
 
     end = time.time()
-    for i, (image, target) in enumerate(train_loader):
+    train_iter = tqdm(train_loader)
+    for i, (image, target) in enumerate(train_iter):
         # the adjusting only work when epoch is at decay_epoch
         adjust_learning_rate(optimizer, epoch, lr=args.lr, decay_epoch=args.decay_epoch,
                              total_epoch=args.epochs,
@@ -1522,9 +1524,10 @@ def train(train_loader, model, criterion, optimizer, epoch, sparsity, args, is_d
         batch_time.update(time.time() - end)
         end = time.time()
 
-        if i % args.print_freq == 0 and (args.rank == 0):
+        if args.rank == 0:
             if args.loss not in {LossType.LOG_QUANTIZATION}:
-                print('Epoch: [{0}][{1}/{2}]\t'
+                train_iter.set_description(
+                      'Epoch: [{0}][{1}/{2}]\t'
                       'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
                       'Data {data_time.val:.3f} ({data_time.avg:.3f})\t'
                       'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
@@ -1537,7 +1540,8 @@ def train(train_loader, model, criterion, optimizer, epoch, sparsity, args, is_d
                     top1=top1, top5=top5, lr=optimizer.param_groups[0]['lr']))
             else:
                 ista_err = args.ista_err.cpu().item()
-                print('Epoch: [{0}][{1}/{2}]\t'
+                train_iter.set_description(
+                      'Epoch: [{0}][{1}/{2}]\t'
                       'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
                       'Data {data_time.val:.3f} ({data_time.avg:.3f})\t'
                       'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
@@ -1569,7 +1573,8 @@ def validate(val_loader, model, criterion, epoch, args, writer=None):
 
     with torch.no_grad():
         end = time.time()
-        for i, (image, target) in enumerate(val_loader):
+        val_iter = tqdm(val_loader)
+        for i, (image, target) in enumerate(val_iter):
             image = image.cuda(non_blocking=True)
             target = target.cuda(non_blocking=True)
 
@@ -1589,14 +1594,14 @@ def validate(val_loader, model, criterion, epoch, args, writer=None):
             batch_time.update(time.time() - end)
             end = time.time()
 
-            if i % args.print_freq == 0:
-                print('Test: [{0}/{1}]\t'
-                      'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
-                      'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
-                      'Prec@1 {top1.val:.3f} ({top1.avg:.3f})\t'
-                      'Prec@5 {top5.val:.3f} ({top5.avg:.3f})'.format(
-                    i, len(val_loader), batch_time=batch_time, loss=losses,
-                    top1=top1, top5=top5))
+            val_iter.set_description(
+                  'Test: [{0}/{1}]\t'
+                  'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
+                  'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
+                  'Prec@1 {top1.val:.3f} ({top1.avg:.3f})\t'
+                  'Prec@5 {top5.val:.3f} ({top5.avg:.3f})'.format(
+                i, len(val_loader), batch_time=batch_time, loss=losses,
+                top1=top1, top5=top5))
             if args.debug and i >= 5:
                 break
 
