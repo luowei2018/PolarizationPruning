@@ -658,7 +658,6 @@ def main_worker(gpu, ngpus_per_node, args):
         writer.add_text("train/conv_flops_weight", flops_weight_string, global_step=0)
         
     #prune_while_training(model, args.arch, args.prune_mode, args.width_multiplier, val_loader, criterion, epoch, args)
-    factor_visualization(0, model, args)
 
     for epoch in range(args.start_epoch, args.epochs):
         if args.distributed:
