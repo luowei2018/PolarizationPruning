@@ -1522,7 +1522,7 @@ def train(train_loader, model, criterion, optimizer, epoch, sparsity, args, is_d
         if args.rank == 0:
             if args.loss not in {LossType.LOG_QUANTIZATION}:
                 train_iter.set_description(
-                      'Epoch: [{03d}]. '
+                      'Epoch: [{epoch:03d}]. '
                       'Time {batch_time.val:.3f} ({batch_time.avg:.3f}). '
                       'Data {data_time.val:.3f} ({data_time.avg:.3f}). '
                       'Loss {loss.val:.4f} ({loss.avg:.4f}). '
@@ -1530,13 +1530,13 @@ def train(train_loader, model, criterion, optimizer, epoch, sparsity, args, is_d
                       'Learning rate {lr}. '
                       'Prec@1 {top1.val:.3f} ({top1.avg:.3f}). '
                       'Prec@5 {top5.val:.3f} ({top5.avg:.3f})'.format(
-                    epoch, batch_time=batch_time,
+                    epoch=epoch, batch_time=batch_time,
                     data_time=data_time, loss=losses, s_loss=avg_sparsity_loss,
                     top1=top1, top5=top5, lr=optimizer.param_groups[0]['lr']))
             else:
                 ista_err = args.ista_err.cpu().item()
                 train_iter.set_description(
-                      'Epoch: [{03d}]. '
+                      'Epoch: [{epoch:03d}]. '
                       'Time {batch_time.val:.3f} ({batch_time.avg:.3f}). '
                       'Data {data_time.val:.3f} ({data_time.avg:.3f}). '
                       'Loss {loss.val:.4f} ({loss.avg:.4f}). '
@@ -1544,7 +1544,7 @@ def train(train_loader, model, criterion, optimizer, epoch, sparsity, args, is_d
                       'Learning rate {lr}. '
                       'Prec@1 {top1.val:.3f} ({top1.avg:.3f}). '
                       'Prec@5 {top5.val:.3f} ({top5.avg:.3f})'.format(
-                    epoch, batch_time=batch_time,
+                    epoch=epoch, batch_time=batch_time,
                     data_time=data_time, loss=losses, s_loss=ista_err,
                     top1=top1, top5=top5, lr=optimizer.param_groups[0]['lr']))
         if is_debug and i >= 5:
