@@ -1311,7 +1311,7 @@ def report_prune_result(model):
     print("****************************")
 
 
-def prune_while_training(model, arch, prune_mode, width_multiplier, val_loader, model, criterion, epoch, args):
+def prune_while_training(model, arch, prune_mode, width_multiplier, val_loader, criterion, epoch, args):
     if isinstance(model, nn.DataParallel) or isinstance(model, nn.parallel.DistributedDataParallel):
         model = model.module
 
