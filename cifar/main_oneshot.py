@@ -480,11 +480,10 @@ def log_quantization(model):
     #############SETUP###############
     args.ista_err = torch.tensor([0.0]).cuda(0)
     # locations of bins should fit original dist
-    num_bins = 6
     # start can be tuned to find a best one
-    bin_start = -5
     # distance between bins min=2
-    bin_stride = 1
+    num_bins, bin_start, bin_stride = 4, -6, 2
+    #num_bins, bin_start, bin_stride = 6, -5, 1
     # how centralize the bin is, relax this may improve prec
     bin_width = 1e-1
     # locations we want to quantize
