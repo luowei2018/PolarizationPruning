@@ -656,6 +656,7 @@ def main_worker(gpu, ngpus_per_node, args):
         writer.add_text("train/conv_flops_weight", flops_weight_string, global_step=0)
         
     #prune_while_training(model, args.arch, args.prune_mode, args.width_multiplier, val_loader, criterion, epoch, args)
+    factor_visualization(0, model)
 
     for epoch in range(args.start_epoch, args.epochs):
         if args.distributed:
@@ -1205,7 +1206,7 @@ def log_quantization(model):
         return x
         
     all_scale_factors = torch.tensor([]).cuda()
-    bn_modules = model.get_sparse_layer(gate=model.use_gate,
+    bn_modules = model.module.get_sparse_layer(gate=model.use_gate,
                                            sparse1=True,
                                            sparse2=True,
                                            sparse3=True)
@@ -1243,7 +1244,7 @@ def log_quantization(model):
     
 def factor_visualization(iter, model):
     scale_factors = torch.tensor([]).cuda()
-    bn_modules = model.get_sparse_layer(gate=model.use_gate,
+    bn_modules = model.module.get_sparse_layer(gate=model.use_gate,
                                            sparse1=True,
                                            sparse2=True,
                                            sparse3=True)
