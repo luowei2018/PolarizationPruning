@@ -1350,8 +1350,6 @@ def prune_while_training(model, arch, prune_mode, width_multiplier, val_loader, 
     
     for flop,prec in zip(saved_flops,saved_prec1s):
         print(f"FLOPs {flop} (ratio: {flop / baseline_flops:.4f}), prec1: {prec1}")
-    
-    print(f"FLOPs {baseline_flops}")
 
 
 def train(train_loader, model, criterion, optimizer, epoch, sparsity, args, is_debug=False,
@@ -1601,9 +1599,6 @@ def validate(val_loader, model, criterion, epoch, args, writer=None):
                 batch_time=batch_time, loss=losses, top1=top1, top5=top5))
             if args.debug and i >= 5:
                 break
-
-        print(' * Prec@1 {top1.avg:.3f} Prec@5 {top5.avg:.3f}'
-              .format(top1=top1, top5=top5))
 
     if writer is not None:
         writer.add_scalar("val/cross_entropy", losses.avg, epoch)
