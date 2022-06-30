@@ -789,7 +789,7 @@ def main_worker(gpu, ngpus_per_node, args):
         prec1 = validate(val_loader, model, criterion, epoch,
                          args=args, writer=writer)
 
-        report_prune_result(model)  # do not really prune the model
+        #report_prune_result(model)  # do not really prune the model
         
         # visualize scale factors
         factor_visualization(epoch, model, args)

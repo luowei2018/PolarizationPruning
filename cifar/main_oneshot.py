@@ -491,8 +491,6 @@ def log_quantization(model):
     else:
         print("Bin mode not supported")
         exit(1)
-    # distance-based or bin-based
-    dist_based = False
     # how centralize the bin is, relax this may improve prec
     bin_width = 1e-1
     # locations we want to quantize
@@ -542,40 +540,36 @@ def log_quantization(model):
         
     bn_modules = model.get_sparse_layers()
     
-    if not dist_based:
-        all_scale_factors = torch.tensor([]).cuda()
-        for bn_module in bn_modules:
-            with torch.no_grad():
-                get_bin_distribution(bn_module.weight.data)
-            all_scale_factors = torch.cat((all_scale_factors,torch.abs(bn_module.weight.data)))
-        # total channels
-        total_channels = len(all_scale_factors)
-        ch_per_bin = total_channels//num_bins
-        _,bin_indices = torch.tensor(args.ista_cnt_bins).sort()
-        remain = torch.ones(total_channels).long().cuda()
-        assigned_binindices = torch.zeros(total_channels).long().cuda()
-        
-        for bin_idx in bin_indices[:-1]:
-            dist = torch.abs(torch.log10(args.bins[bin_idx]/all_scale_factors)) 
-            not_assigned = remain.nonzero()
-            # remaining channels importance
-            chan_imp = dist[not_assigned] 
-            tmp,ch_indices = chan_imp.sort(dim=0)
-            selected_in_remain = ch_indices[:ch_per_bin]
-            selected = not_assigned[selected_in_remain]
-            remain[selected] = 0
-            assigned_binindices[selected] = bin_idx
-        assigned_binindices[remain.nonzero()] = bin_indices[-1]
+    all_scale_factors = torch.tensor([]).cuda()
+    for bn_module in bn_modules:
+        with torch.no_grad():
+            get_bin_distribution(bn_module.weight.data)
+        all_scale_factors = torch.cat((all_scale_factors,torch.abs(bn_module.weight.data)))
+    # total channels
+    total_channels = len(all_scale_factors)
+    ch_per_bin = total_channels//num_bins
+    _,bin_indices = torch.tensor(args.ista_cnt_bins).sort()
+    remain = torch.ones(total_channels).long().cuda()
+    assigned_binindices = torch.zeros(total_channels).long().cuda()
+    
+    for bin_idx in bin_indices[:-1]:
+        dist = torch.abs(torch.log10(args.bins[bin_idx]/all_scale_factors)) 
+        not_assigned = remain.nonzero()
+        # remaining channels importance
+        chan_imp = dist[not_assigned] 
+        tmp,ch_indices = chan_imp.sort(dim=0)
+        selected_in_remain = ch_indices[:ch_per_bin]
+        selected = not_assigned[selected_in_remain]
+        remain[selected] = 0
+        assigned_binindices[selected] = bin_idx
+    assigned_binindices[remain.nonzero()] = bin_indices[-1]
         
     ch_start = 0
     for bn_module in bn_modules:
         with torch.no_grad():
-            if not dist_based:
-                ch_len = len(bn_module.weight.data)
-                bn_module.weight.data = redistribute(bn_module.weight.data, assigned_binindices[ch_start:ch_start+ch_len])
-                ch_start += ch_len
-            else:
-                bn_module.weight.data = redistribute(bn_module.weight.data, get_min_idx(x))
+            ch_len = len(bn_module.weight.data)
+            bn_module.weight.data = redistribute(bn_module.weight.data, assigned_binindices[ch_start:ch_start+ch_len])
+            ch_start += ch_len
         
     
     
