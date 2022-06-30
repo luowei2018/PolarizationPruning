@@ -491,6 +491,8 @@ def log_quantization(model):
     else:
         print("Bin mode not supported")
         exit(1)
+    # distance-based or bin-based
+    dist_based = False
     # how centralize the bin is, relax this may improve prec
     bin_width = 1e-1
     # locations we want to quantize
@@ -505,11 +507,15 @@ def log_quantization(model):
     args.ista_cnt_bins = [0 for _ in range(num_bins)]
     
     #################START###############
-    def get_bin_distribution(x):
-        x = torch.clamp(torch.abs(x), min=1e-6) * torch.sign(x)
+    def get_min_idx(x):
         args.bins = torch.pow(10.,torch.tensor([bin_start+bin_stride*x for x in range(num_bins)])).to(x.device)
         dist = torch.abs(torch.log10(torch.abs(x).unsqueeze(-1)/args.bins))
         _,min_idx = dist.min(dim=-1)
+        return min_idx
+        
+    def get_bin_distribution(x):
+        x = torch.clamp(torch.abs(x), min=1e-8) * torch.sign(x)
+        min_idx = get_min_idx(x)
         all_err = torch.log10(args.bins[min_idx]/torch.abs(x))
         abs_err = torch.abs(all_err)
         # calculate total error
@@ -534,39 +540,43 @@ def log_quantization(model):
         x[abs_err>bin_width] *= multiplier[abs_err>bin_width]
         return x
         
-    all_scale_factors = torch.tensor([]).cuda()
-        
     bn_modules = model.get_sparse_layers()
-    for bn_module in bn_modules:
-        with torch.no_grad():
-            get_bin_distribution(bn_module.weight.data)
-        all_scale_factors = torch.cat((all_scale_factors,torch.abs(bn_module.weight.data)))
-                
-    # total channels
-    total_channels = len(all_scale_factors)
-    ch_per_bin = total_channels//num_bins
-    _,bin_indices = torch.tensor(args.ista_cnt_bins).sort()
-    remain = torch.ones(total_channels).long().cuda()
-    assigned_binindices = torch.zeros(total_channels).long().cuda()
     
-    for bin_idx in bin_indices[:-1]:
-        dist = torch.abs(torch.log10(args.bins[bin_idx]/all_scale_factors)) 
-        not_assigned = remain.nonzero()
-        # remaining channels importance
-        chan_imp = dist[not_assigned] 
-        tmp,ch_indices = chan_imp.sort(dim=0)
-        selected_in_remain = ch_indices[:ch_per_bin]
-        selected = not_assigned[selected_in_remain]
-        remain[selected] = 0
-        assigned_binindices[selected] = bin_idx
-    assigned_binindices[remain.nonzero()] = bin_indices[-1]
-    
+    if not dist_based:
+        all_scale_factors = torch.tensor([]).cuda()
+        for bn_module in bn_modules:
+            with torch.no_grad():
+                get_bin_distribution(bn_module.weight.data)
+            all_scale_factors = torch.cat((all_scale_factors,torch.abs(bn_module.weight.data)))
+        # total channels
+        total_channels = len(all_scale_factors)
+        ch_per_bin = total_channels//num_bins
+        _,bin_indices = torch.tensor(args.ista_cnt_bins).sort()
+        remain = torch.ones(total_channels).long().cuda()
+        assigned_binindices = torch.zeros(total_channels).long().cuda()
+        
+        for bin_idx in bin_indices[:-1]:
+            dist = torch.abs(torch.log10(args.bins[bin_idx]/all_scale_factors)) 
+            not_assigned = remain.nonzero()
+            # remaining channels importance
+            chan_imp = dist[not_assigned] 
+            tmp,ch_indices = chan_imp.sort(dim=0)
+            selected_in_remain = ch_indices[:ch_per_bin]
+            selected = not_assigned[selected_in_remain]
+            remain[selected] = 0
+            assigned_binindices[selected] = bin_idx
+        assigned_binindices[remain.nonzero()] = bin_indices[-1]
+        
     ch_start = 0
     for bn_module in bn_modules:
         with torch.no_grad():
-            ch_len = len(bn_module.weight.data)
-            bn_module.weight.data = redistribute(bn_module.weight.data, assigned_binindices[ch_start:ch_start+ch_len])
-        ch_start += ch_len
+            if not dist_based:
+                ch_len = len(bn_module.weight.data)
+                bn_module.weight.data = redistribute(bn_module.weight.data, assigned_binindices[ch_start:ch_start+ch_len])
+                ch_start += ch_len
+            else:
+                bn_module.weight.data = redistribute(bn_module.weight.data, get_min_idx(x))
+        
     
     
 def factor_visualization(iter, model, prec):
