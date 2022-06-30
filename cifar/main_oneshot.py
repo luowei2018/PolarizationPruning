@@ -107,6 +107,8 @@ parser.add_argument('--q_factor', type=float, default=0.0001,
                     help='decay factor (default: 0.001)')
 parser.add_argument('--bin_mode', default=2, type=int, 
                     help='Setup location of bins.')
+parser.add_argument('-e', '--evaluate', dest='evaluate', action='store_true',
+                    help='evaluate model on validation set')
 
 args = parser.parse_args()
 args.cuda = not args.no_cuda and torch.cuda.is_available()
@@ -740,6 +742,12 @@ writer = SummaryWriter(logdir=args.log)
 
 if args.flops_weighted:
     writer.add_text("train/conv_flops_weight", flops_weight_string, global_step=0)
+
+if args.evaluate:
+    prune_while_training(model, arch=args.arch,
+                       prune_mode="default",
+                       num_classes=num_classes)
+    return
 
 for epoch in range(args.start_epoch, args.epochs):
     if args.max_epoch is not None and epoch >= args.max_epoch:
