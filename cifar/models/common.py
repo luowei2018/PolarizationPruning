@@ -261,13 +261,6 @@ def prune_conv_layer(conv_layer: Union[nn.Conv2d, nn.Linear],
         if not np.any(out_channel_mask):
             # there is no channel left
             return out_channel_mask, in_channel_mask
-
-            
-        idx_p: np.ndarray = np.squeeze(np.argwhere(np.asarray(1-out_channel_mask)))
-        if len(idx_p.shape) == 0: idx_p = np.expand_dims(idx_p, 0)
-        p_w = bn_layer.weight.data[idx_p.tolist()].mean()
-        p_b = bn_layer.bias.data[idx_p.tolist()].mean()
-        print(p_w,p_b)
             
         idx_out: np.ndarray = np.squeeze(np.argwhere(np.asarray(out_channel_mask)))
         if len(idx_out.shape) == 0:

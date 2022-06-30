@@ -749,7 +749,7 @@ if args.evaluate:
                        num_classes=num_classes)
     exit(0)
 
-for epoch in range(args.start_epoch, args.epochs):
+for epoch in range(120, args.epochs):
     if args.max_epoch is not None and epoch >= args.max_epoch:
         break
 
