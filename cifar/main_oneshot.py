@@ -385,7 +385,7 @@ def adjust_learning_rate(optimizer, epoch, gammas, schedule):
 
 # additional subgradient descent on the sparsity-induced penalty term
 def updateBN():
-    if args.loss == LossType.L1_SPARSITY_REGULARIZATION or args.loss == LossType.LOG_QUANTIZATION:
+    if args.loss == LossType.L1_SPARSITY_REGULARIZATION:
         sparsity = args.lbd
         bn_modules = list(filter(lambda m: (isinstance(m[1], nn.BatchNorm2d) or isinstance(m[1], nn.BatchNorm1d)),
                                  model.named_modules()))
@@ -662,7 +662,6 @@ def train(epoch):
         if args.loss in {LossType.L1_SPARSITY_REGULARIZATION}:
             updateBN()
         if args.loss in {LossType.LOG_QUANTIZATION}:
-            updateBN()
             log_quantization(model)
         optimizer.step()
         if args.loss in {LossType.POLARIZATION,
@@ -750,7 +749,7 @@ if args.evaluate:
                        num_classes=num_classes)
     exit(0)
 
-for epoch in range(100, args.epochs):
+for epoch in range(args.start_epoch, args.epochs):
     if args.max_epoch is not None and epoch >= args.max_epoch:
         break
 
