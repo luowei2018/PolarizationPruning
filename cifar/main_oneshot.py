@@ -747,7 +747,7 @@ if args.evaluate:
     prune_while_training(model, arch=args.arch,
                        prune_mode="default",
                        num_classes=num_classes)
-    return
+    exit(0)
 
 for epoch in range(args.start_epoch, args.epochs):
     if args.max_epoch is not None and epoch >= args.max_epoch:
