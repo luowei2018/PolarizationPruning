@@ -737,7 +737,7 @@ writer = SummaryWriter(logdir=args.log)
 if args.flops_weighted:
     writer.add_text("train/conv_flops_weight", flops_weight_string, global_step=0)
 
-for epoch in range(0, args.epochs):
+for epoch in range(args.start_epoch, args.epochs):
     if args.max_epoch is not None and epoch >= args.max_epoch:
         break
 
