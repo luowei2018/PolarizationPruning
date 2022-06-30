@@ -624,7 +624,7 @@ def prune_while_training(model: nn.Module, arch: str, prune_mode: str, num_class
     baseline_flops = compute_conv_flops(baseline_model, cuda=True)
     
     for flop,prec1 in zip(saved_flops,saved_prec1s):
-        print(f" --> FLOPs in epoch (fixed) {epoch}: {flop:,}, ratio: {flop / baseline_flops}, prec1: {prec1}")
+        print(f" --> FLOPs : {flop:,}, ratio: {flop / baseline_flops}, prec1: {prec1}")
 
 
 def train(epoch):
