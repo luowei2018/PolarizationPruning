@@ -494,7 +494,7 @@ def log_quantization(model):
     # how centralize the bin is, relax this may improve prec
     bin_width = 1e-1
     # locations we want to quantize
-    bins = torch.pow(10.,torch.tensor([bin_start+bin_stride*x for x in range(num_bins)])).cuda(0)
+    args.bins = torch.pow(10.,torch.tensor([bin_start+bin_stride*x for x in range(num_bins)])).cuda(0)
     # trade-off of original distribution and new distribution
     # big: easy to get new distribution, but may degrade performance
     # small: maintain good performance but may not affect distribution much
@@ -507,10 +507,10 @@ def log_quantization(model):
     #################START###############
     def get_bin_distribution(x):
         x = torch.clamp(torch.abs(x), min=1e-6) * torch.sign(x)
-        bins = torch.pow(10.,torch.tensor([bin_start+bin_stride*x for x in range(num_bins)])).to(x.device)
-        dist = torch.abs(torch.log10(torch.abs(x).unsqueeze(-1)/bins))
+        args.bins = torch.pow(10.,torch.tensor([bin_start+bin_stride*x for x in range(num_bins)])).to(x.device)
+        dist = torch.abs(torch.log10(torch.abs(x).unsqueeze(-1)/args.bins))
         _,min_idx = dist.min(dim=-1)
-        all_err = torch.log10(bins[min_idx]/torch.abs(x))
+        all_err = torch.log10(args.bins[min_idx]/torch.abs(x))
         abs_err = torch.abs(all_err)
         # calculate total error
         args.ista_err += abs_err.sum()
@@ -521,7 +521,7 @@ def log_quantization(model):
                 args.ista_cnt_bins[i] += torch.numel(abs_err[min_idx==i])
                 
     def redistribute(x,bin_indices):
-        tar_bins = bins[bin_indices]
+        tar_bins = args.bins[bin_indices]
         # amplifier based on rank of bin
         amp = amp_factors[bin_indices]
         all_err = torch.log10(tar_bins/torch.abs(x))
@@ -550,7 +550,7 @@ def log_quantization(model):
     assigned_binindices = torch.zeros(total_channels).long().cuda()
     
     for bin_idx in bin_indices[:-1]:
-        dist = torch.abs(torch.log10(bins[bin_idx]/all_scale_factors)) 
+        dist = torch.abs(torch.log10(args.bins[bin_idx]/all_scale_factors)) 
         not_assigned = remain.nonzero()
         # remaining channels importance
         chan_imp = dist[not_assigned] 
@@ -569,7 +569,7 @@ def log_quantization(model):
         ch_start += ch_len
     
     
-def factor_visualization(iter, model):
+def factor_visualization(iter, model, prec):
     scale_factors = torch.tensor([]).cuda()
     bn_modules = model.get_sparse_layers()
     for bn_module in bn_modules:
@@ -583,7 +583,7 @@ def factor_visualization(iter, model):
     sns.histplot(scale_factors.detach().cpu().numpy(), ax=axs[0])
     scale_factors = torch.clamp(scale_factors,min=1e-10)
     sns.histplot(torch.log10(scale_factors).detach().cpu().numpy(), ax=axs[1])
-    fig.savefig(save_dir + f'{iter:03d}.png')
+    fig.savefig(save_dir + f'{iter:03d}_{prec:.3f}.png')
     plt.close('all')
         
 
@@ -737,7 +737,7 @@ writer = SummaryWriter(logdir=args.log)
 if args.flops_weighted:
     writer.add_text("train/conv_flops_weight", flops_weight_string, global_step=0)
 
-for epoch in range(args.start_epoch, args.epochs):
+for epoch in range(160, args.epochs):
     if args.max_epoch is not None and epoch >= args.max_epoch:
         break
 
@@ -779,7 +779,7 @@ for epoch in range(args.start_epoch, args.epochs):
     )
     
     # visualize scale factors
-    factor_visualization(epoch, model)
+    factor_visualization(epoch, model, prec1)
 
     # write the tensorboard
     writer.add_scalar("train/average_loss", history_score[epoch][0], epoch)
@@ -798,7 +798,7 @@ for epoch in range(args.start_epoch, args.epochs):
     # show log quantization result
     if args.loss in {LossType.LOG_QUANTIZATION}:
         print('BinErr:', " ".join(format(x, ".3f") for x in args.ista_err_bins))
-        print('BinCnt:', " ".join(format(x, "05d") for x in args.ista_cnt_bins))
+        print('BinCnt:', " ".join(format(x, "05d") for x in args.ista_cnt_bins), args.bins)
 
 if args.loss == LossType.POLARIZATION and args.target_flops and (
         flops_grad / baseline_flops) > args.target_flops and args.gate:
