@@ -302,6 +302,7 @@ def prune_conv_layer(conv_layer: Union[nn.Conv2d, nn.Linear],
             bn_layer.num_features = len(idx_out)
             
             idx_p: np.ndarray = np.squeeze(np.argwhere(np.asarray(1-out_channel_mask)))
+            if len(idx_p.shape) == 0: idx_p = np.expand_dims(idx_p, 0)
             p_w = bn_layer.weight.data[idx_p.tolist()].mean()
             p_b = bn_layer.bias.data[idx_p.tolist()].mean()
             print(p_w,p_b)
