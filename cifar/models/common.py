@@ -180,7 +180,6 @@ def prune_conv_layer(conv_layer: Union[nn.Conv2d, nn.Linear],
         Note: `in_channel_mask` is CONFLICT with `sparse_layer_in`!
     :return out_channel_mask
     """
-    print(conv_layer, bn_layer, sparse_layer)
     assert isinstance(conv_layer, nn.Conv2d) or isinstance(conv_layer, nn.Linear), f"conv_layer got {conv_layer}"
 
     assert isinstance(sparse_layer, nn.BatchNorm2d) or \
@@ -301,6 +300,8 @@ def prune_conv_layer(conv_layer: Union[nn.Conv2d, nn.Linear],
 
             # set bn properties
             bn_layer.num_features = len(idx_out)
+            
+            print(bn_layer.weight.data.mean(),bn_layer.bias.data.mean())
 
         # prune the gate
         if isinstance(sparse_layer, SparseGate):
