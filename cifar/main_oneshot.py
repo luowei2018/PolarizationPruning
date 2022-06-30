@@ -103,7 +103,7 @@ parser.add_argument('--width-multiplier', default=1.0, type=float,
                          "Unavailable for other networks. (default 1.0)")
 parser.add_argument('--debug', action='store_true',
                     help='Debug mode.')
-parser.add_argument('--q_factor', type=float, default=0.001,
+parser.add_argument('--q_factor', type=float, default=0.0001,
                     help='decay factor (default: 0.001)')
 parser.add_argument('--bin_mode', default=2, type=int, 
                     help='Setup location of bins.')
