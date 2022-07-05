@@ -301,8 +301,8 @@ def prune_conv_layer(conv_layer: Union[nn.Conv2d, nn.Linear],
         # prune the bn layer
         if bn_layer is not None:
             if fake_prune:
-                bn_layer.weight.data *= out_mask_mult
-                bn_layer.bias.data *= out_mask_mult
+                #bn_layer.weight.data *= out_mask_mult
+                #bn_layer.bias.data *= out_mask_mult
                 pass
             else:
                 bn_layer.weight.data = bn_layer.weight.data[idx_out.tolist()].clone()
