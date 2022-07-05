@@ -586,7 +586,7 @@ def factor_visualization(iter, model, prec):
     save_dir = args.save + 'factor/'
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
-    fig, axs = plt.subplots(ncols=2, figsize=(20,4))
+    fig, axs = plt.subplots(ncols=4, figsize=(20,4))
     # plots
     sns.histplot(scale_factors.detach().cpu().numpy(), ax=axs[0])
     scale_factors = torch.clamp(scale_factors,min=1e-10)
