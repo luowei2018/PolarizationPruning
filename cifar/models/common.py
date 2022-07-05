@@ -219,6 +219,7 @@ def prune_conv_layer(conv_layer: Union[nn.Conv2d, nn.Linear],
 
         # prune the input of the conv layer
         if isinstance(conv_layer, nn.Conv2d):
+            print('group:',conv_layer.groups)
             if conv_layer.groups == 1:
                 conv_weight = conv_weight[:, idx_in.tolist(), :, :]
             else:
