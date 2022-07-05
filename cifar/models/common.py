@@ -261,7 +261,7 @@ def prune_conv_layer(conv_layer: Union[nn.Conv2d, nn.Linear],
             raise ValueError(f"invalid prune_output_mode: {prune_output_mode}")
             
         if fake_prune:
-            out_mask_mult = torch.tensor(out_channel_mask)
+            sim_idx_out: np.ndarray = np.squeeze(np.argwhere(np.asarray(out_channel_mask)))
             out_channel_mask = np.ones(conv_layer.weight.size(0), dtype=bool)
 
         if not np.any(out_channel_mask):
@@ -301,8 +301,8 @@ def prune_conv_layer(conv_layer: Union[nn.Conv2d, nn.Linear],
         # prune the bn layer
         if bn_layer is not None:
             if fake_prune:
-                bn_layer.weight.data *= out_mask_mult
-                #bn_layer.bias.data *= out_mask_mult
+                bn_layer.weight.data[sim_idx_out.tolist()] *= 0.0
+                bn_layer.bias.data[sim_idx_out.tolist()] *= 0.0
                 pass
             else:
                 bn_layer.weight.data = bn_layer.weight.data[idx_out.tolist()].clone()
