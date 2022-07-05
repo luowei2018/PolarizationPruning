@@ -577,18 +577,24 @@ def log_quantization(model):
     
 def factor_visualization(iter, model, prec):
     scale_factors = torch.tensor([]).cuda()
+    biases = torch.tensor([]).cuda()
     bn_modules = model.get_sparse_layers()
     for bn_module in bn_modules:
         scale_factors = torch.cat((scale_factors,torch.abs(bn_module.weight.data.view(-1))))
+        biases = torch.cat((biases,torch.abs(bn_module.bias.data.view(-1))))
     # plot figure
     save_dir = args.save + 'factor/'
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
-    fig, axs = plt.subplots(ncols=2, figsize=(10,4))
+    fig, axs = plt.subplots(ncols=2, figsize=(20,4))
     # plots
     sns.histplot(scale_factors.detach().cpu().numpy(), ax=axs[0])
     scale_factors = torch.clamp(scale_factors,min=1e-10)
     sns.histplot(torch.log10(scale_factors).detach().cpu().numpy(), ax=axs[1])
+    
+    sns.histplot(biases.detach().cpu().numpy(), ax=axs[2])
+    biases = torch.clamp(biases,min=1e-10)
+    sns.histplot(torch.log10(biases).detach().cpu().numpy(), ax=axs[3])
     fig.savefig(save_dir + f'{iter:03d}_{prec:.3f}.png')
     plt.close('all')
         
@@ -749,7 +755,7 @@ if args.evaluate:
                        num_classes=num_classes)
     exit(0)
 
-for epoch in range(args.start_epoch, args.epochs):
+for epoch in range(160, args.epochs):
     if args.max_epoch is not None and epoch >= args.max_epoch:
         break
 
