@@ -227,7 +227,7 @@ def prune_conv_layer(conv_layer: Union[nn.Conv2d, nn.Linear],
             conv_weight = conv_weight[:, idx_in.tolist()]
         else:
             raise ValueError(f"unsupported conv layer type: {conv_layer}")
-
+        
         # prune the output channel of the conv layer
         if prune_output_mode == "prune":
             if prune_on == 'factor':
@@ -267,7 +267,7 @@ def prune_conv_layer(conv_layer: Union[nn.Conv2d, nn.Linear],
         if len(idx_out.shape) == 0:
             # 0-d scalar
             idx_out = np.expand_dims(idx_out, 0)
-        
+        print(conv_layer)
         if isinstance(conv_layer, nn.Conv2d):
             conv_weight = conv_weight[idx_out.tolist(), :, :, :]
         elif isinstance(conv_layer, nn.Linear):
