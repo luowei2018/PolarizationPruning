@@ -131,6 +131,7 @@ def prune_resnet(num_classes: int, sparse_model: torch.nn.Module, pruning_strate
                 # when the entire block is pruned, the conv parameter will miss, which is expected
                 #print(f"[WARNING] missing parameter: {param_name}")
 
+    return
     saved_model.load_state_dict(pruned_state_dict)
 
     if sanity_check:
