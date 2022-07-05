@@ -268,7 +268,8 @@ def prune_conv_layer(conv_layer: Union[nn.Conv2d, nn.Linear],
             idx_out = np.expand_dims(idx_out, 0)
 
         if isinstance(conv_layer, nn.Conv2d):
-            conv_weight = conv_weight[idx_out.tolist(), :, :, :]
+            #conv_weight = conv_weight[idx_out.tolist(), :, :, :]
+            pass
         elif isinstance(conv_layer, nn.Linear):
             conv_weight = conv_weight[idx_out.tolist(), :]
             linear_bias = conv_layer.bias.clone()
@@ -292,7 +293,7 @@ def prune_conv_layer(conv_layer: Union[nn.Conv2d, nn.Linear],
             pass
 
         # prune the bn layer
-        if bn_layer is not None:
+        if False and bn_layer is not None:
             bn_layer.weight.data = bn_layer.weight.data[idx_out.tolist()].clone()
             bn_layer.bias.data = bn_layer.bias.data[idx_out.tolist()].clone()
             bn_layer.running_mean = bn_layer.running_mean[idx_out.tolist()].clone()
