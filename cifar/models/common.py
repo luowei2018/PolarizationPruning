@@ -180,6 +180,7 @@ def prune_conv_layer(conv_layer: Union[nn.Conv2d, nn.Linear],
         Note: `in_channel_mask` is CONFLICT with `sparse_layer_in`!
     :return out_channel_mask
     """
+    fake_prune = True
     assert isinstance(conv_layer, nn.Conv2d) or isinstance(conv_layer, nn.Linear), f"conv_layer got {conv_layer}"
 
     assert isinstance(sparse_layer, nn.BatchNorm2d) or \
@@ -188,7 +189,7 @@ def prune_conv_layer(conv_layer: Union[nn.Conv2d, nn.Linear],
 
     if in_channel_mask is not None and sparse_layer_in is not None:
         raise ValueError("Conflict option: in_channel_mask and sparse_layer_in")
-
+    print(conv_layer, expand_idx)
     prune_mode = prune_mode.lower()
     prune_output_mode = str.lower(prune_output_mode)
 
@@ -220,8 +221,8 @@ def prune_conv_layer(conv_layer: Union[nn.Conv2d, nn.Linear],
         # prune the input of the conv layer
         if isinstance(conv_layer, nn.Conv2d):
             if conv_layer.groups == 1:
-                #conv_weight = conv_weight[:, idx_in.tolist(), :, :]
-                pass
+                if not fake_prune:
+                    conv_weight = conv_weight[:, idx_in.tolist(), :, :]
             else:
                 assert conv_weight.shape[1] == 1, "only works for groups == num_channels"
         elif isinstance(conv_layer, nn.Linear):
@@ -269,8 +270,8 @@ def prune_conv_layer(conv_layer: Union[nn.Conv2d, nn.Linear],
             idx_out = np.expand_dims(idx_out, 0)
 
         if isinstance(conv_layer, nn.Conv2d):
-            #conv_weight = conv_weight[idx_out.tolist(), :, :, :]
-            pass
+            if not fake_prune:
+                conv_weight = conv_weight[idx_out.tolist(), :, :, :]
         elif isinstance(conv_layer, nn.Linear):
             conv_weight = conv_weight[idx_out.tolist(), :]
             linear_bias = conv_layer.bias.clone()
@@ -294,14 +295,15 @@ def prune_conv_layer(conv_layer: Union[nn.Conv2d, nn.Linear],
             pass
 
         # prune the bn layer
-        if False and bn_layer is not None:
-            bn_layer.weight.data = bn_layer.weight.data[idx_out.tolist()].clone()
-            bn_layer.bias.data = bn_layer.bias.data[idx_out.tolist()].clone()
-            bn_layer.running_mean = bn_layer.running_mean[idx_out.tolist()].clone()
-            bn_layer.running_var = bn_layer.running_var[idx_out.tolist()].clone()
+        if bn_layer is not None:
+            if not fake_prune:
+                bn_layer.weight.data = bn_layer.weight.data[idx_out.tolist()].clone()
+                bn_layer.bias.data = bn_layer.bias.data[idx_out.tolist()].clone()
+                bn_layer.running_mean = bn_layer.running_mean[idx_out.tolist()].clone()
+                bn_layer.running_var = bn_layer.running_var[idx_out.tolist()].clone()
 
-            # set bn properties
-            bn_layer.num_features = len(idx_out)
+                # set bn properties
+                bn_layer.num_features = len(idx_out)
 
         # prune the gate
         if isinstance(sparse_layer, SparseGate):
