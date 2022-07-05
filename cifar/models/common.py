@@ -245,7 +245,6 @@ def prune_conv_layer(conv_layer: Union[nn.Conv2d, nn.Linear],
                 # prune according the bn layer
                 output_threshold = pruner(sparse_weight)
                 out_channel_mask: np.ndarray = sparse_weight > output_threshold
-                print('out:',out_channel_mask)
             else:
                 sparse_weight: np.ndarray = sparse_layer.weight.view(-1).data.cpu().numpy()
                 # in this case, the sparse weight should be the conv or linear weight
@@ -302,8 +301,8 @@ def prune_conv_layer(conv_layer: Union[nn.Conv2d, nn.Linear],
         # prune the bn layer
         if bn_layer is not None:
             if fake_prune:
-                bn_layer.weight *= out_mask_mult
-                #bn_layer.bias.data[sim_idx_out.tolist()] = 0
+                bn_layer.weight.data *= out_mask_mult
+                bn_layer.bias.data *= out_mask_mult
                 pass
             else:
                 bn_layer.weight.data = bn_layer.weight.data[idx_out.tolist()].clone()
