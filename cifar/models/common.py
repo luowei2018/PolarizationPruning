@@ -321,7 +321,7 @@ def prune_conv_layer(conv_layer: Union[nn.Conv2d, nn.Linear],
             sparse_layer.set_ones()
             
         if fake_prune:
-            out_channel_mask = np.ones(conv_layer.out_channels, dtype=bool)
+            out_channel_mask = np.ones(conv_layer.weight.size(0), dtype=bool)
     
     return out_channel_mask, in_channel_mask
 
