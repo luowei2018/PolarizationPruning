@@ -301,7 +301,9 @@ def prune_conv_layer(conv_layer: Union[nn.Conv2d, nn.Linear],
         # prune the bn layer
         if bn_layer is not None:
             if fake_prune:
+                print(bn_layer.weight.data,sim_idx_out.tolist())
                 bn_layer.weight.data[sim_idx_out.tolist()] *= 0.0
+                print(bn_layer.weight.data)
                 bn_layer.bias.data[sim_idx_out.tolist()] *= 0.0
                 pass
             else:
