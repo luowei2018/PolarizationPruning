@@ -180,7 +180,7 @@ def prune_conv_layer(conv_layer: Union[nn.Conv2d, nn.Linear],
         Note: `in_channel_mask` is CONFLICT with `sparse_layer_in`!
     :return out_channel_mask
     """
-    fake_prune = True
+    fake_prune = False
     assert isinstance(conv_layer, nn.Conv2d) or isinstance(conv_layer, nn.Linear), f"conv_layer got {conv_layer}"
 
     assert isinstance(sparse_layer, nn.BatchNorm2d) or \
@@ -319,7 +319,7 @@ def prune_conv_layer(conv_layer: Union[nn.Conv2d, nn.Linear],
             # the function of the SparseGate is now replaced by bn layers
             # the SparseGate should be disabled
             sparse_layer.set_ones()
-
+    print(out_channel_mask)
     return out_channel_mask, in_channel_mask
 
 
