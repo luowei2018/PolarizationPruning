@@ -607,9 +607,9 @@ def prune_while_training(model: nn.Module, arch: str, prune_mode: str, num_class
         from resprune_gate import prune_resnet
         from models.resnet_expand import resnet56 as resnet50_expand
         for ratio in target_ratios:
-            saved_model = prune_resnet(sparse_model=model, pruning_strategy='fixed', prune_type='ns', l1_norm_ratio=ratio,
+            saved_model, pruned_model = prune_resnet(sparse_model=model, pruning_strategy='fixed', prune_type='ns', l1_norm_ratio=ratio,
                                              sanity_check=False, prune_mode=prune_mode, num_classes=num_classes)
-            prec1 = test(saved_model.cuda())
+            prec1 = test(pruned_model.cuda())
             flop = compute_conv_flops(saved_model, cuda=True)
             saved_prec1s += [prec1]
             saved_flops += [flop]

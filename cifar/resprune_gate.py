@@ -106,7 +106,6 @@ def prune_resnet(num_classes: int, sparse_model: torch.nn.Module, pruning_strate
                              prune_on=prune_on)
     #print("Pruning finished. cfg:")
     #print(pruned_model.config())
-    return pruned_model
 
     if sanity_check:
         # sanity check: check if pruned model is as same as sparse model
@@ -140,7 +139,7 @@ def prune_resnet(num_classes: int, sparse_model: torch.nn.Module, pruning_strate
         print(f"Max diff between Saved model and Pruned model: {max_diff}\n")
         assert max_diff < 1e-5, f"Test failed: Max diff should be less than 1e-5, got {max_diff}"
 
-    return saved_model
+    return saved_model, pruned_model
 
 
 def main():
@@ -176,7 +175,7 @@ def main():
                                                  gate=args.gate, use_input_mask=args.input_mask)
     sparse_model.load_state_dict(checkpoint['state_dict'])
 
-    saved_model = prune_resnet(num_classes=num_classes,
+    saved_model,_ = prune_resnet(num_classes=num_classes,
                                sparse_model=sparse_model,
                                pruning_strategy=args.pruning_strategy,
                                sanity_check=True, prune_mode=args.prune_mode,
