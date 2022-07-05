@@ -266,7 +266,7 @@ class BasicBlock(BuildingBlock):
         # the output dim is unchanged
         # note that the idx of the expander might be set in a pruned model
         original_expander_idx = self.expand_layer.idx
-        assert len(original_expander_idx) == len(out_channel_mask), "the output channel should be consistent"+f'{len(original_expander_idx)} {len(out_channel_mask)}'
+        assert len(original_expander_idx) == len(out_channel_mask), "the output channel should be consistent"
         pruned_expander_idx = original_expander_idx[out_channel_mask]
         idx = np.squeeze(pruned_expander_idx)
         if len(idx.shape) == 0:
