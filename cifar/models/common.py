@@ -227,7 +227,7 @@ def prune_conv_layer(conv_layer: Union[nn.Conv2d, nn.Linear],
             conv_weight = conv_weight[:, idx_in.tolist()]
         else:
             raise ValueError(f"unsupported conv layer type: {conv_layer}")
-        print(conv_layer)
+
         # prune the output channel of the conv layer
         if prune_output_mode == "prune":
             if prune_on == 'factor':
@@ -243,7 +243,6 @@ def prune_conv_layer(conv_layer: Union[nn.Conv2d, nn.Linear],
                 # prune according the bn layer
                 output_threshold = pruner(sparse_weight)
                 out_channel_mask: np.ndarray = sparse_weight > output_threshold
-                print('1')
             else:
                 sparse_weight: np.ndarray = sparse_layer.weight.view(-1).data.cpu().numpy()
                 # in this case, the sparse weight should be the conv or linear weight
@@ -261,16 +260,16 @@ def prune_conv_layer(conv_layer: Union[nn.Conv2d, nn.Linear],
 
         if not np.any(out_channel_mask):
             # there is no channel left
-            print('no')
             return out_channel_mask, in_channel_mask
             
         idx_out: np.ndarray = np.squeeze(np.argwhere(np.asarray(out_channel_mask)))
         if len(idx_out.shape) == 0:
             # 0-d scalar
             idx_out = np.expand_dims(idx_out, 0)
-        
+
         if isinstance(conv_layer, nn.Conv2d):
-            conv_weight = conv_weight[idx_out.tolist(), :, :, :]
+            #conv_weight = conv_weight[idx_out.tolist(), :, :, :]
+            pass
         elif isinstance(conv_layer, nn.Linear):
             conv_weight = conv_weight[idx_out.tolist(), :]
             linear_bias = conv_layer.bias.clone()
@@ -294,7 +293,7 @@ def prune_conv_layer(conv_layer: Union[nn.Conv2d, nn.Linear],
             pass
 
         # prune the bn layer
-        if bn_layer is not None:
+        if False and bn_layer is not None:
             bn_layer.weight.data = bn_layer.weight.data[idx_out.tolist()].clone()
             bn_layer.bias.data = bn_layer.bias.data[idx_out.tolist()].clone()
             bn_layer.running_mean = bn_layer.running_mean[idx_out.tolist()].clone()
@@ -302,7 +301,6 @@ def prune_conv_layer(conv_layer: Union[nn.Conv2d, nn.Linear],
 
             # set bn properties
             bn_layer.num_features = len(idx_out)
-            print('222222222')
 
         # prune the gate
         if isinstance(sparse_layer, SparseGate):
