@@ -309,7 +309,7 @@ wd_params = []
 for param_name, model_p in model.named_parameters():
     if model_p not in no_wd_params_set:
         wd_params.append(model_p)
-        print(f"Weight decay param: parameter name {param_name}")
+        #print(f"Weight decay param: parameter name {param_name}")
 
 optimizer = torch.optim.SGD([{'params': list(no_wd_params), 'weight_decay': 0.},
                              {'params': list(wd_params), 'weight_decay': args.weight_decay}],
