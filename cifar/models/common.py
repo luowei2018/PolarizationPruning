@@ -180,7 +180,7 @@ def prune_conv_layer(conv_layer: Union[nn.Conv2d, nn.Linear],
         Note: `in_channel_mask` is CONFLICT with `sparse_layer_in`!
     :return out_channel_mask
     """
-    fake_prune = True
+    fake_prune = False
     assert isinstance(conv_layer, nn.Conv2d) or isinstance(conv_layer, nn.Linear), f"conv_layer got {conv_layer}"
 
     assert isinstance(sparse_layer, nn.BatchNorm2d) or \
@@ -189,7 +189,7 @@ def prune_conv_layer(conv_layer: Union[nn.Conv2d, nn.Linear],
 
     if in_channel_mask is not None and sparse_layer_in is not None:
         raise ValueError("Conflict option: in_channel_mask and sparse_layer_in")
-    print(conv_layer, conv_layer.expand_idx)
+
     prune_mode = prune_mode.lower()
     prune_output_mode = str.lower(prune_output_mode)
 
