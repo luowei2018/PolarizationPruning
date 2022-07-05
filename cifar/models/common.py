@@ -219,9 +219,9 @@ def prune_conv_layer(conv_layer: Union[nn.Conv2d, nn.Linear],
 
         # prune the input of the conv layer
         if isinstance(conv_layer, nn.Conv2d):
-            print('group:',conv_layer.groups)
             if conv_layer.groups == 1:
-                conv_weight = conv_weight[:, idx_in.tolist(), :, :]
+                #conv_weight = conv_weight[:, idx_in.tolist(), :, :]
+                pass
             else:
                 assert conv_weight.shape[1] == 1, "only works for groups == num_channels"
         elif isinstance(conv_layer, nn.Linear):
