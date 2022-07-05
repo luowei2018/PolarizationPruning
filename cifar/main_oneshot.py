@@ -750,12 +750,13 @@ if args.flops_weighted:
     writer.add_text("train/conv_flops_weight", flops_weight_string, global_step=0)
 
 if args.evaluate:
+    factor_visualization(0, model, prec1)
     prune_while_training(model, arch=args.arch,
                        prune_mode="default",
                        num_classes=num_classes)
     exit(0)
 
-for epoch in range(160, args.epochs):
+for epoch in range(args.start_epoch, args.epochs):
     if args.max_epoch is not None and epoch >= args.max_epoch:
         break
 

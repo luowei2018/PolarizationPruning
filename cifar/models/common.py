@@ -266,7 +266,7 @@ def prune_conv_layer(conv_layer: Union[nn.Conv2d, nn.Linear],
         if len(idx_out.shape) == 0:
             # 0-d scalar
             idx_out = np.expand_dims(idx_out, 0)
-
+        print(conv_layer)
         if isinstance(conv_layer, nn.Conv2d):
             conv_weight = conv_weight[idx_out.tolist(), :, :, :]
         elif isinstance(conv_layer, nn.Linear):
