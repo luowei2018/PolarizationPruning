@@ -243,6 +243,7 @@ def prune_conv_layer(conv_layer: Union[nn.Conv2d, nn.Linear],
                 # prune according the bn layer
                 output_threshold = pruner(sparse_weight)
                 out_channel_mask: np.ndarray = sparse_weight > output_threshold
+                print('1')
             else:
                 sparse_weight: np.ndarray = sparse_layer.weight.view(-1).data.cpu().numpy()
                 # in this case, the sparse weight should be the conv or linear weight
@@ -266,7 +267,7 @@ def prune_conv_layer(conv_layer: Union[nn.Conv2d, nn.Linear],
         if len(idx_out.shape) == 0:
             # 0-d scalar
             idx_out = np.expand_dims(idx_out, 0)
-        print(conv_layer)
+        
         if isinstance(conv_layer, nn.Conv2d):
             conv_weight = conv_weight[idx_out.tolist(), :, :, :]
         elif isinstance(conv_layer, nn.Linear):
@@ -300,6 +301,7 @@ def prune_conv_layer(conv_layer: Union[nn.Conv2d, nn.Linear],
 
             # set bn properties
             bn_layer.num_features = len(idx_out)
+            print('2')
 
         # prune the gate
         if isinstance(sparse_layer, SparseGate):
