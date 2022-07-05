@@ -189,7 +189,7 @@ def prune_conv_layer(conv_layer: Union[nn.Conv2d, nn.Linear],
 
     if in_channel_mask is not None and sparse_layer_in is not None:
         raise ValueError("Conflict option: in_channel_mask and sparse_layer_in")
-    print(conv_layer, expand_idx)
+    print(conv_layer, conv_layer.expand_idx)
     prune_mode = prune_mode.lower()
     prune_output_mode = str.lower(prune_output_mode)
 
