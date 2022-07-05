@@ -301,9 +301,9 @@ def prune_conv_layer(conv_layer: Union[nn.Conv2d, nn.Linear],
         # prune the bn layer
         if bn_layer is not None:
             if fake_prune:
-                bn_layer.weight.data[idx_block.tolist()] = 0
                 x = bn_layer.weight.data[idx_block.tolist()].mean()
                 print(torch.log10(x))
+                bn_layer.weight.data[idx_block.tolist()] = 0
                 #bn_layer.bias.data[idx_block.tolist()] = 0
             else:
                 bn_layer.weight.data = bn_layer.weight.data[idx_out.tolist()].clone()

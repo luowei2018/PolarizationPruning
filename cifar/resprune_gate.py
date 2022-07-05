@@ -104,7 +104,7 @@ def prune_resnet(num_classes: int, sparse_model: torch.nn.Module, pruning_strate
     pruned_model.prune_model(pruner=pruner,
                              prune_mode=prune_mode,
                              prune_on=prune_on)
-    #print("Pruning finished. cfg:")
+    print("Pruning finished. ")
     #print(pruned_model.config())
     return pruned_model
 
