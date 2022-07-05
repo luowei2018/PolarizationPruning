@@ -750,6 +750,8 @@ if args.flops_weighted:
     writer.add_text("train/conv_flops_weight", flops_weight_string, global_step=0)
 
 if args.evaluate:
+    prec1 = test(model)
+    print(f"All Prec1: {prec1}")
     factor_visualization(0, model, prec1)
     prune_while_training(model, arch=args.arch,
                        prune_mode="default",
