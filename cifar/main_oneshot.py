@@ -302,7 +302,7 @@ for module_name, sub_module in model.named_modules():
         if isinstance(sub_module, t):
             for param_name, param in sub_module.named_parameters():
                 no_wd_params.append(param)
-                print(f"No weight decay param: module {module_name} param {param_name}")
+                #print(f"No weight decay param: module {module_name} param {param_name}")
 
 no_wd_params_set = set(no_wd_params)  # apply weight decay on the rest of parameters
 wd_params = []
@@ -600,16 +600,16 @@ def factor_visualization(iter, model, prec):
         
 
 def prune_while_training(model: nn.Module, arch: str, prune_mode: str, num_classes: int):
-    target_ratios = [0.1 + 0.1*x for x in range(9)]
+    target_ratios = [.25,.5,.75]#[0.1 + 0.1*x for x in range(9)]
     saved_flops = []
     saved_prec1s = []
     if arch == "resnet56":
         from resprune_gate import prune_resnet
         from models.resnet_expand import resnet56 as resnet50_expand
         for ratio in target_ratios:
-            saved_model = prune_resnet(sparse_model=model, pruning_strategy='fixed', prune_type='ns', l1_norm_ratio=ratio,
+            saved_model,pruned_model = prune_resnet(sparse_model=model, pruning_strategy='fixed', prune_type='ns', l1_norm_ratio=ratio,
                                              sanity_check=False, prune_mode=prune_mode, num_classes=num_classes)
-            prec1 = test(saved_model.cuda())
+            prec1 = test(pruned_model.cuda())
             flop = compute_conv_flops(saved_model, cuda=True)
             saved_prec1s += [prec1]
             saved_flops += [flop]
