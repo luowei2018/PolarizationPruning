@@ -484,7 +484,8 @@ def bn_sparsity(model, loss_type, sparsity, t, alpha,
         
 def log_quantization(model):
     #############SETUP###############
-    args.ista_err = torch.tensor([0.0]).cuda(0)
+    args.weight_err = torch.tensor([0.0]).cuda(0)
+    args.bias_err = torch.tensor([0.0]).cuda(0)
     # locations of bins should fit original dist
     # start can be tuned to find a best one
     # distance between bins min=2
@@ -515,13 +516,13 @@ def log_quantization(model):
         _,min_idx = dist.min(dim=-1)
         return min_idx
         
-    def get_bin_distribution(x):
+    def calc_weight_error(x):
         x = torch.clamp(torch.abs(x), min=1e-8) * torch.sign(x)
         min_idx = get_min_idx(x)
         all_err = torch.log10(args.bins[min_idx]/torch.abs(x))
         abs_err = torch.abs(all_err)
         # calculate total error
-        args.ista_err += abs_err.sum()
+        args.weight_err += abs_err.sum()
         # calculating err for each bin
         for i in range(num_bins):
             if torch.sum(min_idx==i)>0:
@@ -547,7 +548,8 @@ def log_quantization(model):
     all_scale_factors = torch.tensor([]).cuda()
     for bn_module in bn_modules:
         with torch.no_grad():
-            get_bin_distribution(bn_module.weight.data)
+            calc_weight_error(bn_module.weight.data)
+            args.bias_err += torch.abs(bn_module.bias.data).sum()
         all_scale_factors = torch.cat((all_scale_factors,torch.abs(bn_module.weight.data)))
     # total channels
     total_channels = len(all_scale_factors)
@@ -575,7 +577,7 @@ def log_quantization(model):
             # modify weights
             bn_module.weight.data = redistribute(bn_module.weight.data, assigned_binindices[ch_start:ch_start+ch_len])
             # modify biases
-            bn_module.bias.data.add_(args.bias_sparsity * torch.sign(bn_module.bias.data))
+            #bn_module.bias.data.add_(args.bias_sparsity * torch.sign(bn_module.bias.data))
             ch_start += ch_len
         
     
@@ -686,11 +688,12 @@ def train(epoch):
                     global_step, epoch, batch_idx * len(data), len(train_loader.dataset),
                                         100. * batch_idx / len(train_loader), loss.data.item()))
             else:
-                ista_err = args.ista_err.cpu().item()
+                weight_err = args.weight_err.cpu().item()
+                bias_err = args.bias_err.cpu().item()
                 train_iter.set_description(
-                    'Step: {} Train Epoch: {} [{}/{} ({:.1f}%)]. Loss: {:.6f}. ISTA-Err: {:.4f}'.format(
+                    'Step: {} Train Epoch: {} [{}/{} ({:.1f}%)]. Loss: {:.6f}. W-Err: {:.4f}. B-Err: {:.4f}'.format(
                     global_step, epoch, batch_idx * len(data), len(train_loader.dataset),
-                                        100. * batch_idx / len(train_loader), loss.data.item(), ista_err))
+                                        100. * batch_idx / len(train_loader), loss.data.item(), weight_err, bias_err))
 
     history_score[epoch][0] = avg_loss / len(train_loader)
     history_score[epoch][1] = float(train_acc) / float(total_data)
@@ -823,7 +826,7 @@ for epoch in range(args.start_epoch, args.epochs):
     
     # show log quantization result
     if args.loss in {LossType.LOG_QUANTIZATION}:
-        print('BinErr:', " ".join(format(x, ".3f") for x in args.ista_err_bins))
+        print('Weight err:', " ".join(format(x, ".3f") for x in args.ista_err_bins), 'Bias err:', args.bias_err)
         print('BinCnt:', " ".join(format(x, "05d") for x in args.ista_cnt_bins), args.bins)
 
 if args.loss == LossType.POLARIZATION and args.target_flops and (
