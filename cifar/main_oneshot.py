@@ -304,14 +304,14 @@ for module_name, sub_module in model.named_modules():
         if isinstance(sub_module, t):
             for param_name, param in sub_module.named_parameters():
                 no_wd_params.append(param)
-                #print(f"No weight decay param: module {module_name} param {param_name}")
+                print(f"No weight decay param: module {module_name} param {param_name}")
 
 no_wd_params_set = set(no_wd_params)  # apply weight decay on the rest of parameters
 wd_params = []
 for param_name, model_p in model.named_parameters():
     if model_p not in no_wd_params_set:
         wd_params.append(model_p)
-        #print(f"Weight decay param: parameter name {param_name}")
+        print(f"Weight decay param: parameter name {param_name}")
 
 optimizer = torch.optim.SGD([{'params': list(no_wd_params), 'weight_decay': 0.},
                              {'params': list(wd_params), 'weight_decay': args.weight_decay}],
