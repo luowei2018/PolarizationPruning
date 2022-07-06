@@ -235,6 +235,7 @@ def prune_conv_layer(conv_layer: Union[nn.Conv2d, nn.Linear],
             if prune_on == 'factor':
                 # the sparse_layer.weight need to be flatten, because the weight of SparseGate is not 1d
                 sparse_weight: np.ndarray = sparse_layer.weight.view(-1).data.cpu().numpy()
+                print(sparse_weight)
                 if prune_mode == 'multiply':
                     bn_weight = bn_layer.weight.data.cpu().numpy()
                     sparse_weight = sparse_weight * bn_weight  # element-wise multiplication
