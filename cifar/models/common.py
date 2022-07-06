@@ -239,6 +239,7 @@ def prune_conv_layer(conv_layer: Union[nn.Conv2d, nn.Linear],
                 print(sparse_weight)
                 if prune_mode == 'multiply':
                     bn_weight = bn_layer.weight.data.cpu().numpy()
+                    print(bn_weight)
                     sparse_weight = sparse_weight * bn_weight  # element-wise multiplication
                     pass
                 elif prune_mode != 'default':
