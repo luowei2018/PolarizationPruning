@@ -234,8 +234,7 @@ def prune_conv_layer(conv_layer: Union[nn.Conv2d, nn.Linear],
         if prune_output_mode == "prune":
             if prune_on == 'factor':
                 # the sparse_layer.weight need to be flatten, because the weight of SparseGate is not 1d
-                sparse_weight: np.ndarray = sparse_layer.weight.view(-1).data.cpu().numpy()
-                print(sparse_weight)
+                sparse_weight: np.ndarray = torch.abs(sparse_layer.weight).view(-1).data.cpu().numpy()
                 if prune_mode == 'multiply':
                     bn_weight = bn_layer.weight.data.cpu().numpy()
                     sparse_weight = sparse_weight * bn_weight  # element-wise multiplication
@@ -246,7 +245,6 @@ def prune_conv_layer(conv_layer: Union[nn.Conv2d, nn.Linear],
                 # prune according the bn layer
                 output_threshold = pruner(sparse_weight)
                 out_channel_mask: np.ndarray = sparse_weight > output_threshold
-                print(out_channel_mask)
             else:
                 sparse_weight: np.ndarray = sparse_layer.weight.view(-1).data.cpu().numpy()
                 # in this case, the sparse weight should be the conv or linear weight
@@ -303,9 +301,7 @@ def prune_conv_layer(conv_layer: Union[nn.Conv2d, nn.Linear],
         # prune the bn layer
         if bn_layer is not None:
             if fake_prune:
-                print(bn_layer.weight.data)
                 x = bn_layer.weight.data[idx_block.tolist()]
-                print(x)
                 print(x.mean(),x.max(),x.min(),output_threshold)
                 bn_layer.weight.data[idx_block.tolist()] = 0
                 #bn_layer.bias.data[idx_block.tolist()] = 0
