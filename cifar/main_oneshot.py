@@ -103,10 +103,8 @@ parser.add_argument('--width-multiplier', default=1.0, type=float,
                          "Unavailable for other networks. (default 1.0)")
 parser.add_argument('--debug', action='store_true',
                     help='Debug mode.')
-parser.add_argument('--weight_sparsity', type=float, default=0.0001,
+parser.add_argument('--weight_sparsity', type=float, default=5e-5,
                     help='weight sparsity (default: 0.0001)')
-parser.add_argument('--bias_sparsity', type=float, default=0.0001,
-                    help='bias sparsity (default: 0.0001)')
 parser.add_argument('--bin_mode', default=2, type=int, 
                     help='Setup location of bins.')
 parser.add_argument('-e', '--evaluate', dest='evaluate', action='store_true',
@@ -577,8 +575,6 @@ def log_quantization(model):
             ch_len = len(bn_module.weight.data)
             # modify weights
             bn_module.weight.data = redistribute(bn_module.weight.data, assigned_binindices[ch_start:ch_start+ch_len])
-            # modify biases
-            #bn_module.bias.data.add_(args.bias_sparsity * torch.sign(bn_module.bias.data))
             ch_start += ch_len
         
     
