@@ -235,16 +235,14 @@ def prune_conv_layer(conv_layer: Union[nn.Conv2d, nn.Linear],
             if prune_on == 'factor':
                 # the sparse_layer.weight need to be flatten, because the weight of SparseGate is not 1d
                 sparse_weight: np.ndarray = sparse_layer.weight.view(-1).data.cpu().numpy()
-                print(sparse_layer)
                 print(sparse_weight)
                 if prune_mode == 'multiply':
                     bn_weight = bn_layer.weight.data.cpu().numpy()
-                    print(bn_weight)
                     sparse_weight = sparse_weight * bn_weight  # element-wise multiplication
                     pass
                 elif prune_mode != 'default':
                     raise ValueError(f"Do not support prune_mode {prune_mode}")
-                print(prune_mode)
+
                 # prune according the bn layer
                 output_threshold = pruner(sparse_weight)
                 out_channel_mask: np.ndarray = sparse_weight > output_threshold
@@ -304,6 +302,7 @@ def prune_conv_layer(conv_layer: Union[nn.Conv2d, nn.Linear],
         # prune the bn layer
         if bn_layer is not None:
             if fake_prune:
+                print(bn_layer.weight.data)
                 x = bn_layer.weight.data[idx_block.tolist()]
                 print(x.mean(),x.max(),x.min(),output_threshold)
                 bn_layer.weight.data[idx_block.tolist()] = 0
