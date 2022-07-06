@@ -244,7 +244,7 @@ def prune_conv_layer(conv_layer: Union[nn.Conv2d, nn.Linear],
                     pass
                 elif prune_mode != 'default':
                     raise ValueError(f"Do not support prune_mode {prune_mode}")
-
+                print(prune_mode)
                 # prune according the bn layer
                 output_threshold = pruner(sparse_weight)
                 out_channel_mask: np.ndarray = sparse_weight > output_threshold
