@@ -96,7 +96,6 @@ def prune_resnet(num_classes: int, sparse_model: torch.nn.Module, pruning_strate
         sparse_weight_concat = np.sort(sparse_weight_concat)
         thre_index = int(len(sparse_weight_concat) * l1_norm_ratio)
         threshold = sparse_weight_concat[thre_index]
-        print(l1_norm_ratio,threshold)
         pruner = lambda weight: threshold
         prune_on = 'factor'
     else:
