@@ -103,8 +103,10 @@ parser.add_argument('--width-multiplier', default=1.0, type=float,
                          "Unavailable for other networks. (default 1.0)")
 parser.add_argument('--debug', action='store_true',
                     help='Debug mode.')
-parser.add_argument('--q_factor', type=float, default=0.0001,
-                    help='decay factor (default: 0.001)')
+parser.add_argument('--weight_sparsity', type=float, default=0.0001,
+                    help='weight sparsity (default: 0.0001)')
+parser.add_argument('--bias_sparsity', type=float, default=0.0001,
+                    help='bias sparsity (default: 0.0001)')
 parser.add_argument('--bin_mode', default=2, type=int, 
                     help='Setup location of bins.')
 parser.add_argument('-e', '--evaluate', dest='evaluate', action='store_true',
@@ -500,7 +502,7 @@ def log_quantization(model):
     # trade-off of original distribution and new distribution
     # big: easy to get new distribution, but may degrade performance
     # small: maintain good performance but may not affect distribution much
-    decay_factor = args.q_factor # lower this to improve perf
+    # lower this to improve perf
     # how small/low rank bins get more advantage
     amp_factors = torch.tensor([2**(num_bins-1-x) for x in range(num_bins)]).cuda()
     args.ista_err_bins = [0 for _ in range(num_bins)]
@@ -536,7 +538,7 @@ def log_quantization(model):
         # pull force relates to distance and target bin (how off-distribution is it?)
         # low rank bin gets higher pull force
         distance = torch.log10(tar_bins/torch.abs(x))
-        multiplier = 10**(distance*decay_factor*amp)
+        multiplier = 10**(distance*args.weight_sparsity*amp)
         x[abs_err>bin_width] *= multiplier[abs_err>bin_width]
         return x
         
@@ -570,7 +572,10 @@ def log_quantization(model):
     for bn_module in bn_modules:
         with torch.no_grad():
             ch_len = len(bn_module.weight.data)
+            # modify weights
             bn_module.weight.data = redistribute(bn_module.weight.data, assigned_binindices[ch_start:ch_start+ch_len])
+            # modify biases
+            bn_module.bias.data.add_(args.bias_sparsity * torch.sign(bn_module.bias.data))
             ch_start += ch_len
         
     

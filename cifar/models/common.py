@@ -180,7 +180,7 @@ def prune_conv_layer(conv_layer: Union[nn.Conv2d, nn.Linear],
         Note: `in_channel_mask` is CONFLICT with `sparse_layer_in`!
     :return out_channel_mask
     """
-    fake_prune = True
+    fake_prune = False
     assert isinstance(conv_layer, nn.Conv2d) or isinstance(conv_layer, nn.Linear), f"conv_layer got {conv_layer}"
 
     assert isinstance(sparse_layer, nn.BatchNorm2d) or \
@@ -302,7 +302,7 @@ def prune_conv_layer(conv_layer: Union[nn.Conv2d, nn.Linear],
         if bn_layer is not None:
             if fake_prune:
                 bn_layer.weight.data[idx_block.tolist()] = 0
-                #bn_layer.bias.data[idx_block.tolist()] = 0
+                bn_layer.bias.data[idx_block.tolist()] = 0
             else:
                 bn_layer.weight.data = bn_layer.weight.data[idx_out.tolist()].clone()
                 bn_layer.bias.data = bn_layer.bias.data[idx_out.tolist()].clone()
