@@ -547,6 +547,7 @@ def log_quantization(model):
         abs_err[torch.logical_and(bin_indices == 0, torch.abs(x)<=args.bins[0])] = 0
         print(abs_err)
         x[abs_err>bin_width] *= multiplier[abs_err>bin_width]
+        exit(0)
         return x
         
     bn_modules = model.get_sparse_layers()
@@ -560,12 +561,14 @@ def log_quantization(model):
     # total channels
     total_channels = len(all_scale_factors)
     ch_per_bin = total_channels//num_bins
+    _,bin_indices = torch.tensor(args.ista_cnt_bins).sort(descending=True)
     remain = torch.ones(total_channels).long().cuda()
     assigned_binindices = torch.zeros(total_channels).long().cuda()
     assigned_binindices[:] = -1
     print(args.ista_cnt_bins)
+    print(bin_indices)
     
-    for bin_idx in range(num_bins-1):
+    for bin_idx in bin_indices[:-1]:
         dist = torch.abs(torch.log10(args.bins[bin_idx]/all_scale_factors)) 
         not_assigned = remain.nonzero()
         # remaining channels importance
@@ -579,17 +582,17 @@ def log_quantization(model):
         print(all_scale_factors.tolist()[:20])
         print(dist.tolist()[:20])
         print(assigned_binindices.tolist()[:20])
-    assigned_binindices[remain.nonzero()] = num_bins-1
+    assigned_binindices[remain.nonzero()] = bin_indices[-1]
     print(assigned_binindices.tolist()[:20])
         
     ch_start = 0
     for bn_module in bn_modules:
         with torch.no_grad():
             ch_len = len(bn_module.weight.data)
+            print(ch_len)
             # modify weights
             bn_module.weight.data = redistribute(bn_module.weight.data, assigned_binindices[ch_start:ch_start+ch_len])
             ch_start += ch_len
-            if ch_start > 16:exit(0)
         
     
     
