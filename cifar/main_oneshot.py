@@ -566,7 +566,7 @@ def log_quantization(model):
     assigned_binindices[:] = -1
     print(args.ista_cnt_bins)
     
-    for bin_idx in range(num_bins):
+    for bin_idx in range(num_bins-1):
         dist = torch.abs(torch.log10(args.bins[bin_idx]/all_scale_factors)) 
         not_assigned = remain.nonzero()
         # remaining channels importance
