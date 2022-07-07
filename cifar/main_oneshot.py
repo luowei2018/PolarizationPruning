@@ -103,7 +103,7 @@ parser.add_argument('--width-multiplier', default=1.0, type=float,
                          "Unavailable for other networks. (default 1.0)")
 parser.add_argument('--debug', action='store_true',
                     help='Debug mode.')
-parser.add_argument('--sparsity_coef', type=float, default=1e-4,
+parser.add_argument('--sparsity_coef', type=float, default=5e-5,
                     help='weight sparsity (default: 0.0001)')
 parser.add_argument('--bin_mode', default=2, type=int, 
                     help='Setup location of bins.')
@@ -312,7 +312,7 @@ for param_name, model_p in model.named_parameters():
         wd_params.append(model_p)
         #print(f"Weight decay param: parameter name {param_name}")
 
-optimizer = torch.optim.SGD([{'params': list(no_wd_params), 'weight_decay': args.weight_decay*500},
+optimizer = torch.optim.SGD([{'params': list(no_wd_params), 'weight_decay': args.weight_decay*200},
                              {'params': list(wd_params), 'weight_decay': args.weight_decay}],
                             args.lr,
                             momentum=args.momentum)
