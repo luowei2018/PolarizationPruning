@@ -539,7 +539,6 @@ def log_quantization(model):
         # low rank bin gets higher pull force
         distance = torch.log10(tar_bins/torch.abs(x)) # maybe use a clamp to increase speed?
         multiplier = 10**(distance*args.sparsity_coef*amp)
-        print(torch.logical_and(bin_indices == num_bins-1, torch.abs(x)>=args.bins[-1]).sum()+torch.logical_and(bin_indices == 0, torch.abs(x)<=args.bins[0]).sum())
         abs_err[torch.logical_and(bin_indices == num_bins-1, torch.abs(x)>=args.bins[-1])] = 0
         abs_err[torch.logical_and(bin_indices == 0, torch.abs(x)<=args.bins[0])] = 0
         x[abs_err>bin_width] *= multiplier[abs_err>bin_width]
@@ -572,24 +571,16 @@ def log_quantization(model):
         selected = not_assigned[selected_in_remain]
         remain[selected] = 0
         assigned_binindices[selected] = bin_idx
-        print(bin_idx)
-        print(all_scale_factors.tolist()[:20])
-        print(dist.tolist()[:20])
-        print(assigned_binindices.tolist()[:20])
     assigned_binindices[remain.nonzero()] = bin_indices[-1]
-    print(assigned_binindices.tolist()[:20])
         
     ch_start = 0
     for bn_module in bn_modules:
         with torch.no_grad():
             ch_len = len(bn_module.weight.data)
-            print(ch_len)
             # modify weights
             bn_module.weight.data = redistribute(bn_module.weight.data, assigned_binindices[ch_start:ch_start+ch_len])
             ch_start += ch_len
-    exit(0)
         
-    
     
 def factor_visualization(iter, model, prec):
     scale_factors = torch.tensor([]).cuda()
