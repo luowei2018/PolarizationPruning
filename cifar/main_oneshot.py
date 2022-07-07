@@ -540,6 +540,7 @@ def log_quantization(model):
         distance = torch.log10(tar_bins/torch.abs(x)) # maybe use a clamp to increase speed?
         multiplier = 10**(distance*args.sparsity_coef*amp)
         print(x)
+        print(bin_indices)
         print(abs_err)
         abs_err[torch.logical_and(bin_indices == num_bins-1, torch.abs(x)>=args.bins[-1])] = 0
         print(abs_err)
