@@ -539,10 +539,16 @@ def log_quantization(model):
         # low rank bin gets higher pull force
         distance = torch.log10(tar_bins/torch.abs(x)) # maybe use a clamp to increase speed?
         multiplier = 10**(distance*args.sparsity_coef*amp)
+        print(x)
+        print(bin_indices)
+        print(abs_err)
         print(torch.logical_and(bin_indices == num_bins-1, torch.abs(x)>=args.bins[-1]).sum(),torch.logical_and(bin_indices == 0, torch.abs(x)<=args.bins[0]).sum())
         abs_err[torch.logical_and(bin_indices == num_bins-1, torch.abs(x)>=args.bins[-1])] = 0
+        print(abs_err)
         abs_err[torch.logical_and(bin_indices == 0, torch.abs(x)<=args.bins[0])] = 0
+        print(abs_err)
         x[abs_err>bin_width] *= multiplier[abs_err>bin_width]
+        exit(0)
         return x
         
     bn_modules = model.get_sparse_layers()
@@ -587,7 +593,6 @@ def log_quantization(model):
             # modify weights
             bn_module.weight.data = redistribute(bn_module.weight.data, assigned_binindices[ch_start:ch_start+ch_len])
             ch_start += ch_len
-    exit(0)
         
     
     
