@@ -572,7 +572,12 @@ def log_quantization(model):
         selected = not_assigned[selected_in_remain]
         remain[selected] = 0
         assigned_binindices[selected] = bin_idx
+        print(bin_idx)
+        print(all_scale_factors.tolist()[:20])
+        print(dist.tolist()[:20])
+        print(assigned_binindices.tolist()[:20])
     assigned_binindices[remain.nonzero()] = bin_indices[-1]
+    print(assigned_binindices.tolist()[:20])
         
     ch_start = 0
     for bn_module in bn_modules:
