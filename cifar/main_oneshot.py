@@ -556,7 +556,8 @@ def log_quantization(model):
     # total channels
     total_channels = len(all_scale_factors)
     ch_per_bin = total_channels//num_bins
-    _,bin_indices = torch.tensor(args.ista_cnt_bins).sort(descending=True)
+    #_,bin_indices = torch.tensor(args.ista_cnt_bins).sort(descending=True)
+    bin_indices = [3,2,1,0]
     remain = torch.ones(total_channels).long().cuda()
     assigned_binindices = torch.zeros(total_channels).long().cuda()
     assigned_binindices[:] = -1
