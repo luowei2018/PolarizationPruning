@@ -539,16 +539,10 @@ def log_quantization(model):
         # low rank bin gets higher pull force
         distance = torch.log10(tar_bins/torch.abs(x)) # maybe use a clamp to increase speed?
         multiplier = 10**(distance*args.sparsity_coef*amp)
-        print(x)
-        print(bin_indices)
-        print(abs_err)
         print(torch.logical_and(bin_indices == num_bins-1, torch.abs(x)>=args.bins[-1]).sum(),torch.logical_and(bin_indices == 0, torch.abs(x)<=args.bins[0]).sum())
         abs_err[torch.logical_and(bin_indices == num_bins-1, torch.abs(x)>=args.bins[-1])] = 0
-        print(abs_err)
         abs_err[torch.logical_and(bin_indices == 0, torch.abs(x)<=args.bins[0])] = 0
-        print(abs_err)
         x[abs_err>bin_width] *= multiplier[abs_err>bin_width]
-        exit(0)
         return x
         
     bn_modules = model.get_sparse_layers()
@@ -562,8 +556,8 @@ def log_quantization(model):
     # total channels
     total_channels = len(all_scale_factors)
     ch_per_bin = total_channels//num_bins
-    #_,bin_indices = torch.tensor(args.ista_cnt_bins).sort(descending=True)
-    bin_indices = [3,2,1,0]
+    _,bin_indices = torch.tensor(args.ista_cnt_bins).sort(descending=True)
+    #bin_indices = [3,2,1,0]
     remain = torch.ones(total_channels).long().cuda()
     assigned_binindices = torch.zeros(total_channels).long().cuda()
     assigned_binindices[:] = -1
@@ -593,6 +587,7 @@ def log_quantization(model):
             # modify weights
             bn_module.weight.data = redistribute(bn_module.weight.data, assigned_binindices[ch_start:ch_start+ch_len])
             ch_start += ch_len
+    exit(0)
         
     
     
