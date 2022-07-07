@@ -567,7 +567,7 @@ def log_quantization(model):
         selected = ch_indices[ch_start:ch_per_bin]
         ch_start += ch_per_bin
         assigned_binindices[selected] = bin_idx
-    assigned_binindices[ch_indices[ch_start:]] = bin_idx[-1]
+    assigned_binindices[ch_indices[ch_start:]] = bin_indices[-1]
     print(assigned_binindices.tolist())
     exit(0)
     
