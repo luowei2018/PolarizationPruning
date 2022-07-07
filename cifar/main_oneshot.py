@@ -539,8 +539,8 @@ def log_quantization(model):
         # low rank bin gets higher pull force
         distance = torch.log10(tar_bins/torch.abs(x))
         multiplier = 10**(distance*args.sparsity_coef*amp)
-        abs_err[x>=args.bins[-1]] = 0
-        abs_err[x<=args.bins[0]] = 0
+        #abs_err[x>=args.bins[-1]] = 0
+        #abs_err[x<=args.bins[0]] = 0
         x[abs_err>bin_width] *= multiplier[abs_err>bin_width]
         return x
         
