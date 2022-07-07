@@ -577,7 +577,8 @@ def log_quantization(model):
         remain[selected] = 0
         assigned_binindices[selected] = bin_idx
         print(bin_idx)
-        print(dist)
+        print(all_scale_factors.tolist())
+        print(dist.tolist())
         print(assigned_binindices.tolist())
     assigned_binindices[remain.nonzero()] = bin_indices[-1]
     print(assigned_binindices.tolist())
