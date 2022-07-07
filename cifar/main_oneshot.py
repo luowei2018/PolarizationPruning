@@ -103,7 +103,7 @@ parser.add_argument('--width-multiplier', default=1.0, type=float,
                          "Unavailable for other networks. (default 1.0)")
 parser.add_argument('--debug', action='store_true',
                     help='Debug mode.')
-parser.add_argument('--sparsity_coef', type=float, default=1e-4,
+parser.add_argument('--sparsity_coef', type=float, default=5e-5,
                     help='weight sparsity (default: 0.0001)')
 parser.add_argument('--bin_mode', default=2, type=int, 
                     help='Setup location of bins.')
@@ -539,8 +539,8 @@ def log_quantization(model):
         # low rank bin gets higher pull force
         distance = torch.log10(tar_bins/torch.abs(x)) # maybe use a clamp to increase speed?
         multiplier = 10**(distance*args.sparsity_coef*amp)
-        abs_err[torch.logical_and(bin_indices == num_bins-1, torch.abs(x)>=args.bins[-1])] = 0
-        abs_err[torch.logical_and(bin_indices == 0, torch.abs(x)<=args.bins[0])] = 0
+        #abs_err[torch.logical_and(bin_indices == num_bins-1, torch.abs(x)>=args.bins[-1])] = 0
+        #abs_err[torch.logical_and(bin_indices == 0, torch.abs(x)<=args.bins[0])] = 0
         x[abs_err>bin_width] *= multiplier[abs_err>bin_width]
         return x
         
