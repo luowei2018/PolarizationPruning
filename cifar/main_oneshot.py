@@ -574,25 +574,6 @@ def log_quantization(model):
             ch_len = len(bn_module.weight.data)
             bn_module.weight.data = redistribute(bn_module.weight.data, assigned_binindices[ch_start:ch_start+ch_len])
             ch_start += ch_len
-        
-    
-    
-def factor_visualization(iter, model, prec):
-    scale_factors = torch.tensor([]).cuda()
-    bn_modules = model.get_sparse_layers()
-    for bn_module in bn_modules:
-        scale_factors = torch.cat((scale_factors,torch.abs(bn_module.weight.data.view(-1))))
-    # plot figure
-    save_dir = args.save + 'factor/'
-    if not os.path.exists(save_dir):
-        os.makedirs(save_dir)
-    fig, axs = plt.subplots(ncols=2, figsize=(10,4))
-    # plots
-    sns.histplot(scale_factors.detach().cpu().numpy(), ax=axs[0])
-    scale_factors = torch.clamp(scale_factors,min=1e-10)
-    sns.histplot(torch.log10(scale_factors).detach().cpu().numpy(), ax=axs[1])
-    fig.savefig(save_dir + f'{iter:03d}_{prec:.3f}.png')
-    plt.close('all')
     
  def factor_visualization(iter, model, prec):
     scale_factors = torch.tensor([]).cuda()
@@ -610,7 +591,7 @@ def factor_visualization(iter, model, prec):
     sns.histplot(scale_factors.detach().cpu().numpy(), ax=axs[0])
     scale_factors = torch.clamp(scale_factors,min=1e-10)
     sns.histplot(torch.log10(scale_factors).detach().cpu().numpy(), ax=axs[1])
-    
+
     sns.histplot(biases.detach().cpu().numpy(), ax=axs[2])
     biases = torch.clamp(biases,min=1e-10)
     sns.histplot(torch.log10(biases).detach().cpu().numpy(), ax=axs[3])
