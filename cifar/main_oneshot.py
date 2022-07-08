@@ -482,7 +482,7 @@ def bn_sparsity(model, loss_type, sparsity, t, alpha,
         
 def log_quantization(model):
     #############SETUP###############
-    args.ista_err = torch.tensor([0.0]).cuda(0)
+    args.weight_err = torch.tensor([0.0]).cuda(0)
     args.bias_err = torch.tensor([0.0]).cuda(0)
     # locations of bins should fit original dist
     # start can be tuned to find a best one
@@ -520,7 +520,7 @@ def log_quantization(model):
         all_err = torch.log10(args.bins[min_idx]/torch.abs(x))
         abs_err = torch.abs(all_err)
         # calculate total error
-        args.ista_err += abs_err.sum()
+        args.weight_err += abs_err.sum()
         # calculating err for each bin
         for i in range(num_bins):
             if torch.sum(min_idx==i)>0:
