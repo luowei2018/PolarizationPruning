@@ -103,8 +103,8 @@ parser.add_argument('--width-multiplier', default=1.0, type=float,
                          "Unavailable for other networks. (default 1.0)")
 parser.add_argument('--debug', action='store_true',
                     help='Debug mode.')
-parser.add_argument('--sparsity_coef', type=float, default=1e-4,
-                    help='weight sparsity (default: 0.0001)')
+parser.add_argument('--q_factor', type=float, default=0.0001,
+                    help='decay factor (default: 0.001)')
 parser.add_argument('--bin_mode', default=2, type=int, 
                     help='Setup location of bins.')
 parser.add_argument('-e', '--evaluate', dest='evaluate', action='store_true',
@@ -301,18 +301,17 @@ for module_name, sub_module in model.named_modules():
     for t in no_wd_type:
         if isinstance(sub_module, t):
             for param_name, param in sub_module.named_parameters():
-                if 'bias' in param_name:
-                    no_wd_params.append(param)
-                    #print(f"No weight decay param: module {module_name} param {param_name}")
+                no_wd_params.append(param)
+                print(f"No weight decay param: module {module_name} param {param_name}")
 
 no_wd_params_set = set(no_wd_params)  # apply weight decay on the rest of parameters
 wd_params = []
 for param_name, model_p in model.named_parameters():
     if model_p not in no_wd_params_set:
         wd_params.append(model_p)
-        #print(f"Weight decay param: parameter name {param_name}")
+        print(f"Weight decay param: parameter name {param_name}")
 
-optimizer = torch.optim.SGD([{'params': list(no_wd_params), 'weight_decay': args.weight_decay*1000},
+optimizer = torch.optim.SGD([{'params': list(no_wd_params), 'weight_decay': 0.},
                              {'params': list(wd_params), 'weight_decay': args.weight_decay}],
                             args.lr,
                             momentum=args.momentum)
@@ -346,7 +345,7 @@ if args.resume:
         args.start_epoch = checkpoint['epoch']
         best_prec1 = checkpoint['best_prec1']
         model.load_state_dict(checkpoint['state_dict'])
-        #optimizer.load_state_dict(checkpoint['optimizer'])
+        optimizer.load_state_dict(checkpoint['optimizer'])
 
         print("=> loaded checkpoint '{}' (epoch {}) Prec1: {:f}"
               .format(args.resume, checkpoint['epoch'], best_prec1))
@@ -483,7 +482,7 @@ def bn_sparsity(model, loss_type, sparsity, t, alpha,
         
 def log_quantization(model):
     #############SETUP###############
-    args.weight_err = torch.tensor([0.0]).cuda(0)
+    args.ista_err = torch.tensor([0.0]).cuda(0)
     args.bias_err = torch.tensor([0.0]).cuda(0)
     # locations of bins should fit original dist
     # start can be tuned to find a best one
@@ -502,7 +501,7 @@ def log_quantization(model):
     # trade-off of original distribution and new distribution
     # big: easy to get new distribution, but may degrade performance
     # small: maintain good performance but may not affect distribution much
-    # lower this to improve perf
+    decay_factor = args.q_factor # lower this to improve perf
     # how small/low rank bins get more advantage
     amp_factors = torch.tensor([2**(num_bins-1-x) for x in range(num_bins)]).cuda()
     args.ista_err_bins = [0 for _ in range(num_bins)]
@@ -515,13 +514,13 @@ def log_quantization(model):
         _,min_idx = dist.min(dim=-1)
         return min_idx
         
-    def calc_weight_error(x):
+    def get_bin_distribution(x):
         x = torch.clamp(torch.abs(x), min=1e-8) * torch.sign(x)
         min_idx = get_min_idx(x)
         all_err = torch.log10(args.bins[min_idx]/torch.abs(x))
         abs_err = torch.abs(all_err)
         # calculate total error
-        args.weight_err += abs_err.sum()
+        args.ista_err += abs_err.sum()
         # calculating err for each bin
         for i in range(num_bins):
             if torch.sum(min_idx==i)>0:
@@ -537,8 +536,8 @@ def log_quantization(model):
         # more distant larger multiplier
         # pull force relates to distance and target bin (how off-distribution is it?)
         # low rank bin gets higher pull force
-        distance = torch.log10(tar_bins/torch.abs(x)) # maybe use a clamp to increase speed?
-        multiplier = 10**(distance*args.sparsity_coef*amp)
+        distance = torch.log10(tar_bins/torch.abs(x))
+        multiplier = 10**(distance*decay_factor*amp)
         x[abs_err>bin_width] *= multiplier[abs_err>bin_width]
         return x
         
@@ -547,13 +546,13 @@ def log_quantization(model):
     all_scale_factors = torch.tensor([]).cuda()
     for bn_module in bn_modules:
         with torch.no_grad():
-            calc_weight_error(bn_module.weight.data)
+            get_bin_distribution(bn_module.weight.data)
             args.bias_err += torch.abs(bn_module.bias.data).sum()
         all_scale_factors = torch.cat((all_scale_factors,torch.abs(bn_module.weight.data)))
     # total channels
     total_channels = len(all_scale_factors)
     ch_per_bin = total_channels//num_bins
-    _,bin_indices = torch.tensor(args.ista_cnt_bins).sort(descending=True)
+    _,bin_indices = torch.tensor(args.ista_cnt_bins).sort()
     remain = torch.ones(total_channels).long().cuda()
     assigned_binindices = torch.zeros(total_channels).long().cuda()
     
@@ -568,17 +567,34 @@ def log_quantization(model):
         remain[selected] = 0
         assigned_binindices[selected] = bin_idx
     assigned_binindices[remain.nonzero()] = bin_indices[-1]
-    
+        
     ch_start = 0
     for bn_module in bn_modules:
         with torch.no_grad():
             ch_len = len(bn_module.weight.data)
-            # modify weights
             bn_module.weight.data = redistribute(bn_module.weight.data, assigned_binindices[ch_start:ch_start+ch_len])
             ch_start += ch_len
         
     
+    
 def factor_visualization(iter, model, prec):
+    scale_factors = torch.tensor([]).cuda()
+    bn_modules = model.get_sparse_layers()
+    for bn_module in bn_modules:
+        scale_factors = torch.cat((scale_factors,torch.abs(bn_module.weight.data.view(-1))))
+    # plot figure
+    save_dir = args.save + 'factor/'
+    if not os.path.exists(save_dir):
+        os.makedirs(save_dir)
+    fig, axs = plt.subplots(ncols=2, figsize=(10,4))
+    # plots
+    sns.histplot(scale_factors.detach().cpu().numpy(), ax=axs[0])
+    scale_factors = torch.clamp(scale_factors,min=1e-10)
+    sns.histplot(torch.log10(scale_factors).detach().cpu().numpy(), ax=axs[1])
+    fig.savefig(save_dir + f'{iter:03d}_{prec:.3f}.png')
+    plt.close('all')
+    
+ def factor_visualization(iter, model, prec):
     scale_factors = torch.tensor([]).cuda()
     biases = torch.tensor([]).cuda()
     bn_modules = model.get_sparse_layers()
@@ -603,11 +619,7 @@ def factor_visualization(iter, model, prec):
         
 
 def prune_while_training(model: nn.Module, arch: str, prune_mode: str, num_classes: int):
-    #target_ratios = [0.1 + 0.1*x for x in range(9)]
-    if args.bin_mode == 2:
-        target_ratios = [.25,.5,.75]
-    else:
-        target_ratios = [1./6 + 1./6*x for x in range(5)]
+    target_ratios = [.25,.5,.75]#[0.1 + 0.1*x for x in range(9)]
     saved_flops = []
     saved_prec1s = []
     if arch == "resnet56":
