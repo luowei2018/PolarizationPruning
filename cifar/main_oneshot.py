@@ -103,7 +103,7 @@ parser.add_argument('--width-multiplier', default=1.0, type=float,
                          "Unavailable for other networks. (default 1.0)")
 parser.add_argument('--debug', action='store_true',
                     help='Debug mode.')
-parser.add_argument('--q_factor', type=float, default=0.0001,
+parser.add_argument('--q_factor', type=float, default=0.00005,
                     help='decay factor (default: 0.001)')
 parser.add_argument('--bin_mode', default=2, type=int, 
                     help='Setup location of bins.')
@@ -758,7 +758,7 @@ if args.evaluate:
                        num_classes=num_classes)
     exit(0)
 
-for epoch in range(args.start_epoch, args.epochs):
+for epoch in range(120, args.epochs):
     if args.max_epoch is not None and epoch >= args.max_epoch:
         break
 
