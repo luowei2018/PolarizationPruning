@@ -575,7 +575,7 @@ def log_quantization(model):
             bn_module.weight.data = redistribute(bn_module.weight.data, assigned_binindices[ch_start:ch_start+ch_len])
             ch_start += ch_len
     
- def factor_visualization(iter, model, prec):
+def factor_visualization(iter, model, prec):
     scale_factors = torch.tensor([]).cuda()
     biases = torch.tensor([]).cuda()
     bn_modules = model.get_sparse_layers()
