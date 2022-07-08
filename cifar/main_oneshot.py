@@ -505,7 +505,7 @@ def log_quantization(model):
     decay_factor = args.q_factor # lower this to improve perf
     # how small/low rank bins get more advantage
     #amp_factors = torch.tensor([2**(num_bins-1-x) for x in range(num_bins)]).cuda()
-    amp_factors = torch.tensor([8,6,3,1]).cuda()
+    amp_factors = torch.tensor([8,8,4,1]).cuda()
     args.ista_err_bins = [0 for _ in range(num_bins)]
     args.ista_cnt_bins = [0 for _ in range(num_bins)]
     
@@ -792,7 +792,7 @@ for epoch in range(args.start_epoch, args.epochs):
     save_checkpoint({
         'epoch': epoch + 1,
         'state_dict': model.state_dict(),
-        'best_prec1': best_prec1,
+        'best_prec1': prec1,
         'optimizer': optimizer.state_dict(),
     }, is_best, filepath=args.save,
         backup_path=args.backup_path,
