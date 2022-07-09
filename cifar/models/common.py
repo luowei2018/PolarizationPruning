@@ -311,8 +311,6 @@ def prune_conv_layer(conv_layer: Union[nn.Conv2d, nn.Linear],
 
                 # set bn properties
                 bn_layer.num_features = len(idx_out)
-                print(bn_layer.weight.data)
-                print(bn_layer.weight.data.mean(),bn_layer.weight.data.std())
 
         # prune the gate
         if isinstance(sparse_layer, SparseGate):
