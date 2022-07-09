@@ -103,7 +103,7 @@ parser.add_argument('--width-multiplier', default=1.0, type=float,
                          "Unavailable for other networks. (default 1.0)")
 parser.add_argument('--debug', action='store_true',
                     help='Debug mode.')
-parser.add_argument('--q_factor', type=float, default=0.00005,
+parser.add_argument('--q_factor', type=float, default=0.0001,
                     help='decay factor (default: 0.001)')
 parser.add_argument('--bin_mode', default=2, type=int, 
                     help='Setup location of bins.')
@@ -504,8 +504,8 @@ def log_quantization(model):
     # small: maintain good performance but may not affect distribution much
     decay_factor = args.q_factor # lower this to improve perf
     # how small/low rank bins get more advantage
-    #amp_factors = torch.tensor([2**(num_bins-1-x) for x in range(num_bins)]).cuda()
-    amp_factors = torch.tensor([16,16,2,1]).cuda()
+    amp_factors = torch.tensor([2**(num_bins-1-x) for x in range(num_bins)]).cuda()
+    #amp_factors = torch.tensor([16,16,2,1]).cuda()
     args.ista_err_bins = [0 for _ in range(num_bins)]
     args.ista_cnt_bins = [0 for _ in range(num_bins)]
     
