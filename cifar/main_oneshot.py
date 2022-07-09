@@ -542,6 +542,7 @@ def log_quantization(model):
         distance = torch.log10(tar_bins/torch.abs(x))
         multiplier = 10**(distance*decay_factor*amp)
         x[abs_err>bin_width] *= multiplier[abs_err>bin_width]
+        # set small weights to 0?
         return x
         
     bn_modules = model.get_sparse_layers()
@@ -761,7 +762,7 @@ if args.evaluate:
                        num_classes=num_classes)
     exit(0)
 
-for epoch in range(args.start_epoch, args.epochs):
+for epoch in range(120, args.epochs):
     if args.max_epoch is not None and epoch >= args.max_epoch:
         break
 
