@@ -505,7 +505,7 @@ def log_quantization(model):
     decay_factor = args.q_factor # lower this to improve perf
     # how small/low rank bins get more advantage
     #amp_factors = torch.tensor([2**(num_bins-1-x) for x in range(num_bins)]).cuda()
-    amp_factors = torch.tensor([16,32,2,1]).cuda()
+    amp_factors = torch.tensor([32,32,2,1]).cuda()
     args.ista_err_bins = [0 for _ in range(num_bins)]
     args.ista_cnt_bins = [0 for _ in range(num_bins)]
     
