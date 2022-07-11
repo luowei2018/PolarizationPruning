@@ -1018,6 +1018,7 @@ def check_no_nan(x):
     
 def check_model_np_nan(model,msg):
     for name, m in model.module.named_modules():
+        if not (isinstance(m, nn.BatchNorm2d) or isinstance(m, nn.BatchNorm1d) or isinstance(m, nn.Conv2d)):continue
         assert torch.isnan(m.weight.grad.data).any() == 0, msg+name+'_weight'
         assert torch.isnan(m.weight.data).any() == 0, msg+name+'_weight'
         if hasattr(m, 'bias'):
