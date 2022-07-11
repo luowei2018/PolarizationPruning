@@ -1088,11 +1088,10 @@ def log_quantization(model, args):
     
     all_scale_factors = torch.tensor([]).cuda()
     for bn_module in bn_modules:
-        check_no_nan(bn_module.weight.data)
-        check_no_nan(bn_module.bias.data)
         with torch.no_grad():
             get_bin_distribution(bn_module.weight.data)
-            args.bias_err += torch.abs(bn_module.bias.data).sum()
+            args.bias_err += torch.abs(bn_module.bias.data).sum()for bn_module in bn_modules:
+        check_no_nan(bn_module.weight.data)
         all_scale_factors = torch.cat((all_scale_factors,torch.abs(bn_module.weight.data)))
     # total channels
     total_channels = len(all_scale_factors)
@@ -1389,7 +1388,6 @@ def train(train_loader, model, criterion, optimizer, epoch, sparsity, args, is_d
         # BN_grad_zero(model)
         if args.loss in {LossType.LOG_QUANTIZATION}:
             log_quantization(model, args)
-        check_model_np_nan(model,'2')
         optimizer.step()
         check_model_np_nan(model,'3')
         if args.loss in {LossType.POLARIZATION,
