@@ -1017,7 +1017,7 @@ def check_no_nan(x):
     assert torch.isnan(x).any() == 0, x
     
 def check_model_np_nan(model,msg):
-    for name, m in model.named_modules():
+    for name, m in model.module.named_modules():
         assert torch.isnan(m.weight.grad.data).any() == 0, msg+name+'_weight'
         assert torch.isnan(m.weight.data).any() == 0, msg+name+'_weight'
         if hasattr(m, 'bias'):
@@ -1084,11 +1084,8 @@ def log_quantization(model, args):
         
     bn_modules = []
     for name, m in model.named_modules():
-        print('check',name)
         if isinstance(m, nn.BatchNorm2d) or isinstance(m, nn.BatchNorm1d):
             bn_modules.append(m)
-            print('bn')
-    exit(0)
     
     all_scale_factors = torch.tensor([]).cuda()
     for bn_module in bn_modules:
@@ -1382,7 +1379,7 @@ def train(train_loader, model, criterion, optimizer, epoch, sparsity, args, is_d
             loss += sparsity_loss
             avg_sparsity_loss.update(sparsity_loss.data.item(), image.size(0))
         
-        #check_model_np_nan(model,'1')
+        check_model_np_nan(model,'1')
         loss.backward()
         if args.loss == LossType.L1_SPARSITY_REGULARIZATION:
             updateBN(model, sparsity,
@@ -1393,9 +1390,9 @@ def train(train_loader, model, criterion, optimizer, epoch, sparsity, args, is_d
         # BN_grad_zero(model)
         if args.loss in {LossType.LOG_QUANTIZATION}:
             log_quantization(model, args)
-        #check_model_np_nan(model,'2')
+        check_model_np_nan(model,'2')
         optimizer.step()
-        #check_model_np_nan(model,'3')
+        check_model_np_nan(model,'3')
         if args.loss in {LossType.POLARIZATION,
                          LossType.POLARIZATION_GRAD,
                          LossType.L2_POLARIZATION} or \
