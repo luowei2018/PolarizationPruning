@@ -641,7 +641,10 @@ def main_worker(gpu, ngpus_per_node, args):
 
     print("rank #{}: dataloader loaded!".format(args.rank))
 
-    prune_while_training(model, args.arch, args.prune_mode, args.width_multiplier, val_loader, criterion, 0, args)
+    #prune_while_training(model, args.arch, args.prune_mode, args.width_multiplier, val_loader, criterion, 0, args)
+    cur_flops, baseline_flops = prune_while_training(model, args.arch, prune_mode=args.prune_mode,
+                                                         width_multiplier=args.width_multiplier)
+    print(cur_floops, baseline_flops)
     
     if args.evaluate:
         prec1 = validate(val_loader, model, criterion, epoch=0, args=args, writer=None)
@@ -1326,7 +1329,33 @@ def report_prune_result(model):
     print("****************************")
 
 
-def prune_while_training(model, arch, prune_mode, width_multiplier, val_loader, criterion, epoch, args):
+def prune_while_training(model: nn.Module, arch: int, prune_mode: str, width_multiplier=1.):
+    if isinstance(model, nn.DataParallel) or isinstance(model, nn.parallel.DistributedDataParallel):
+        model = model.module
+
+    if arch == "resnet50":
+        from resprune_expand_gate import prune_resnet
+        saved_model = prune_resnet(model, pruning_strategy='grad',
+                                   sanity_check=False, prune_mode=prune_mode)
+        baseline_model = resnet50(width_multiplier=1., gate=False, aux_fc=False)
+    elif arch == 'mobilenetv2':
+        from prune_mobilenetv2 import prune_mobilenet
+        saved_model, _, _ = prune_mobilenet(model, pruning_strategy='grad',
+                                            sanity_check=False, force_same=False,
+                                            width_multiplier=width_multiplier)
+        baseline_model = mobilenet_v2(inverted_residual_setting=None,
+                                      width_mult=1., use_gate=False)
+    else:
+        # not available
+        raise NotImplementedError(f"do not support arch {arch}")
+
+    saved_flops = compute_conv_flops(saved_model, cuda=True)
+    baseline_flops = compute_conv_flops(baseline_model, cuda=True)
+
+    return saved_flops, baseline_flops
+    
+
+def prune_while_training2(model, arch, prune_mode, width_multiplier, val_loader, criterion, epoch, args):
     if isinstance(model, nn.DataParallel) or isinstance(model, nn.parallel.DistributedDataParallel):
         model = model.module
 
