@@ -198,6 +198,8 @@ parser.add_argument('--pretrain', default=None, type=str, metavar='PATH',
                     help='Path to pretrain checkpoint (default: None)')
 parser.add_argument('--target-flops', type=float, default=None,
                     help='Stop when pruned model archive the target FLOPs')
+parser.add_argument('--q_factor', type=float, default=0.0001,
+                    help='decay factor (default: 0.001)')
 
 best_prec1 = 0
 
@@ -639,8 +641,11 @@ def main_worker(gpu, ngpus_per_node, args):
 
     print("rank #{}: dataloader loaded!".format(args.rank))
 
+    prune_while_training(model, args.arch, args.prune_mode, args.width_multiplier, val_loader, criterion, epoch, args)
+    
     if args.evaluate:
-        validate(val_loader, model, criterion, epoch=0, args=args, writer=None)
+        prec1 = validate(val_loader, model, criterion, epoch=0, args=args, writer=None)
+        factor_visualization(0, model, args, prec1)
         return
 
     # restore the learning rate
@@ -656,8 +661,6 @@ def main_worker(gpu, ngpus_per_node, args):
 
     if args.flops_weighted:
         writer.add_text("train/conv_flops_weight", flops_weight_string, global_step=0)
-        
-    #prune_while_training(model, args.arch, args.prune_mode, args.width_multiplier, val_loader, criterion, epoch, args)
 
     for epoch in range(args.start_epoch, args.epochs):
         if args.distributed:
@@ -792,7 +795,7 @@ def main_worker(gpu, ngpus_per_node, args):
         #report_prune_result(model)  # do not really prune the model
         
         # visualize scale factors
-        factor_visualization(epoch, model, args)
+        factor_visualization(epoch, model, args, prec1)
 
         writer.add_scalar("train/lr", optimizer.param_groups[0]['lr'], epoch)
 
@@ -820,7 +823,7 @@ def main_worker(gpu, ngpus_per_node, args):
                 'epoch': epoch + 1,
                 'arch': args.arch,
                 'state_dict': model.state_dict(),
-                'best_prec1': best_prec1,
+                'best_prec1': prec1,
                 'optimizer': optimizer.state_dict(),
             }, is_best, args.save,
                 save_backup=epoch % args.backup_freq == 0,
@@ -1178,7 +1181,7 @@ def log_quantization(model,args):
     
     #################START###############
     def get_bin_distribution(x):
-        x = torch.clamp(torch.abs(x), min=1e-6) * torch.sign(x)
+        x = torch.clamp(torch.abs(x), min=1e-8) * torch.sign(x)
         bins = torch.pow(10.,torch.tensor([bin_start+bin_stride*x for x in range(num_bins)])).to(x.device)
         dist = torch.abs(torch.log10(torch.abs(x).unsqueeze(-1)/bins))
         _,min_idx = dist.min(dim=-1)
@@ -1244,8 +1247,9 @@ def log_quantization(model,args):
         ch_start += ch_len
     
     
-def factor_visualization(iter, model, args):
+def factor_visualization(iter, model, args, prec):
     scale_factors = torch.tensor([]).cuda()
+    biases = torch.tensor([]).cuda()
     bn_modules = model.module.get_sparse_layer(gate=args.gate,
                                            sparse1=True,
                                            sparse2=True,
@@ -1257,12 +1261,16 @@ def factor_visualization(iter, model, args):
     save_dir = args.save + 'factor/'
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
-    fig, axs = plt.subplots(ncols=2, figsize=(10,4))
+    fig, axs = plt.subplots(ncols=4, figsize=(20,4))
     # plots
     sns.histplot(scale_factors.detach().cpu().numpy(), ax=axs[0])
     scale_factors = torch.clamp(scale_factors,min=1e-10)
     sns.histplot(torch.log10(scale_factors).detach().cpu().numpy(), ax=axs[1])
-    fig.savefig(save_dir + f'{iter:03d}.png')
+
+    sns.histplot(biases.detach().cpu().numpy(), ax=axs[2])
+    biases = torch.clamp(biases,min=1e-10)
+    sns.histplot(torch.log10(biases).detach().cpu().numpy(), ax=axs[3])
+    fig.savefig(save_dir + f'{iter:03d}_{prec:.3f}.png')
     plt.close('all')
     
     
