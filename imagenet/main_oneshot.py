@@ -641,7 +641,7 @@ def main_worker(gpu, ngpus_per_node, args):
 
     print("rank #{}: dataloader loaded!".format(args.rank))
 
-    prune_while_training(model, args.arch, args.prune_mode, args.width_multiplier, val_loader, criterion, 0, args)
+    #prune_while_training(model, args.arch, args.prune_mode, args.width_multiplier, val_loader, criterion, 0, args)
     
     if args.evaluate:
         prec1 = validate(val_loader, model, criterion, epoch=0, args=args, writer=None)
@@ -802,7 +802,7 @@ def main_worker(gpu, ngpus_per_node, args):
         # prune the network and record FLOPs at each epoch
         print('Evaluating FLOPs ...')
         start_time = time.time()
-        prune_while_training(model, args.arch, args.prune_mode, args.width_multiplier,
+        #prune_while_training(model, args.arch, args.prune_mode, args.width_multiplier,
                             val_loader, criterion, epoch, args)
         end_time = time.time()
         print(f"Evaluate cost: {end_time - start_time} seconds. Prec1: {prec1}")
@@ -1156,39 +1156,43 @@ def bn_sparsity(model, loss_type, sparsity, t, alpha, gate, keep_out, arch,
     else:
         raise NotImplementedError(f"Unsupported loss: {loss_type}")
 
-
-def log_quantization(model,args):
+def log_quantization(model):
     #############SETUP###############
-    args.ista_err = torch.tensor([0.0]).cuda(0)
+    args.weight_err = torch.tensor([0.0]).cuda(0)
+    args.bias_err = torch.tensor([0.0]).cuda(0)
     # locations of bins should fit original dist
-    num_bins = 4
     # start can be tuned to find a best one
-    bin_start = -6
     # distance between bins min=2
-    bin_stride = 2
+    num_bins, bin_start, bin_stride = 4, -6, 2
     # how centralize the bin is, relax this may improve prec
     bin_width = 1e-1
     # locations we want to quantize
-    bins = torch.pow(10.,torch.tensor([bin_start+bin_stride*x for x in range(num_bins)])).cuda(0)
+    args.bins = torch.pow(10.,torch.tensor([bin_start+bin_stride*x for x in range(num_bins)])).cuda(0)
     # trade-off of original distribution and new distribution
     # big: easy to get new distribution, but may degrade performance
     # small: maintain good performance but may not affect distribution much
     decay_factor = args.q_factor # lower this to improve perf
     # how small/low rank bins get more advantage
     amp_factors = torch.tensor([2**(num_bins-1-x) for x in range(num_bins)]).cuda()
+    #amp_factors = torch.tensor([0,16,.2,0.0]).cuda()
+    #amp_factors = torch.tensor([16,32,0.0,0.0]).cuda()
     args.ista_err_bins = [0 for _ in range(num_bins)]
     args.ista_cnt_bins = [0 for _ in range(num_bins)]
     
     #################START###############
+    def get_min_idx(x):
+        args.bins = torch.pow(10.,torch.tensor([bin_start+bin_stride*x for x in range(num_bins)])).to(x.device)
+        dist = torch.abs(torch.log10(torch.abs(x).unsqueeze(-1)/args.bins))
+        _,min_idx = dist.min(dim=-1)
+        return min_idx
+        
     def get_bin_distribution(x):
         x = torch.clamp(torch.abs(x), min=1e-8) * torch.sign(x)
-        bins = torch.pow(10.,torch.tensor([bin_start+bin_stride*x for x in range(num_bins)])).to(x.device)
-        dist = torch.abs(torch.log10(torch.abs(x).unsqueeze(-1)/bins))
-        _,min_idx = dist.min(dim=-1)
-        all_err = torch.log10(bins[min_idx]/torch.abs(x))
+        min_idx = get_min_idx(x)
+        all_err = torch.log10(args.bins[min_idx]/torch.abs(x))
         abs_err = torch.abs(all_err)
         # calculate total error
-        args.ista_err += abs_err.sum()
+        args.weight_err += abs_err.sum()
         # calculating err for each bin
         for i in range(num_bins):
             if torch.sum(min_idx==i)>0:
@@ -1196,7 +1200,7 @@ def log_quantization(model,args):
                 args.ista_cnt_bins[i] += torch.numel(abs_err[min_idx==i])
                 
     def redistribute(x,bin_indices):
-        tar_bins = bins[bin_indices]
+        tar_bins = args.bins[bin_indices]
         # amplifier based on rank of bin
         amp = amp_factors[bin_indices]
         all_err = torch.log10(tar_bins/torch.abs(x))
@@ -1207,19 +1211,17 @@ def log_quantization(model,args):
         distance = torch.log10(tar_bins/torch.abs(x))
         multiplier = 10**(distance*decay_factor*amp)
         x[abs_err>bin_width] *= multiplier[abs_err>bin_width]
+        # set small weights to 0?
         return x
         
+    bn_modules = model.get_sparse_layers()
+    
     all_scale_factors = torch.tensor([]).cuda()
-    bn_modules = model.module.get_sparse_layer(gate=args.gate,
-                                           sparse1=True,
-                                           sparse2=True,
-                                           sparse3=True,
-                                           with_weight=args.flops_weighted)
     for bn_module in bn_modules:
         with torch.no_grad():
             get_bin_distribution(bn_module.weight.data)
+            args.bias_err += torch.abs(bn_module.bias.data).sum()
         all_scale_factors = torch.cat((all_scale_factors,torch.abs(bn_module.weight.data)))
-                
     # total channels
     total_channels = len(all_scale_factors)
     ch_per_bin = total_channels//num_bins
@@ -1228,7 +1230,7 @@ def log_quantization(model,args):
     assigned_binindices = torch.zeros(total_channels).long().cuda()
     
     for bin_idx in bin_indices[:-1]:
-        dist = torch.abs(torch.log10(bins[bin_idx]/all_scale_factors)) 
+        dist = torch.abs(torch.log10(args.bins[bin_idx]/all_scale_factors)) 
         not_assigned = remain.nonzero()
         # remaining channels importance
         chan_imp = dist[not_assigned] 
@@ -1238,13 +1240,13 @@ def log_quantization(model,args):
         remain[selected] = 0
         assigned_binindices[selected] = bin_idx
     assigned_binindices[remain.nonzero()] = bin_indices[-1]
-    
+        
     ch_start = 0
     for bn_module in bn_modules:
         with torch.no_grad():
             ch_len = len(bn_module.weight.data)
             bn_module.weight.data = redistribute(bn_module.weight.data, assigned_binindices[ch_start:ch_start+ch_len])
-        ch_start += ch_len
+            ch_start += ch_len
     
     
 def factor_visualization(iter, model, args, prec):
@@ -1545,18 +1547,19 @@ def train(train_loader, model, criterion, optimizer, epoch, sparsity, args, is_d
                     data_time=data_time, loss=losses, s_loss=avg_sparsity_loss,
                     top1=top1, top5=top5, lr=optimizer.param_groups[0]['lr']))
             else:
-                ista_err = args.ista_err.cpu().item()
+                weight_err = args.weight_err.cpu().item()
+                bias_err = args.bias_err.cpu().item()
                 train_iter.set_description(
                       'Epoch: [{epoch:03d}]. '
                       'Time {batch_time.val:.3f} ({batch_time.avg:.3f}). '
                       'Data {data_time.val:.3f} ({data_time.avg:.3f}). '
                       'Loss {loss.val:.4f} ({loss.avg:.4f}). '
-                      'Sparsity Loss {s_loss.val:.4f} ({s_loss.avg:.4f}). '
+                      'Sparsity Loss {w_loss:.4f} {b_loss:.4f}. '
                       'Learning rate {lr}. '
                       'Prec@1 {top1.val:.3f} ({top1.avg:.3f}). '
                       'Prec@5 {top5.val:.3f} ({top5.avg:.3f})'.format(
                     epoch=epoch, batch_time=batch_time,
-                    data_time=data_time, loss=losses, s_loss=ista_err,
+                    data_time=data_time, loss=losses, w_loss=weight_err, b_loss=bias_err,
                     top1=top1, top5=top5, lr=optimizer.param_groups[0]['lr']))
         if is_debug and i >= 5:
             break
