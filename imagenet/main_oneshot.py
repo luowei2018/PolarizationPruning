@@ -1336,7 +1336,7 @@ def prune_while_training(model: nn.Module, arch: int, prune_mode: str, width_mul
 
     if arch == "resnet50":
         from resprune_expand_gate import prune_resnet
-        saved_model = prune_resnet(model, pruning_strategy='percent', percent=0.5,
+        saved_model = prune_resnet(model, pruning_strategy='grad',
                                    sanity_check=False, prune_mode=prune_mode)
         baseline_model = resnet50(width_multiplier=1., gate=False, aux_fc=False)
     elif arch == 'mobilenetv2':
