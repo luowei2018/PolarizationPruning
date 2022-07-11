@@ -1011,6 +1011,10 @@ def bn_sparsity(model, loss_type, sparsity, t, alpha, gate, keep_out, arch,
         return sparsity_loss
     else:
         raise NotImplementedError(f"Unsupported loss: {loss_type}")
+        
+        
+def check_no_nan(x):
+    assert torch.isnan(x).sum() == 0
 
 def log_quantization(model, args):
     #############SETUP###############
@@ -1077,6 +1081,8 @@ def log_quantization(model, args):
     
     all_scale_factors = torch.tensor([]).cuda()
     for bn_module in bn_modules:
+        check_no_nan(bn_module.weight.data)
+        check_no_nan(bn_module.bias.data)
         with torch.no_grad():
             get_bin_distribution(bn_module.weight.data)
             args.bias_err += torch.abs(bn_module.bias.data).sum()
