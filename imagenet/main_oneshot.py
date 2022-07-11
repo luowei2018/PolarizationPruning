@@ -802,8 +802,7 @@ def main_worker(gpu, ngpus_per_node, args):
         # prune the network and record FLOPs at each epoch
         print('Evaluating FLOPs ...')
         start_time = time.time()
-        prune_while_training(model, args.arch, args.prune_mode, args.width_multiplier,
-                            val_loader, criterion, epoch, args)
+        #prune_while_training(model, args.arch, args.prune_mode, args.width_multiplier, val_loader, criterion, epoch, args)
         end_time = time.time()
         print(f"Evaluate cost: {end_time - start_time} seconds. Prec1: {prec1}")
 
