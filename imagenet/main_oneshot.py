@@ -1017,12 +1017,10 @@ def check_no_nan(x):
     assert torch.isnan(x).any() == 0, x
     
 def check_model_np_nan(model,msg):
-    for name, m in model.module.named_modules():
+    for name, m in model.named_modules():
         if not (isinstance(m, nn.BatchNorm2d) or isinstance(m, nn.BatchNorm1d) or isinstance(m, nn.Conv2d)):continue
-        assert torch.isnan(m.weight.grad.data).any() == 0, msg+name+'_weight'
         assert torch.isnan(m.weight.data).any() == 0, msg+name+'_weight'
         if hasattr(m, 'bias'):
-            assert torch.isnan(m.bias.grad.data).any() == 0, msg+name+'bias'
             assert torch.isnan(m.bias.data).any() == 0, msg+name+'bias'
     
 def log_quantization(model, args):
