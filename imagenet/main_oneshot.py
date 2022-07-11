@@ -1014,7 +1014,7 @@ def bn_sparsity(model, loss_type, sparsity, t, alpha, gate, keep_out, arch,
         
         
 def check_no_nan(x):
-    assert torch.isnan(x).sum() == 0
+    assert torch.isnan(x).any() == 0, x
 
 def log_quantization(model, args):
     #############SETUP###############
