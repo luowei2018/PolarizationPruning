@@ -1156,7 +1156,7 @@ def bn_sparsity(model, loss_type, sparsity, t, alpha, gate, keep_out, arch,
     else:
         raise NotImplementedError(f"Unsupported loss: {loss_type}")
 
-def log_quantization(model):
+def log_quantization(model, args):
     #############SETUP###############
     args.weight_err = torch.tensor([0.0]).cuda(0)
     args.bias_err = torch.tensor([0.0]).cuda(0)
@@ -1214,7 +1214,11 @@ def log_quantization(model):
         # set small weights to 0?
         return x
         
-    bn_modules = model.get_sparse_layers()
+    bn_modules = model.module.get_sparse_layer(gate=args.gate,
+                                           sparse1=True,
+                                           sparse2=True,
+                                           sparse3=True,
+                                           with_weight=args.flops_weighted)
     
     all_scale_factors = torch.tensor([]).cuda()
     for bn_module in bn_modules:
