@@ -641,8 +641,7 @@ def main_worker(gpu, ngpus_per_node, args):
 
     print("rank #{}: dataloader loaded!".format(args.rank))
 
-    prune_while_training(model, args.arch, args.prune_mode, args.width_multiplier, val_loader, criterion, 0, args)
-    exit(0)
+    #prune_while_training(model, args.arch, args.prune_mode, args.width_multiplier, val_loader, criterion, 0, args)
     
     if args.evaluate:
         prec1 = validate(val_loader, model, criterion, epoch=0, args=args, writer=None)
@@ -835,8 +834,8 @@ def main_worker(gpu, ngpus_per_node, args):
         
         # show log quantization result
         if args.loss in {LossType.LOG_QUANTIZATION}:
-            print('BinErr:', " ".join(format(x, ".3f") for x in args.ista_err_bins))
-            print('BinCnt:', " ".join(format(x, "05d") for x in args.ista_cnt_bins))
+            print('Weight err:', " ".join(format(x, ".3f") for x in args.ista_err_bins), 'Bias err:', args.bias_err)
+            print('BinCnt:', " ".join(format(x, "05d") for x in args.ista_cnt_bins), args.bins)
 
     writer.close()
     print("Best prec@1: {}".format(best_prec1))
