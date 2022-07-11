@@ -465,18 +465,6 @@ def main_worker(gpu, ngpus_per_node, args):
         else:
             raise NotImplementedError("model {} is not supported".format(args.arch))
 
-    # compute flops weight at flops weighted mode
-    if args.flops_weighted:
-        print("Computing the FLOPs weight...")
-        flops_weight = model.get_conv_flops_weight()
-        flops_weight_string_builder: typing.List[str] = []
-        for fw in flops_weight:
-            flops_weight_string_builder.append(",".join(str(w) for w in fw))
-        flops_weight_string = "\n".join(flops_weight_string_builder)
-        print("FLOPs weight:")
-        print(flops_weight_string)
-        print()
-
     if not args.distributed:
         # DataParallel
         model.cuda()
@@ -493,26 +481,6 @@ def main_worker(gpu, ngpus_per_node, args):
 
     # define loss function (criterion) and optimizer
     criterion = nn.CrossEntropyLoss().cuda()
-
-    # do not update the last SparseGate for each block
-    # keepout option is for MobileNet v2
-    # last-sparsity option is for ResNet
-    if args.gate and (
-            (args.keep_out and args.arch == 'mobilenetv2') or (not args.last_sparsity and args.arch == 'resnet50')):
-        # if args.keep_out and not args.gate, bn should be updated as normal
-        assert args.arch in {'mobilenetv2', 'resnet50'}, "--keep-out only works for MobileNet v2 and ResNet-50"
-        if args.arch == 'mobilenetv2':
-            output_gates = models.mobilenet.get_output_gate(model)
-        elif args.arch == 'resnet50':
-            output_gates = model.module.get_output_gate()
-        else:
-            raise NotImplementedError(f"Do not support {args.arch}")
-
-        for gate in output_gates:
-            assert isinstance(gate, models.common.SparseGate), f"Expected a SparseGate, got {gate}"
-            for p in gate.parameters():
-                # do not update this gate
-                p.requires_grad = False
 
     if args.fix_gate:
         freeze_gate(model)
@@ -595,8 +563,8 @@ def main_worker(gpu, ngpus_per_node, args):
         else:
             raise ValueError("=> no checkpoint found at '{}'".format(args.resume))
 
-    print("Model loading completed. Model Summary:")
-    print(model)
+    #print("Model loading completed. Model Summary:")
+    #print(model)
 
     cudnn.benchmark = True
 
@@ -659,111 +627,9 @@ def main_worker(gpu, ngpus_per_node, args):
     # only master process in each node write to disk
     writer = SummaryWriter(logdir=args.save, write_to_disk=args.rank % ngpus_per_node == 0)
 
-    if args.flops_weighted:
-        writer.add_text("train/conv_flops_weight", flops_weight_string, global_step=0)
-
     for epoch in range(args.start_epoch, args.epochs):
         if args.distributed:
             train_sampler.set_epoch(epoch)
-
-        # draw bn hist to tensorboard
-        weights, bias = bn_weights(model)
-        for bn_name, bn_weight in weights:
-            if torch.sum(torch.abs(bn_weight)) > 0:
-                writer.add_histogram("bn/" + bn_name, bn_weight, global_step=epoch)
-        for bn_name, bn_bias in bias:
-            if torch.sum(torch.abs(bn_bias)) > 0:
-                writer.add_histogram("bn_bias/" + bn_name, bn_bias, global_step=epoch)
-        for name, sub_module in model.named_modules():
-            if isinstance(sub_module, nn.Conv2d):
-                # visualize conv kernels
-                if torch.sum(torch.abs(sub_module.weight)) > 0:
-                    writer.add_histogram("conv_kernels/" + name, sub_module.weight, global_step=epoch)
-            elif isinstance(sub_module, models.common.SparseGate):
-                # visualize sparse gates
-                writer.add_histogram("sparse_gate/" + name, sub_module.weight, global_step=epoch)
-
-        # visualize all sparsity layers for MobileNet
-        if args.loss in {LossType.POLARIZATION, LossType.L1_SPARSITY_REGULARIZATION}:
-            if args.arch == 'mobilenetv2':
-                sparse_layers = get_mobilenet_sparse_layers(model, gate=args.gate, exclude_out=args.keep_out)
-            elif args.arch == 'resnet50':
-                sparse_layers = model.module.get_sparse_layer(gate=args.gate,
-                                                              sparse1=True,
-                                                              sparse2=True,
-                                                              sparse3=args.last_sparsity)
-            else:
-                sparse_layers = None
-
-            if sparse_layers is not None:
-                sparse_weights = list(map(lambda layer: layer.weight.view(-1), sparse_layers))
-                sparse_weights = torch.cat(sparse_weights).view(-1)
-                weight_mean = torch.mean(sparse_weights)
-
-                writer.add_histogram("whole_sparse_layer/concat_all_sparse_weight", sparse_weights, global_step=epoch)
-                writer.add_scalar("train/sparse_weight_mean", weight_mean, global_step=epoch)
-
-            # special visualization for ResNet-50
-            if args.arch == "resnet50":
-                sparse12_layers = model.module.get_sparse_layer(gate=args.gate,
-                                                                # exclude sparse3
-                                                                sparse1=True,
-                                                                sparse2=True,
-                                                                sparse3=False,
-                                                                with_weight=args.flops_weighted)
-                sparse3_layers = model.module.get_sparse_layer(gate=args.gate,
-                                                               sparse1=False,
-                                                               sparse2=False,
-                                                               sparse3=True,
-                                                               with_weight=args.flops_weighted)
-            elif args.arch == 'mobilenetv2':
-                sparse12_layers = model.module.get_sparse_layer(gate=args.gate,
-                                                                pw_layer=True,
-                                                                linear_layer=False,
-                                                                with_weight=args.flops_weighted)
-                sparse3_layers = model.module.get_sparse_layer(gate=args.gate,
-                                                               pw_layer=False,
-                                                               linear_layer=True,
-                                                               with_weight=args.flops_weighted)
-            else:
-                raise NotImplementedError(f"do not support arch {args.arch}")
-
-            if args.flops_weighted:
-                # unpack the flops weights
-                sparse12_layers, sparse12_flops_weights = sparse12_layers
-                sparse3_layers, sparse3_flops_weights = sparse3_layers
-            else:
-                sparse12_flops_weights = None
-                sparse3_flops_weights = None
-
-            # remove None items for MobileNet v2
-            # (some layers do not have pw layer, in that case, there will be None)
-            if args.arch == 'mobilenetv2':
-                sparse12_layers = list(filter(lambda x: x is not None, sparse12_layers))
-                sparse3_layers = list(filter(lambda x: x is not None, sparse3_layers))
-                if args.flops_weighted:
-                    # flops_weights is None when not args.flops_weighted
-                    sparse12_flops_weights = list(filter(lambda x: x is not None, sparse12_flops_weights))
-                    sparse3_flops_weights = list(filter(lambda x: x is not None, sparse3_flops_weights))
-
-            visualization_group = {"sparse12": {"layer": sparse12_layers,
-                                                "weight": sparse12_flops_weights},
-                                   "sparse3": {"layer": sparse3_layers,
-                                               "weight": sparse3_flops_weights}}
-
-            for key in visualization_group.keys():
-                sparse_weights = list(map(lambda layer: layer.weight.view(-1), visualization_group[key]["layer"]))
-                sparse_weights = torch.cat(sparse_weights).view(-1)
-                # compute the mean of layers
-                weight_mean = _sparse_mean(sparse_modules=visualization_group[key]["layer"],
-                                           sparse_weights=visualization_group[key]["weight"],
-                                           disable_grad=True,
-                                           weighted_mean=args.weighted_mean,
-                                           weight_min=args.weight_min,
-                                           weight_max=args.weight_max)
-
-                writer.add_histogram(f"whole_sparse_layer/{key}", sparse_weights, global_step=epoch)
-                writer.add_scalar(f"train/sparse_weight_mean_{key}", weight_mean, global_step=epoch)
 
         # train for one epoch
         train(train_loader, model, criterion, optimizer, epoch,
@@ -789,10 +655,7 @@ def main_worker(gpu, ngpus_per_node, args):
         )
 
         # evaluate on validation set
-        prec1 = validate(val_loader, model, criterion, epoch,
-                         args=args, writer=writer)
-
-        #report_prune_result(model)  # do not really prune the model
+        prec1 = validate(val_loader, model, criterion, epoch, args=args, writer=writer)
         
         # visualize scale factors
         factor_visualization(epoch, model, args, prec1)
@@ -800,15 +663,7 @@ def main_worker(gpu, ngpus_per_node, args):
         writer.add_scalar("train/lr", optimizer.param_groups[0]['lr'], epoch)
 
         # prune the network and record FLOPs at each epoch
-        print('Evaluating FLOPs ...')
-        start_time = time.time()
         #prune_while_training(model, args.arch, args.prune_mode, args.width_multiplier, val_loader, criterion, epoch, args)
-        end_time = time.time()
-        print(f"Evaluate cost: {end_time - start_time} seconds. Prec1: {prec1}")
-
-        # save checkpoint in debug mode
-        if args.debug:
-            prec1 = float(epoch)
 
         # remember best prec@1 and save checkpoint
         is_best = prec1 > best_prec1
@@ -833,8 +688,9 @@ def main_worker(gpu, ngpus_per_node, args):
         
         # show log quantization result
         if args.loss in {LossType.LOG_QUANTIZATION}:
-            print('Weight err:', " ".join(format(x, ".3f") for x in args.ista_err_bins), 'Bias err:', args.bias_err)
-            print('BinCnt:', " ".join(format(x, "05d") for x in args.ista_cnt_bins), args.bins)
+            print('BinCnt:', " ".join(format(x, "05d") for x in args.ista_cnt_bins), 
+                    'Weight err:', " ".join(format(x, ".3f") for x in args.ista_err_bins), 
+                    'Bias err:', args.bias_err)
 
     writer.close()
     print("Best prec@1: {}".format(best_prec1))
@@ -1213,11 +1069,10 @@ def log_quantization(model, args):
         # set small weights to 0?
         return x
         
-    bn_modules = model.module.get_sparse_layer(gate=args.gate,
-                                           sparse1=True,
-                                           sparse2=True,
-                                           sparse3=True,
-                                           with_weight=args.flops_weighted)
+    bn_modules = []
+    for name, m in model.named_modules():
+        if isinstance(m, nn.BatchNorm2d) or isinstance(m, nn.BatchNorm1d):
+            bn_modules.append(m)
     
     all_scale_factors = torch.tensor([]).cuda()
     for bn_module in bn_modules:
@@ -1255,11 +1110,10 @@ def log_quantization(model, args):
 def factor_visualization(iter, model, args, prec):
     scale_factors = torch.tensor([]).cuda()
     biases = torch.tensor([]).cuda()
-    bn_modules = model.module.get_sparse_layer(gate=args.gate,
-                                           sparse1=True,
-                                           sparse2=True,
-                                           sparse3=True,
-                                           with_weight=args.flops_weighted)
+    bn_modules = []
+    for name, m in model.named_modules():
+        if isinstance(m, nn.BatchNorm2d) or isinstance(m, nn.BatchNorm1d):
+            bn_modules.append(m)
     for bn_module in bn_modules:
         scale_factors = torch.cat((scale_factors,torch.abs(bn_module.weight.data.view(-1))))
         biases = torch.cat((biases,torch.abs(bn_module.bias.data.view(-1))))
@@ -1345,15 +1199,13 @@ def prune_while_training(model, arch, prune_mode, width_multiplier, val_loader, 
         baseline_model = resnet50(width_multiplier=1., gate=False, aux_fc=False)
     elif arch == 'mobilenetv2':
         from prune_mobilenetv2 import prune_mobilenet
-        saved_model_25, _, _ = prune_mobilenet(model, pruning_strategy='percent', percent=0.25,
+        for ratio in target_ratios:
+            saved_model, _, _ = prune_mobilenet(model, pruning_strategy='percent', percent=ratio,
                                             sanity_check=False, force_same=False,
-                                            width_multiplier=width_multiplier)
-        saved_model_50, _, _ = prune_mobilenet(model, pruning_strategy='percent', percent=0.5,
-                                            sanity_check=False, force_same=False,
-                                            width_multiplier=width_multiplier)
-        saved_model_75, _, _ = prune_mobilenet(model, pruning_strategy='percent', percent=0.75,
-                                            sanity_check=False, force_same=False,
-                                            width_multiplier=width_multiplier)
+            prec1 = validate(val_loader, saved_model.cuda(), criterion, epoch=epoch, args=args, writer=None)
+            flop = compute_conv_flops(saved_model, cuda=True)
+            saved_prec1s += [prec1]
+            saved_flops += [flop]
         baseline_model = mobilenet_v2(inverted_residual_setting=None,
                                       width_mult=1., use_gate=False)
     else:
@@ -1368,8 +1220,6 @@ def prune_while_training(model, arch, prune_mode, width_multiplier, val_loader, 
 
 def train(train_loader, model, criterion, optimizer, epoch, sparsity, args, is_debug=False,
           writer=None):
-    print("rank #{}: start training epoch {}".format(args.rank, epoch))
-
     batch_time = AverageMeter()
     data_time = AverageMeter()
     losses = AverageMeter()
