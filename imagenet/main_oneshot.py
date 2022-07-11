@@ -645,6 +645,7 @@ def main_worker(gpu, ngpus_per_node, args):
     cur_flops, baseline_flops = prune_while_training(model, args.arch, prune_mode=args.prune_mode,
                                                          width_multiplier=args.width_multiplier)
     print(cur_flops, baseline_flops)
+    exit(0)
     
     if args.evaluate:
         prec1 = validate(val_loader, model, criterion, epoch=0, args=args, writer=None)
@@ -1335,7 +1336,7 @@ def prune_while_training(model: nn.Module, arch: int, prune_mode: str, width_mul
 
     if arch == "resnet50":
         from resprune_expand_gate import prune_resnet
-        saved_model = prune_resnet(model, pruning_strategy='grad',
+        saved_model = prune_resnet(model, pruning_strategy='percent', percent=0.5,
                                    sanity_check=False, prune_mode=prune_mode)
         baseline_model = resnet50(width_multiplier=1., gate=False, aux_fc=False)
     elif arch == 'mobilenetv2':
