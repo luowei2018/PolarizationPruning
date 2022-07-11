@@ -1257,6 +1257,7 @@ def factor_visualization(iter, model, args, prec):
                                            with_weight=args.flops_weighted)
     for bn_module in bn_modules:
         scale_factors = torch.cat((scale_factors,torch.abs(bn_module.weight.data.view(-1))))
+        biases = torch.cat((biases,torch.abs(bn_module.bias.data.view(-1))))
     # plot figure
     save_dir = args.save + 'factor/'
     if not os.path.exists(save_dir):
