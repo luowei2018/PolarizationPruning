@@ -1015,7 +1015,16 @@ def bn_sparsity(model, loss_type, sparsity, t, alpha, gate, keep_out, arch,
         
 def check_no_nan(x):
     assert torch.isnan(x).any() == 0, x
-
+    
+def check_model_np_nan(model,msg):
+    for name, m in model.named_modules():
+        check_no_nan(model.weight.data)
+        assert torch.isnan(model.weight.grad.data).any() == 0, msg+name+'_weight'
+        assert torch.isnan(model.weight.data).any() == 0, msg+name+'_weight'
+        if hasattr(model, 'bias'):
+            assert torch.isnan(model.bias.grad.data).any() == 0, msg+name+'bias'
+            assert torch.isnan(model.bias.data).any() == 0, msg+name+'bias'
+    
 def log_quantization(model, args):
     #############SETUP###############
     args.weight_err = torch.tensor([0.0]).cuda(0)
@@ -1370,7 +1379,8 @@ def train(train_loader, model, criterion, optimizer, epoch, sparsity, args, is_d
                 raise NotImplementedError(f"do not support --fc-sparsity as {args.fc_sparsity}")
             loss += sparsity_loss
             avg_sparsity_loss.update(sparsity_loss.data.item(), image.size(0))
-
+        
+        check_model_np_nan(model,'1')
         loss.backward()
         if args.loss == LossType.L1_SPARSITY_REGULARIZATION:
             updateBN(model, sparsity,
@@ -1381,7 +1391,9 @@ def train(train_loader, model, criterion, optimizer, epoch, sparsity, args, is_d
         # BN_grad_zero(model)
         if args.loss in {LossType.LOG_QUANTIZATION}:
             log_quantization(model, args)
+        check_model_np_nan(model,'2')
         optimizer.step()
+        check_model_np_nan(model,'3')
         if args.loss in {LossType.POLARIZATION,
                          LossType.POLARIZATION_GRAD,
                          LossType.L2_POLARIZATION} or \
