@@ -1018,12 +1018,11 @@ def check_no_nan(x):
     
 def check_model_np_nan(model,msg):
     for name, m in model.named_modules():
-        check_no_nan(model.weight.data)
-        assert torch.isnan(model.weight.grad.data).any() == 0, msg+name+'_weight'
-        assert torch.isnan(model.weight.data).any() == 0, msg+name+'_weight'
-        if hasattr(model, 'bias'):
-            assert torch.isnan(model.bias.grad.data).any() == 0, msg+name+'bias'
-            assert torch.isnan(model.bias.data).any() == 0, msg+name+'bias'
+        assert torch.isnan(m.weight.grad.data).any() == 0, msg+name+'_weight'
+        assert torch.isnan(m.weight.data).any() == 0, msg+name+'_weight'
+        if hasattr(m, 'bias'):
+            assert torch.isnan(m.bias.grad.data).any() == 0, msg+name+'bias'
+            assert torch.isnan(m.bias.data).any() == 0, msg+name+'bias'
     
 def log_quantization(model, args):
     #############SETUP###############
