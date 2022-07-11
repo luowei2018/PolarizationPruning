@@ -641,10 +641,7 @@ def main_worker(gpu, ngpus_per_node, args):
 
     print("rank #{}: dataloader loaded!".format(args.rank))
 
-    #prune_while_training(model, args.arch, args.prune_mode, args.width_multiplier, val_loader, criterion, 0, args)
-    cur_flops, baseline_flops = prune_while_training(model, args.arch, prune_mode=args.prune_mode,
-                                                         width_multiplier=args.width_multiplier)
-    print(cur_flops, baseline_flops)
+    prune_while_training(model, args.arch, args.prune_mode, args.width_multiplier, val_loader, criterion, 0, args)
     exit(0)
     
     if args.evaluate:
