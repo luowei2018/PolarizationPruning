@@ -1090,7 +1090,7 @@ def log_quantization(model, args):
     for bn_module in bn_modules:
         with torch.no_grad():
             get_bin_distribution(bn_module.weight.data)
-            args.bias_err += torch.abs(bn_module.bias.data).sum()for bn_module in bn_modules:
+            args.bias_err += torch.abs(bn_module.bias.data).sum()
         check_no_nan(bn_module.weight.data)
         all_scale_factors = torch.cat((all_scale_factors,torch.abs(bn_module.weight.data)))
     # total channels
