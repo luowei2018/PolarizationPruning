@@ -1084,9 +1084,10 @@ def log_quantization(model, args):
         
     bn_modules = []
     for name, m in model.named_modules():
+        print('check',name)
         if isinstance(m, nn.BatchNorm2d) or isinstance(m, nn.BatchNorm1d):
             bn_modules.append(m)
-            print(name)
+            print('bn')
     exit(0)
     
     all_scale_factors = torch.tensor([]).cuda()
