@@ -1056,7 +1056,7 @@ def log_quantization(model, args):
         return min_idx
         
     def get_bin_distribution(x):
-        x = torch.clamp(torch.abs(x), min=1e-10) * torch.sign(x)
+        x = torch.clamp(torch.abs(x), min=1e-8) * torch.sign(x)
         min_idx = get_min_idx(x)
         all_err = torch.log10(args.bins[min_idx]/torch.abs(x))
         abs_err = torch.abs(all_err)
@@ -1070,17 +1070,16 @@ def log_quantization(model, args):
                 
     def redistribute(x,bin_indices):
         abs_x = torch.abs(x)
-        clamped_x = torch.clamp(abs_x, min=1e-8) * torch.sign(x)
+        x = torch.clamp(abs_x, min=1e-8) * torch.sign(x)
         tar_bins = args.bins[bin_indices]
         # amplifier based on rank of bin
         amp = amp_factors[bin_indices]
-        all_err = torch.log10(tar_bins/torch.abs(clamped_x))
+        all_err = torch.log10(tar_bins/torch.abs(x))
         abs_err = torch.abs(all_err)
         # more distant larger multiplier
         # pull force relates to distance and target bin (how off-distribution is it?)
         # low rank bin gets higher pull force
-        distance = torch.log10(tar_bins/torch.abs(clamped_x))
-        multiplier = 10**(distance*decay_factor*amp)
+        multiplier = 10**(all_err*decay_factor*amp)
         x[abs_err>bin_width] *= multiplier[abs_err>bin_width]
         # set small weights to 0?
         return x
@@ -1390,9 +1389,9 @@ def train(train_loader, model, criterion, optimizer, epoch, sparsity, args, is_d
         # BN_grad_zero(model)
         if args.loss in {LossType.LOG_QUANTIZATION}:
             log_quantization(model, args)
-        #check_model_np_nan(model,'0')
+        check_model_np_nan(model,'0')
         optimizer.step()
-        #check_model_np_nan(model,'1')
+        check_model_np_nan(model,'1')
         if args.loss in {LossType.POLARIZATION,
                          LossType.POLARIZATION_GRAD,
                          LossType.L2_POLARIZATION} or \
