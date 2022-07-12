@@ -1389,9 +1389,9 @@ def train(train_loader, model, criterion, optimizer, epoch, sparsity, args, is_d
         # BN_grad_zero(model)
         if args.loss in {LossType.LOG_QUANTIZATION}:
             log_quantization(model, args)
-        check_model_np_nan(model,'0')
+        #check_model_np_nan(model,'0')
         optimizer.step()
-        check_model_np_nan(model,'1')
+        #check_model_np_nan(model,'1')
         if args.loss in {LossType.POLARIZATION,
                          LossType.POLARIZATION_GRAD,
                          LossType.L2_POLARIZATION} or \
