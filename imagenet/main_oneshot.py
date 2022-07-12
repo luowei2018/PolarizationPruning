@@ -1020,8 +1020,12 @@ def check_model_np_nan(model,msg):
     for name, m in model.named_modules():
         if not (isinstance(m, nn.BatchNorm2d) or isinstance(m, nn.BatchNorm1d) or isinstance(m, nn.Conv2d)):continue
         assert torch.isnan(m.weight.data).any() == 0, msg+name+'_weight'
+        if hasattr(m.weight, 'grad') and m.weight.grad is not None:
+            assert torch.isnan(m.weight.grad.data).any() == 0, msg+name+'_weightgrad'
         if hasattr(m, 'bias') and m.bias is not None:
             assert torch.isnan(m.bias.data).any() == 0, msg+name+'bias'
+            if hasattr(m.bias, 'grad') and m.bias.grad is not None:
+                assert torch.isnan(m.bias.grad.data).any() == 0, msg+name+'biasgrad'
     
 def log_quantization(model, args):
     #############SETUP###############
@@ -1115,7 +1119,6 @@ def log_quantization(model, args):
     ch_start = 0
     for bn_module in bn_modules:
         with torch.no_grad():
-            ch_len = len(bn_module.weight.data)
             bn_module.weight.data = redistribute(bn_module.weight.data, assigned_binindices[ch_start:ch_start+ch_len])
             check_no_nan(bn_module.weight.data)
             ch_start += ch_len
@@ -1389,8 +1392,9 @@ def train(train_loader, model, criterion, optimizer, epoch, sparsity, args, is_d
         check_model_np_nan(model,'1')
         if args.loss in {LossType.LOG_QUANTIZATION}:
             log_quantization(model, args)
-        optimizer.step()
         check_model_np_nan(model,'2')
+        optimizer.step()
+        check_model_np_nan(model,'3')
         if args.loss in {LossType.POLARIZATION,
                          LossType.POLARIZATION_GRAD,
                          LossType.L2_POLARIZATION} or \
