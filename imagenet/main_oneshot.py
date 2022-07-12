@@ -1054,7 +1054,7 @@ def log_quantization(model, args):
         return min_idx
         
     def get_bin_distribution(x):
-        x = torch.clamp(torch.abs(x), min=1e-8) * torch.sign(x)
+        x = torch.clamp(torch.abs(x), min=1e-10) * torch.sign(x)
         min_idx = get_min_idx(x)
         all_err = torch.log10(args.bins[min_idx]/torch.abs(x))
         abs_err = torch.abs(all_err)
@@ -1067,6 +1067,7 @@ def log_quantization(model, args):
                 args.ista_cnt_bins[i] += torch.numel(abs_err[min_idx==i])
                 
     def redistribute(x,bin_indices):
+        assert torch.abs(x).min() > 0, '??????????' 
         tar_bins = args.bins[bin_indices]
         # amplifier based on rank of bin
         amp = amp_factors[bin_indices]
