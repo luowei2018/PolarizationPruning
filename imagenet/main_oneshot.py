@@ -593,8 +593,7 @@ def main_worker(gpu, ngpus_per_node, args):
 
     train_loader = torch.utils.data.DataLoader(
         train_dataset, batch_size=args.batch_size, shuffle=(train_sampler is None),
-        num_workers=args.workers, pin_memory=True, sampler=train_sampler,
-        worker_init_fn=worker_init_fn)
+        num_workers=args.workers, pin_memory=True, sampler=train_sampler)
 
     val_loader = torch.utils.data.DataLoader(
         datasets.ImageFolder(valdir, transforms.Compose([
@@ -605,7 +604,6 @@ def main_worker(gpu, ngpus_per_node, args):
         ])),
         batch_size=args.batch_size, shuffle=False,
         num_workers=args.workers, pin_memory=True,
-        worker_init_fn=worker_init_fn,
     )
 
     print("rank #{}: dataloader loaded!".format(args.rank))
@@ -1019,13 +1017,14 @@ def check_no_nan(x):
 def check_model_np_nan(model,msg):
     for name, m in model.named_modules():
         if not (isinstance(m, nn.BatchNorm2d) or isinstance(m, nn.BatchNorm1d) or isinstance(m, nn.Conv2d)):continue
-        assert torch.isnan(m.weight.data).any() == 0, msg+name+'_weight'
+        print(name,m.weight.mean())
         if hasattr(m.weight, 'grad') and m.weight.grad is not None:
             assert torch.isnan(m.weight.grad.data).any() == 0, msg+name+'_weightgrad'
+        assert torch.isnan(m.weight.data).any() == 0, msg+name+'_weight'
         if hasattr(m, 'bias') and m.bias is not None:
-            assert torch.isnan(m.bias.data).any() == 0, msg+name+'bias'
             if hasattr(m.bias, 'grad') and m.bias.grad is not None:
                 assert torch.isnan(m.bias.grad.data).any() == 0, msg+name+'biasgrad'
+            assert torch.isnan(m.bias.data).any() == 0, msg+name+'bias'
     
 def log_quantization(model, args):
     #############SETUP###############
