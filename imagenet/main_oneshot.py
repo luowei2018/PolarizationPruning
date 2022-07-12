@@ -1025,7 +1025,7 @@ def check_model_np_nan(model,msg):
             if hasattr(m.bias, 'grad') and m.bias.grad is not None:
                 assert torch.isnan(m.bias.grad.data).any() == 0, msg+name+'biasgrad'
             assert torch.isnan(m.bias.data).any() == 0, msg+name+'bias'
-        exit(0)
+    exit(0)
     
 def log_quantization(model, args):
     #############SETUP###############
