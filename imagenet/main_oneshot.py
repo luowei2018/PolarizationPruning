@@ -1017,15 +1017,13 @@ def check_no_nan(x):
 def check_model_np_nan(model,msg):
     for name, m in model.named_modules():
         if not (isinstance(m, nn.BatchNorm2d) or isinstance(m, nn.BatchNorm1d) or isinstance(m, nn.Conv2d)):continue
-        print(name,m.weight.mean())
         if hasattr(m.weight, 'grad') and m.weight.grad is not None:
-            assert torch.isnan(m.weight.grad.data).any() == 0, msg+name+'_weightgrad'
-        assert torch.isnan(m.weight.data).any() == 0, msg+name+'_weight'
+            assert torch.isnan(m.weight.grad.data).any() == 0, m.weight.grad.data
+        assert torch.isnan(m.weight.data).any() == 0, m.weight.data
         if hasattr(m, 'bias') and m.bias is not None:
             if hasattr(m.bias, 'grad') and m.bias.grad is not None:
-                assert torch.isnan(m.bias.grad.data).any() == 0, msg+name+'biasgrad'
-            assert torch.isnan(m.bias.data).any() == 0, msg+name+'bias'
-    exit(0)
+                assert torch.isnan(m.bias.grad.data).any() == 0, m.bias.grad.data
+            assert torch.isnan(m.bias.data).any() == 0, m.bias.data
     
 def log_quantization(model, args):
     #############SETUP###############
@@ -1071,7 +1069,7 @@ def log_quantization(model, args):
                 args.ista_cnt_bins[i] += torch.numel(abs_err[min_idx==i])
                 
     def redistribute(x,bin_indices):
-        assert torch.abs(x).min() > 0, '??????????' 
+        x = torch.clamp(torch.abs(x), min=1e-10) * torch.sign(x)
         tar_bins = args.bins[bin_indices]
         # amplifier based on rank of bin
         amp = amp_factors[bin_indices]
@@ -1121,7 +1119,6 @@ def log_quantization(model, args):
         with torch.no_grad():
             ch_len = len(bn_module.weight.data)
             bn_module.weight.data = redistribute(bn_module.weight.data, assigned_binindices[ch_start:ch_start+ch_len])
-            check_no_nan(bn_module.weight.data)
             ch_start += ch_len
     
     
@@ -1390,12 +1387,11 @@ def train(train_loader, model, criterion, optimizer, epoch, sparsity, args, is_d
                      gate=args.gate,
                      exclude_out=args.keep_out)
         # BN_grad_zero(model)
-        #check_model_np_nan(model,'1')
         if args.loss in {LossType.LOG_QUANTIZATION}:
             log_quantization(model, args)
-        #check_model_np_nan(model,'2')
+        check_model_np_nan(model,'0')
         optimizer.step()
-        check_model_np_nan(model,'3')
+        check_model_np_nan(model,'1')
         if args.loss in {LossType.POLARIZATION,
                          LossType.POLARIZATION_GRAD,
                          LossType.L2_POLARIZATION} or \
