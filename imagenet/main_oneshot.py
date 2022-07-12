@@ -1069,16 +1069,17 @@ def log_quantization(model, args):
                 args.ista_cnt_bins[i] += torch.numel(abs_err[min_idx==i])
                 
     def redistribute(x,bin_indices):
-        x = torch.clamp(torch.abs(x), min=1e-10) * torch.sign(x)
+        abs_x = torch.abs(x)
+        clamped_x = torch.clamp(abs_x, min=1e-8) * torch.sign(x)
         tar_bins = args.bins[bin_indices]
         # amplifier based on rank of bin
         amp = amp_factors[bin_indices]
-        all_err = torch.log10(tar_bins/torch.abs(x))
+        all_err = torch.log10(tar_bins/torch.abs(clamped_x))
         abs_err = torch.abs(all_err)
         # more distant larger multiplier
         # pull force relates to distance and target bin (how off-distribution is it?)
         # low rank bin gets higher pull force
-        distance = torch.log10(tar_bins/torch.abs(x))
+        distance = torch.log10(tar_bins/torch.abs(clamped_x))
         multiplier = 10**(distance*decay_factor*amp)
         x[abs_err>bin_width] *= multiplier[abs_err>bin_width]
         # set small weights to 0?
