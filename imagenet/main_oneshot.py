@@ -1091,7 +1091,6 @@ def log_quantization(model, args):
         with torch.no_grad():
             get_bin_distribution(bn_module.weight.data)
             args.bias_err += torch.abs(bn_module.bias.data).sum()
-        check_no_nan(bn_module.weight.data)
         all_scale_factors = torch.cat((all_scale_factors,torch.abs(bn_module.weight.data)))
     # total channels
     total_channels = len(all_scale_factors)
@@ -1117,6 +1116,7 @@ def log_quantization(model, args):
         with torch.no_grad():
             ch_len = len(bn_module.weight.data)
             bn_module.weight.data = redistribute(bn_module.weight.data, assigned_binindices[ch_start:ch_start+ch_len])
+            check_no_nan(bn_module.weight.data)
             ch_start += ch_len
     
     
@@ -1377,7 +1377,6 @@ def train(train_loader, model, criterion, optimizer, epoch, sparsity, args, is_d
             loss += sparsity_loss
             avg_sparsity_loss.update(sparsity_loss.data.item(), image.size(0))
         
-        check_model_np_nan(model,'1')
         loss.backward()
         if args.loss == LossType.L1_SPARSITY_REGULARIZATION:
             updateBN(model, sparsity,
@@ -1386,10 +1385,11 @@ def train(train_loader, model, criterion, optimizer, epoch, sparsity, args, is_d
                      gate=args.gate,
                      exclude_out=args.keep_out)
         # BN_grad_zero(model)
+        check_model_np_nan(model,'1')
         if args.loss in {LossType.LOG_QUANTIZATION}:
             log_quantization(model, args)
         optimizer.step()
-        check_model_np_nan(model,'3')
+        check_model_np_nan(model,'2')
         if args.loss in {LossType.POLARIZATION,
                          LossType.POLARIZATION_GRAD,
                          LossType.L2_POLARIZATION} or \
