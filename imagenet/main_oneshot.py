@@ -397,8 +397,6 @@ def main_worker(gpu, ngpus_per_node, args):
     if args.rank == 0:
         if not os.path.exists(args.save):
             os.makedirs(args.save)
-        if not os.path.exists(args.backup_path):
-            os.makedirs(args.backup_path)
 
     if args.distributed:
         # For multiprocessing distributed training, rank needs to be the
