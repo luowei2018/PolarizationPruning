@@ -109,8 +109,6 @@ parser.add_argument('--t', type=float, default=1.,
                     help='coefficient of L1 term in polarization regularizer (default: 1)')
 parser.add_argument('--save', default='./', type=str, metavar='PATH',
                     help='path to save model (default: current directory)')
-parser.add_argument('--backup-path', default='.', type=str, metavar='PATH',
-                    help='path to save model (default: current directory)')
 parser.add_argument('--backup-freq', default=5, type=int,
                     help="The frequency of backup checkpoint.")
 parser.add_argument('--rank', default=0, type=int,
@@ -635,24 +633,6 @@ def main_worker(gpu, ngpus_per_node, args):
               args.lbd, args=args,
               is_debug=args.debug, writer=writer)
 
-        # save the trained checkpoint for debug
-        save_checkpoint({
-            # if the model is built by the refine model, the config need to be stored for pruning
-            # pruning need the model cfg to load the state_dict
-            'cfg': refine_checkpoint['cfg'] if args.refine else None,
-            'expand_idx': refine_checkpoint['expand_idx'] if args.refine else None,
-            'epoch': epoch + 1,
-            'arch': args.arch,
-            'state_dict': model.state_dict(),
-            'best_prec1': best_prec1,  # note that the best_prec1 is the prec1 of the PREVIOUS epoch
-            'optimizer': optimizer.state_dict(),
-        }, is_best=False, filepath=args.save,
-            save_backup=False,
-            backup_path=None,
-            epoch=epoch,
-            name="checkpoint.pth.tar.tmp"
-        )
-
         # evaluate on validation set
         prec1 = validate(val_loader, model, criterion, epoch, args=args, writer=writer)
         
@@ -680,7 +660,7 @@ def main_worker(gpu, ngpus_per_node, args):
                 'optimizer': optimizer.state_dict(),
             }, is_best, args.save,
                 save_backup=epoch % args.backup_freq == 0,
-                backup_path=args.backup_path,
+                backup_path=args.save,
                 epoch=epoch)
 
         writer.flush()
