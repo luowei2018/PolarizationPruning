@@ -1025,6 +1025,7 @@ def check_model_np_nan(model,msg):
             if hasattr(m.bias, 'grad') and m.bias.grad is not None:
                 assert torch.isnan(m.bias.grad.data).any() == 0, msg+name+'biasgrad'
             assert torch.isnan(m.bias.data).any() == 0, msg+name+'bias'
+        exit(0)
     
 def log_quantization(model, args):
     #############SETUP###############
@@ -1389,10 +1390,10 @@ def train(train_loader, model, criterion, optimizer, epoch, sparsity, args, is_d
                      gate=args.gate,
                      exclude_out=args.keep_out)
         # BN_grad_zero(model)
-        check_model_np_nan(model,'1')
+        #check_model_np_nan(model,'1')
         if args.loss in {LossType.LOG_QUANTIZATION}:
             log_quantization(model, args)
-        check_model_np_nan(model,'2')
+        #check_model_np_nan(model,'2')
         optimizer.step()
         check_model_np_nan(model,'3')
         if args.loss in {LossType.POLARIZATION,
