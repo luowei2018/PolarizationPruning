@@ -9,6 +9,7 @@ import common
 from models import vgg16_linear
 from models.common import search_threshold
 from models.vgg import VGG
+import numpy as np
 
 
 def _get_parser():
