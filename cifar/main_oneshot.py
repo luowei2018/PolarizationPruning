@@ -632,14 +632,16 @@ def prune_while_training(model: nn.Module, arch: str, prune_mode: str, num_class
             saved_flops += [flop]
         baseline_model = resnet50_expand(num_classes=num_classes, gate=False, aux_fc=False)
     elif arch == 'vgg16_linear':
-        exit(0)
         from vggprune_gate import prune_vgg
         from models import vgg16_linear
-
-        saved_model_grad = prune_vgg(num_classes=num_classes, sparse_model=model, prune_mode=prune_mode,
-                                     sanity_check=False, pruning_strategy='grad')
-        saved_model_fixed = prune_vgg(num_classes=num_classes, sparse_model=model, prune_mode=prune_mode,
-                                      sanity_check=False, pruning_strategy='fixed')
+        # todo: update
+        for ratio in target_ratios:
+            saved_model = prune_vgg(sparse_model=model, pruning_strategy='fixed', prune_type='ns', l1_norm_ratio=ratio,
+                                          sanity_check=False, prune_mode=prune_mode, num_classes=num_classes)
+            prec1 = test(saved_model.cuda())
+            flop = compute_conv_flops(saved_model, cuda=True)
+            saved_prec1s += [prec1]
+            saved_flops += [flop]
         baseline_model = vgg16_linear(num_classes=num_classes, gate=False)
     else:
         # not available

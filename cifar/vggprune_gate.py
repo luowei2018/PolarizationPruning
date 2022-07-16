@@ -55,7 +55,7 @@ def _check_model_same(model1: torch.nn.Module, model2: torch.nn.Module) -> float
 
 
 def prune_vgg(num_classes: int, sparse_model: torch.nn.Module, pruning_strategy: str, sanity_check: bool,
-              prune_mode: str):
+              prune_mode: str, prune_type: str = 'polarization', l1_norm_ratio=None):
     """
     :param sparse_model: The model trained with sparsity regularization
     :param pruning_strategy: same as `models.common.search_threshold`
@@ -71,10 +71,28 @@ def prune_vgg(num_classes: int, sparse_model: torch.nn.Module, pruning_strategy:
     # need to set channel expand.
     pruned_model = copy.deepcopy(sparse_model)
     pruned_model.cpu()
-    pruned_model.prune_model(pruner=lambda weight: search_threshold(weight, pruning_strategy),
+    if prune_type == 'polarization':
+        pruner = lambda weight: search_threshold(weight, pruning_strategy) # find the cut of factors
+        prune_on = 'factor'
+    elif prune_type == 'l1-norm':
+        pruner = lambda weight: l1_norm_threshold(weight, ratio=l1_norm_ratio)
+        prune_on = 'weight'
+    elif prune_type == 'ns':
+        # find the threshold
+        sparse_layers = pruned_model.get_sparse_layers()
+        sparse_weight_concat = np.concatenate([l.weight.data.clone().view(-1).cpu().numpy() for l in sparse_layers])
+        sparse_weight_concat = np.abs(sparse_weight_concat)
+        sparse_weight_concat = np.sort(sparse_weight_concat)
+        thre_index = int(len(sparse_weight_concat) * l1_norm_ratio)
+        threshold = sparse_weight_concat[thre_index]
+        pruner = lambda weight: threshold
+        prune_on = 'factor'
+    else:
+        raise ValueError(f"Unsupport prune type: {prune_type}")
+    pruned_model.prune_model(pruner=pruner,
                              prune_mode=prune_mode)
-    print("Pruning finished. cfg:")
-    print(pruned_model.config())
+    #print("Pruning finished. cfg:")
+    #print(pruned_model.config())
 
     if sanity_check:
         # sanity check: check if pruned model is as same as sparse model
