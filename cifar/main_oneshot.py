@@ -632,6 +632,7 @@ def prune_while_training(model: nn.Module, arch: str, prune_mode: str, num_class
             saved_flops += [flop]
         baseline_model = resnet50_expand(num_classes=num_classes, gate=False, aux_fc=False)
     elif arch == 'vgg16_linear':
+        exit(0)
         from vggprune_gate import prune_vgg
         from models import vgg16_linear
 
