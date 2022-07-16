@@ -291,8 +291,8 @@ if args.fix_gate:
     freeze_sparse_gate(model)
 
 # build optim
+bias_decay_params = []
 if args.bias_decay:
-    bias_decay_params = []
     for module_name, sub_module in model.named_modules():
         if isinstance(sub_module, nn.BatchNorm1d) or \
                 isinstance(sub_module, nn.BatchNorm2d):  

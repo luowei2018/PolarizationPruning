@@ -484,8 +484,8 @@ def main_worker(gpu, ngpus_per_node, args):
         freeze_gate(model)
 
     # create the optimizer
+    bias_decay_params = []
     if args.bias_decay:
-        bias_decay_params = []
         for module_name, sub_module in model.named_modules():
             if isinstance(sub_module, nn.BatchNorm1d) or \
                     isinstance(sub_module, nn.BatchNorm2d):  
