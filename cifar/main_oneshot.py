@@ -104,11 +104,13 @@ parser.add_argument('--width-multiplier', default=1.0, type=float,
 parser.add_argument('--debug', action='store_true',
                     help='Debug mode.')
 parser.add_argument('--q_factor', type=float, default=0.0001,
-                    help='decay factor (default: 0.001)')
+                    help='decay factor (default: 0.0001)')
 parser.add_argument('--bin_mode', default=2, type=int, 
                     help='Setup location of bins.')
 parser.add_argument('-e', '--evaluate', dest='evaluate', action='store_true',
                     help='evaluate model on validation set')
+parser.add_argument('--bias-decay', action='store_true',
+                    help='Apply bias decay on BatchNorm layers')
 
 args = parser.parse_args()
 args.cuda = not args.no_cuda and torch.cuda.is_available()
@@ -289,6 +291,15 @@ if args.fix_gate:
     freeze_sparse_gate(model)
 
 # build optim
+if args.bias_decay:
+    bias_decay_params = []
+    for module_name, sub_module in model.named_modules():
+        if isinstance(sub_module, nn.BatchNorm1d) or \
+                isinstance(sub_module, nn.BatchNorm2d):  
+            for param_name, param in sub_module.named_parameters():
+                if 'bias' in param_name:
+                    bias_decay_params.append(param)
+    print(f"Apply bias decay")
 
 if args.bn_wd:
     no_wd_type = [models.common.SparseGate]
@@ -301,18 +312,20 @@ for module_name, sub_module in model.named_modules():
     for t in no_wd_type:
         if isinstance(sub_module, t):
             for param_name, param in sub_module.named_parameters():
-                if 'bias' in param_name:
-                    no_wd_params.append(param)
-                    print(f"No weight decay param: module {module_name} param {param_name}")
+                if not isinstance(sub_module, models.common.SparseGate) and args.bias_decay and 'bias' in param_name: continue
+                no_wd_params.append(param)
+                #print(f"No weight decay param: module {module_name} param {param_name}")
 
 no_wd_params_set = set(no_wd_params)  # apply weight decay on the rest of parameters
+bias_decay_params_set = set(bias_decay_params)
 wd_params = []
 for param_name, model_p in model.named_parameters():
-    if model_p not in no_wd_params_set:
+    if model_p not in no_wd_params_set and model_p not in bias_decay_params_set:
         wd_params.append(model_p)
         #print(f"Weight decay param: parameter name {param_name}")
 
-optimizer = torch.optim.SGD([{'params': list(no_wd_params), 'weight_decay': args.weight_decay*1000},
+optimizer = torch.optim.SGD([{'params': list(bias_decay_params), 'weight_decay': args.weight_decay*1000},
+                             {'params': list(no_wd_params), 'weight_decay': 0.},
                              {'params': list(wd_params), 'weight_decay': args.weight_decay}],
                             args.lr,
                             momentum=args.momentum)

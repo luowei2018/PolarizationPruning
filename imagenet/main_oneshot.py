@@ -198,6 +198,8 @@ parser.add_argument('--target-flops', type=float, default=None,
                     help='Stop when pruned model archive the target FLOPs')
 parser.add_argument('--q_factor', type=float, default=0.0001,
                     help='decay factor (default: 0.001)')
+parser.add_argument('--bias-decay', action='store_true',
+                    help='Apply bias decay on BatchNorm layers')
 
 best_prec1 = 0
 
@@ -482,6 +484,16 @@ def main_worker(gpu, ngpus_per_node, args):
         freeze_gate(model)
 
     # create the optimizer
+    if args.bias_decay:
+        bias_decay_params = []
+        for module_name, sub_module in model.named_modules():
+            if isinstance(sub_module, nn.BatchNorm1d) or \
+                    isinstance(sub_module, nn.BatchNorm2d):  
+                for param_name, param in sub_module.named_parameters():
+                    if 'bias' in param_name:
+                        bias_decay_params.append(param)
+        print(f"Apply bias decay")
+    
     if args.no_bn_wd:
         no_wd_params = []
         for module_name, sub_module in model.named_modules():
@@ -489,25 +501,27 @@ def main_worker(gpu, ngpus_per_node, args):
                     isinstance(sub_module, nn.BatchNorm2d) or \
                     isinstance(sub_module, models.common.SparseGate):  # never apply weight decay on SparseGate
                 for param_name, param in sub_module.named_parameters():
-                    if 'bias' in param_name:
-                        no_wd_params.append(param)
-                        print(f"No weight decay param: module {module_name} param {param_name}")
+                    if not isinstance(sub_module, models.common.SparseGate) and args.bias_decay and 'bias' in param_name: continue
+                    no_wd_params.append(param)
+                    #print(f"No weight decay param: module {module_name} param {param_name}")
     else:
         no_wd_params = []
         for module_name, sub_module in model.named_modules():
             if isinstance(sub_module, models.common.SparseGate):  # never apply weight decay on SparseGate
                 for param_name, param in sub_module.named_parameters():
                     no_wd_params.append(param)
-                    print(f"No weight decay param: module {module_name} param {param_name}")
+                    #print(f"No weight decay param: module {module_name} param {param_name}")
 
     no_wd_params_set = set(no_wd_params)
+    bias_decay_params_set = set(bias_decay_params)
     wd_params = []
     for param_name, model_p in model.named_parameters():
-        if model_p not in no_wd_params_set:
+        if model_p not in no_wd_params_set and model_p not in bias_decay_params_set:
             wd_params.append(model_p)
-            print(f"Weight decay param: parameter name {param_name}")
+            #print(f"Weight decay param: parameter name {param_name}")
 
-    optimizer = torch.optim.SGD([{'params': list(no_wd_params), 'weight_decay': args.weight_decay*1000},
+    optimizer = torch.optim.SGD([{'params': list(bias_decay_params), 'weight_decay': args.weight_decay*1000},
+                                 {'params': list(no_wd_params), 'weight_decay': 0.},
                                  {'params': list(wd_params), 'weight_decay': args.weight_decay}],
                                 args.lr[0],
                                 momentum=args.momentum)
