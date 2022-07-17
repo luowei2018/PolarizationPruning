@@ -74,10 +74,6 @@ def prune_vgg(num_classes: int, sparse_model: torch.nn.Module, pruning_strategy:
     pruned_model.cpu()
     if prune_type == 'polarization':
         pruner = lambda weight: search_threshold(weight, pruning_strategy) # find the cut of factors
-        prune_on = 'factor'
-    elif prune_type == 'l1-norm':
-        pruner = lambda weight: l1_norm_threshold(weight, ratio=l1_norm_ratio)
-        prune_on = 'weight'
     elif prune_type == 'ns':
         # find the threshold
         sparse_layers = pruned_model.get_sparse_layers()
@@ -87,7 +83,6 @@ def prune_vgg(num_classes: int, sparse_model: torch.nn.Module, pruning_strategy:
         thre_index = int(len(sparse_weight_concat) * l1_norm_ratio)
         threshold = sparse_weight_concat[thre_index]
         pruner = lambda weight: threshold
-        prune_on = 'factor'
     else:
         raise ValueError(f"Unsupport prune type: {prune_type}")
     pruned_model.prune_model(pruner=pruner,
