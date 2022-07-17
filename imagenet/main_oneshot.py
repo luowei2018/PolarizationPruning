@@ -568,7 +568,7 @@ def main_worker(gpu, ngpus_per_node, args):
             if not args.load_param_only:
                 args.start_epoch = checkpoint['epoch']
                 best_prec1 = checkpoint['best_prec1']
-                optimizer.load_state_dict(checkpoint['optimizer'])
+                #optimizer.load_state_dict(checkpoint['optimizer'])
             print("=> loaded checkpoint '{}' (epoch {})"
                   .format(args.resume, checkpoint['epoch']))
         else:
