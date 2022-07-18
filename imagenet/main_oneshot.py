@@ -520,7 +520,7 @@ def main_worker(gpu, ngpus_per_node, args):
             wd_params.append(model_p)
             #print(f"Weight decay param: parameter name {param_name}")
 
-    optimizer = torch.optim.SGD([{'params': list(bias_decay_params), 'weight_decay': args.weight_decay*1000},
+    optimizer = torch.optim.SGD([{'params': list(bias_decay_params), 'weight_decay': args.weight_decay*10},
                                  {'params': list(no_wd_params), 'weight_decay': 0.},
                                  {'params': list(wd_params), 'weight_decay': args.weight_decay}],
                                 args.lr[0],
@@ -1075,10 +1075,16 @@ def log_quantization(model, args):
         # set small weights to 0?
         return x
         
-    bn_modules = []
-    for name, m in model.named_modules():
-        if isinstance(m, nn.BatchNorm2d) or isinstance(m, nn.BatchNorm1d):
-            bn_modules.append(m)
+    if not args.gate:
+        bn_modules = model.get_sparse_layer(gate=args.use_gate,
+                                           sparse1=True,
+                                           sparse2=True,
+                                           sparse3=True)
+    else:
+        bn_modules = model.get_sparse_layer(gate=model.gate,
+                                           pw_layer=True,
+                                           linear_layer=True,
+                                           with_weight=False)
     
     all_scale_factors = torch.tensor([]).cuda()
     for bn_module in bn_modules:
@@ -1116,10 +1122,16 @@ def log_quantization(model, args):
 def factor_visualization(iter, model, args, prec):
     scale_factors = torch.tensor([]).cuda()
     biases = torch.tensor([]).cuda()
-    bn_modules = []
-    for name, m in model.named_modules():
-        if isinstance(m, nn.BatchNorm2d) or isinstance(m, nn.BatchNorm1d):
-            bn_modules.append(m)
+    if not args.gate:
+        bn_modules = model.get_sparse_layer(gate=args.use_gate,
+                                           sparse1=True,
+                                           sparse2=True,
+                                           sparse3=True)
+    else:
+        bn_modules = model.get_sparse_layer(gate=model.gate,
+                                           pw_layer=True,
+                                           linear_layer=True,
+                                           with_weight=False)
     for bn_module in bn_modules:
         scale_factors = torch.cat((scale_factors,torch.abs(bn_module.weight.data.view(-1))))
         biases = torch.cat((biases,torch.abs(bn_module.bias.data.view(-1))))
@@ -1130,11 +1142,11 @@ def factor_visualization(iter, model, args, prec):
     fig, axs = plt.subplots(ncols=4, figsize=(20,4))
     # plots
     sns.histplot(scale_factors.detach().cpu().numpy(), ax=axs[0])
-    scale_factors = torch.clamp(scale_factors,min=1e-10)
+    scale_factors = torch.clamp(scale_factors,min=1e-15)
     sns.histplot(torch.log10(scale_factors).detach().cpu().numpy(), ax=axs[1])
 
     sns.histplot(biases.detach().cpu().numpy(), ax=axs[2])
-    biases = torch.clamp(biases,min=1e-10)
+    biases = torch.clamp(biases,min=1e-15)
     sns.histplot(torch.log10(biases).detach().cpu().numpy(), ax=axs[3])
     fig.savefig(save_dir + f'{iter:03d}_{prec:.3f}.png')
     plt.close('all')
@@ -1380,9 +1392,7 @@ def train(train_loader, model, criterion, optimizer, epoch, sparsity, args, is_d
         # BN_grad_zero(model)
         if args.loss in {LossType.LOG_QUANTIZATION}:
             log_quantization(model, args)
-        #check_model_np_nan(model,'0')
         optimizer.step()
-        #check_model_np_nan(model,'1')
         if args.loss in {LossType.POLARIZATION,
                          LossType.POLARIZATION_GRAD,
                          LossType.L2_POLARIZATION} or \
