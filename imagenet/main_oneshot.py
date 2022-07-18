@@ -617,11 +617,11 @@ def main_worker(gpu, ngpus_per_node, args):
     )
 
     print("rank #{}: dataloader loaded!".format(args.rank))
-    
+    factor_visualization(0, model, args, prec1)
+    prune_while_training(model, args.arch, args.prune_mode, args.width_multiplier, val_loader, criterion, 0, args)
     if args.evaluate:
         prec1 = validate(val_loader, model, criterion, epoch=0, args=args, writer=None)
-        factor_visualization(0, model, args, prec1)
-        prune_while_training(model, args.arch, args.prune_mode, args.width_multiplier, val_loader, criterion, 0, args)
+        
         return
 
     # restore the learning rate
@@ -1076,12 +1076,12 @@ def log_quantization(model, args):
         return x
         
     if not args.gate:
-        bn_modules = model.get_sparse_layer(gate=args.use_gate,
+        bn_modules = model.module.get_sparse_layer(gate=args.use_gate,
                                            sparse1=True,
                                            sparse2=True,
                                            sparse3=True)
     else:
-        bn_modules = model.get_sparse_layer(gate=model.gate,
+        bn_modules = model.module.get_sparse_layer(gate=model.gate,
                                            pw_layer=True,
                                            linear_layer=True,
                                            with_weight=False)
@@ -1123,12 +1123,12 @@ def factor_visualization(iter, model, args, prec):
     scale_factors = torch.tensor([]).cuda()
     biases = torch.tensor([]).cuda()
     if not args.gate:
-        bn_modules = model.get_sparse_layer(gate=args.use_gate,
+        bn_modules = model.module.get_sparse_layer(gate=args.use_gate,
                                            sparse1=True,
                                            sparse2=True,
                                            sparse3=True)
     else:
-        bn_modules = model.get_sparse_layer(gate=model.gate,
+        bn_modules = model.module.get_sparse_layer(gate=model.gate,
                                            pw_layer=True,
                                            linear_layer=True,
                                            with_weight=False)
