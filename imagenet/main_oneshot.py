@@ -617,11 +617,10 @@ def main_worker(gpu, ngpus_per_node, args):
     )
 
     print("rank #{}: dataloader loaded!".format(args.rank))
-    factor_visualization(0, model, args, prec1)
-    prune_while_training(model, args.arch, args.prune_mode, args.width_multiplier, val_loader, criterion, 0, args)
     if args.evaluate:
-        prec1 = validate(val_loader, model, criterion, epoch=0, args=args, writer=None)
-        
+        prec1 = validate(val_loader, model, criterion, epoch=0, args=args, writer=None
+        factor_visualization(0, model, args, prec1)
+        prune_while_training(model, args.arch, args.prune_mode, args.width_multiplier, val_loader, criterion, 0, args)
         return
 
     # restore the learning rate
