@@ -116,6 +116,7 @@ def prune_resnet(sparse_model: torch.nn.Module, pruning_strategy: str, sanity_ch
 
     if pruning_strategy == 'percent':
         global_threshold = _compute_global_threshold(sparse_model, percent)
+        print(global_threshold,percent)
         pruner = ThresholdPruner(pruning_strategy, threshold=global_threshold)
     elif pruning_strategy == 'random':
         pruner = RandomPruner(ratio=ratio)
