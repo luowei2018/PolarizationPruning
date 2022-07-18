@@ -1075,16 +1075,19 @@ def log_quantization(model, args):
         # set small weights to 0?
         return x
         
-    if not args.gate:
-        bn_modules = model.module.get_sparse_layer(gate=args.use_gate,
+    if args.arch == 'resnet50':
+        bn_modules = model.module.get_sparse_layer(gate=False,
                                            sparse1=True,
                                            sparse2=True,
                                            sparse3=True)
-    else:
-        bn_modules = model.module.get_sparse_layer(gate=model.gate,
+    elif args.arch == 'mobilenetv2':
+        bn_modules = model.module.get_sparse_layer(gate=True,
                                            pw_layer=True,
                                            linear_layer=True,
                                            with_weight=False)
+    else:
+        print('Unsupported arch')
+        exit(0)
     
     all_scale_factors = torch.tensor([]).cuda()
     for bn_module in bn_modules:
@@ -1122,16 +1125,20 @@ def log_quantization(model, args):
 def factor_visualization(iter, model, args, prec):
     scale_factors = torch.tensor([]).cuda()
     biases = torch.tensor([]).cuda()
-    if not args.gate:
-        bn_modules = model.module.get_sparse_layer(gate=args.use_gate,
+    if args.arch == 'resnet50':
+        bn_modules = model.module.get_sparse_layer(gate=False,
                                            sparse1=True,
                                            sparse2=True,
                                            sparse3=True)
-    else:
-        bn_modules = model.module.get_sparse_layer(gate=model.gate,
+    elif args.arch == 'mobilenetv2':
+        bn_modules = model.module.get_sparse_layer(gate=True,
                                            pw_layer=True,
                                            linear_layer=True,
                                            with_weight=False)
+    else:
+        print('Unsupported arch')
+        exit(0)
+        
     for bn_module in bn_modules:
         scale_factors = torch.cat((scale_factors,torch.abs(bn_module.weight.data.view(-1))))
         biases = torch.cat((biases,torch.abs(bn_module.bias.data.view(-1))))
