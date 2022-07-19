@@ -523,7 +523,7 @@ def main_worker(gpu, ngpus_per_node, args):
             wd_params.append(model_p)
             #print(f"Weight decay param: parameter name {param_name}")
 
-    optimizer = torch.optim.SGD([{'params': list(bias_decay_params), 'weight_decay': args.weight_decay*0},
+    optimizer = torch.optim.SGD([{'params': list(bias_decay_params), 'weight_decay': args.weight_decay*1000},
                                  {'params': list(no_wd_params), 'weight_decay': 0.},
                                  {'params': list(wd_params), 'weight_decay': args.weight_decay}],
                                 args.lr[0],
