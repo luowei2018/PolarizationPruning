@@ -1083,7 +1083,9 @@ def log_quantization(model, args):
                 
     def redistribute(x,bin_indices):
         abs_x = torch.abs(x)
-        x = torch.clamp(abs_x, min=1e-8) * torch.sign(x)
+        sign_x = torch.sign(x)
+        sign_x[sign_x==0] = 1
+        x = torch.clamp(abs_x, min=1e-8) * sign_x
         tar_bins = args.bins[bin_indices]
         # amplifier based on rank of bin
         amp = amp_factors[bin_indices]
