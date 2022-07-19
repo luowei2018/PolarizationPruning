@@ -578,7 +578,7 @@ def main_worker(gpu, ngpus_per_node, args):
             raise ValueError("=> no checkpoint found at '{}'".format(args.resume))
             
         if args.zero_bn:
-            zero_bn(model, model.arch=='mobilenetv2')
+            zero_bn(model, args.arch=='mobilenetv2')
             print('zero BN')
 
     #print("Model loading completed. Model Summary:")
