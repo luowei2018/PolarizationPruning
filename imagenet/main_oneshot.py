@@ -1035,7 +1035,7 @@ def zero_bn(model, gate):
             filter(lambda m: isinstance(m, nn.BatchNorm2d) or isinstance(m, nn.BatchNorm1d), model.modules()))
 
     for m in zero_modules:
-        m.weight.data.zero_()
+        #m.weight.data.zero_()
         m.bias.data.zero_()
     
 def log_quantization(model, args):
