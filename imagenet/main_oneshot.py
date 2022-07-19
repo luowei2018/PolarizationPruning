@@ -579,6 +579,7 @@ def main_worker(gpu, ngpus_per_node, args):
             
         if args.zero_bn:
             zero_bn(model, model.arch=='mobilenetv2')
+            print('zero BN')
 
     #print("Model loading completed. Model Summary:")
     #print(model)
