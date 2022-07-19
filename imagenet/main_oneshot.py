@@ -200,6 +200,8 @@ parser.add_argument('--q_factor', type=float, default=0.0001,
                     help='decay factor (default: 0.001)')
 parser.add_argument('--bias-decay', action='store_true',
                     help='Apply bias decay on BatchNorm layers')
+parser.add_argument('--zero-bn', action='store_true',
+                    help='Zero all bn layers')
 
 best_prec1 = 0
 
@@ -488,7 +490,8 @@ def main_worker(gpu, ngpus_per_node, args):
     if args.bias_decay:
         for module_name, sub_module in model.named_modules():
             if isinstance(sub_module, nn.BatchNorm1d) or \
-                    isinstance(sub_module, nn.BatchNorm2d):  
+                    isinstance(sub_module, nn.BatchNorm2d)or \
+                    isinstance(sub_module, models.common.SparseGate):  
                 for param_name, param in sub_module.named_parameters():
                     if 'bias' in param_name:
                         bias_decay_params.append(param)
@@ -573,6 +576,9 @@ def main_worker(gpu, ngpus_per_node, args):
                   .format(args.resume, checkpoint['epoch']))
         else:
             raise ValueError("=> no checkpoint found at '{}'".format(args.resume))
+            
+        if args.zero_bn:
+            zero_bn(model, model.arch=='mobilenetv2')
 
     #print("Model loading completed. Model Summary:")
     #print(model)
@@ -1015,6 +1021,21 @@ def check_model_np_nan(model,msg):
             if hasattr(m.bias, 'grad') and m.bias.grad is not None:
                 assert torch.isnan(m.bias.grad.data).any() == 0, m.bias.grad.data
             assert torch.isnan(m.bias.data).any() == 0, m.bias.data
+            
+def zero_bn(model, gate):
+    # allow gate value > 1 (but be careful!)
+    # if gate and (lower_bound != 0 or upper_bound != 1):
+    #     raise ValueError(f"SparseGate is supposed to clamp to [0, 1], got [{lower_bound}, {upper_bound}] ")
+
+    if gate:
+        zero_modules = list(filter(lambda m: isinstance(m, models.common.SparseGate), model.modules()))
+    else:
+        zero_modules = list(
+            filter(lambda m: isinstance(m, nn.BatchNorm2d) or isinstance(m, nn.BatchNorm1d), model.modules()))
+
+    for m in zero_modules:
+        m.weight.data.zero_()
+        m.bias.data.zero_()
     
 def log_quantization(model, args):
     #############SETUP###############
