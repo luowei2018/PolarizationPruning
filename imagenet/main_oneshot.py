@@ -1036,7 +1036,7 @@ def zero_bn(model, gate):
 
     for m in zero_modules:
         m.weight.data.zero_()
-        m.bias.data.zero_()
+        #m.bias.data.zero_()
     
 def log_quantization(model, args):
     #############SETUP###############
