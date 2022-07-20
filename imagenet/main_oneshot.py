@@ -626,8 +626,8 @@ def main_worker(gpu, ngpus_per_node, args):
     print("rank #{}: dataloader loaded!".format(args.rank))
     
     if args.evaluate:
-        #prec1 = validate(val_loader, model, criterion, epoch=0, args=args, writer=None)
-        #factor_visualization(0, model, args, prec1)
+        prec1 = validate(val_loader, model, criterion, epoch=0, args=args, writer=None)
+        factor_visualization(0, model, args, prec1)
         prune_while_training(model, args.arch, args.prune_mode, args.width_multiplier, val_loader, criterion, 0, args)
         return
 
@@ -660,7 +660,7 @@ def main_worker(gpu, ngpus_per_node, args):
         writer.add_scalar("train/lr", optimizer.param_groups[0]['lr'], epoch)
 
         # prune the network and record FLOPs at each epoch
-        prune_while_training(model, args.arch, args.prune_mode, args.width_multiplier, val_loader, criterion, epoch, args)
+        #prune_while_training(model, args.arch, args.prune_mode, args.width_multiplier, val_loader, criterion, epoch, args)
 
         # remember best prec@1 and save checkpoint
         is_best = prec1 > best_prec1
