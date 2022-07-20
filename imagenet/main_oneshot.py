@@ -1162,6 +1162,7 @@ def factor_visualization(iter, model, args, prec):
     else:
         print('Unsupported arch')
         exit(0)
+    print(bn_modules)
         
     for bn_module in bn_modules:
         scale_factors = torch.cat((scale_factors,torch.abs(bn_module.weight.data.view(-1))))
