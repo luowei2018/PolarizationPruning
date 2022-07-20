@@ -639,7 +639,7 @@ class MobileNetV2(nn.Module):
                 if linear_layer:
                     sparse_modules.append(sub_module.linear_layer[sparse_idx])
                     sparse_weights.append(sub_module_weight[1])
-                print(m_name,sparse_modules[-2:])
+                print(m_name,sparse_modules[-2:],sub_module.pw_layer)
 
         assert len(sparse_modules) != 0, "Nothing to return"
 
