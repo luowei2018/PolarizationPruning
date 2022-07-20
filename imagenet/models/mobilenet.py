@@ -417,6 +417,7 @@ class InvertedResidual(nn.Module):
     @property
     def pw_layer(self) -> typing.Tuple[nn.Conv2d, nn.BatchNorm2d, typing.Optional[SparseGate]]:
         """get the pixel-wise layer (conv, bn, gate)"""
+        print(self.pw,self.conv is None)
         if not self.pw:
             return [None, None, None]
         if self.conv is None:
