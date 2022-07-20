@@ -65,6 +65,7 @@ def _compute_global_threshold(model, percent: float) -> int:
 
     threshold_index = int(len(sparse_weights) * percent)
     threshold = sparse_weights[threshold_index]
+    print(sparse_weights)
 
     return threshold
 
