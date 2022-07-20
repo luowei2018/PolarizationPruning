@@ -148,7 +148,7 @@ def prune_conv_layer(conv_layer: nn.Conv2d,
         - `None` or `"default"`: default behaviour. The pruning threshold is determined by `sparse_layer`
     :return out_channel_mask
     """
-    fake_prune = False
+    fake_prune = True
     assert isinstance(conv_layer, nn.Conv2d), f"conv_layer got {conv_layer}"
 
     assert isinstance(sparse_layer_out, nn.BatchNorm2d) or isinstance(sparse_layer_out,
