@@ -171,7 +171,7 @@ def prune_conv_layer(conv_layer: nn.Conv2d,
         if sparse_layer_in is not None:
             if in_channel_mask is not None:
                 raise ValueError("")
-            print(sparse_layer_in.weight.size(),conv_weight.size(),sparse_layer_in.weight)
+            print(sparse_layer_in.weight.size(),conv_weight.size())
             sparse_weight_in: np.ndarray = torch.abs(sparse_layer_in.weight).view(-1).data.cpu().numpy()
             # the in_channel_mask will be overwrote
             in_channel_mask = pruner(sparse_weight_in)
