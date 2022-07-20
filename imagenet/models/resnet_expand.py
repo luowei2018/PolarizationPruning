@@ -114,14 +114,13 @@ class Bottleneck(nn.Module):
         """
 
         # keep input dim and output dim unchanged
-        in_channel_mask = np.ones(self.conv1.in_channels)
         # prune conv1
         in_channel_mask, input_gate_mask = models.common.prune_conv_layer(conv_layer=self.conv1,
                                                                           bn_layer=self.bn1,
                                                                           # prune the input gate
-                                                                          sparse_layer_in=None,
+                                                                          sparse_layer_in=self.input_gate,
                                                                           sparse_layer_out=self.gate1 if self.use_gate else self.bn1,
-                                                                          in_channel_mask=in_channel_mask,
+                                                                          in_channel_mask=None,
                                                                           pruner=pruner,
                                                                           prune_output_mode="prune",
                                                                           prune_mode=prune_mode)

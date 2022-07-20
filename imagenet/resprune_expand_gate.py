@@ -125,7 +125,7 @@ def prune_resnet(sparse_model: torch.nn.Module, pruning_strategy: str, sanity_ch
 
     pruned_model.prune_model(pruner=pruner,
                              prune_mode=prune_mode)
-    #return pruned_model
+    return pruned_model
     #print("Pruning finished. cfg:")
     #print(pruned_model.config())
 
