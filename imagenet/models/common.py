@@ -175,6 +175,9 @@ def prune_conv_layer(conv_layer: nn.Conv2d,
             sparse_weight_in: np.ndarray = sparse_layer_in.weight.view(-1).data.cpu().numpy()
             # the in_channel_mask will be overwrote
             in_channel_mask = pruner(sparse_weight_in)
+            
+        if fake_prune:
+            in_channel_mask = np.ones(conv_layer.weight.size(1), dtype=bool)
 
         if in_channel_mask is not None:
             # prune the input channel according to the in_channel_mask
