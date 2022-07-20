@@ -165,6 +165,7 @@ def prune_conv_layer(conv_layer: nn.Conv2d,
 
     with torch.no_grad():
         conv_weight: torch.Tensor = conv_layer.weight.data.clone()
+        print(conv_weight.size())
 
         # prune the input channel of the conv layer
         # if sparse_layer_in and in_channel_mask are both None, the input dim will NOT be pruned
@@ -246,6 +247,7 @@ def prune_conv_layer(conv_layer: nn.Conv2d,
         if fake_prune:
             #bn_layer.weight.data[idx_block.tolist()] = 0
             #bn_layer.bias.data[idx_block.tolist()] = 0
+            print(conv_weight.size(),bn_layer.weight.data.size())
             pass
         else:
             bn_layer.weight.data = bn_layer.weight.data[idx_out.tolist()].clone()
