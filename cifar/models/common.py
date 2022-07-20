@@ -207,7 +207,7 @@ def prune_conv_layer(conv_layer: Union[nn.Conv2d, nn.Linear],
         if sparse_layer_in is not None:
             if in_channel_mask is not None:
                 raise ValueError("")
-            sparse_weight_in: np.ndarray = sparse_layer_in.weight.view(-1).data.cpu().numpy()
+            sparse_weight_in: np.ndarray = torch.abs(sparse_layer_in).weight.view(-1).data.cpu().numpy()
             # the in_channel_mask will be overwrote
             input_threshold = pruner(sparse_weight_in)
             in_channel_mask: np.ndarray = sparse_weight_in > input_threshold
