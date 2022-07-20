@@ -217,7 +217,6 @@ class BasicBlock(BuildingBlock):
 
         # keep input dim and output dim unchanged
         in_channel_mask = np.ones(self.conv1.in_channels)
-        print(self.use_input_mask,self)
 
         # prune conv1
 
