@@ -1105,7 +1105,7 @@ def log_quantization(model, args):
                                            sparse2=True,
                                            sparse3=True)
     elif args.arch == 'mobilenetv2':
-        bn_modules = model.module.get_sparse_layer(gate=True,
+        bn_modules = model.module.get_sparse_layer(gate=False,
                                            pw_layer=True,
                                            linear_layer=True,
                                            with_weight=False)
@@ -1155,7 +1155,7 @@ def factor_visualization(iter, model, args, prec):
                                            sparse2=True,
                                            sparse3=True)
     elif args.arch == 'mobilenetv2':
-        bn_modules = model.module.get_sparse_layer(gate=True,
+        bn_modules = model.module.get_sparse_layer(gate=False,
                                            pw_layer=True,
                                            linear_layer=True,
                                            with_weight=False)
