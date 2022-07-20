@@ -295,7 +295,7 @@ def main():
     if args.gate and args.arch not in {'mobilenetv2', 'resnet50'}:
         raise ValueError(f"--gate option only works for MobileNet v2 and ResNet-50, got {args.arch}")
 
-    if args.gate and args.loss not in {LossType.POLARIZATION, LossType.L1_SPARSITY_REGULARIZATION}:
+    if args.gate and args.loss not in {LossType.POLARIZATION, LossType.L1_SPARSITY_REGULARIZATION, LossType.LOG_QUANTIZATION}:
         raise ValueError(f"--gate does not compatible with loss: {args.loss}")
 
     if args.keep_out and args.arch != 'mobilenetv2':
