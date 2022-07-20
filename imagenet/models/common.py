@@ -178,7 +178,6 @@ def prune_conv_layer(conv_layer: nn.Conv2d,
             
         if fake_prune:
             in_channel_mask = np.ones(conv_layer.weight.size(1), dtype=bool)
-        print(in_channel_mask is not None)
 
         if in_channel_mask is not None:
             # prune the input channel according to the in_channel_mask
