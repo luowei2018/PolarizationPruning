@@ -168,7 +168,6 @@ def prune_conv_layer(conv_layer: nn.Conv2d,
 
         # prune the input channel of the conv layer
         # if sparse_layer_in and in_channel_mask are both None, the input dim will NOT be pruned
-        print(sparse_layer_in is not None,in_channel_mask is not None)
         if sparse_layer_in is not None:
             if in_channel_mask is not None:
                 raise ValueError("")
@@ -179,6 +178,7 @@ def prune_conv_layer(conv_layer: nn.Conv2d,
             
         if fake_prune:
             in_channel_mask = np.ones(conv_layer.weight.size(1), dtype=bool)
+        print(in_channel_mask is not None)
 
         if in_channel_mask is not None:
             # prune the input channel according to the in_channel_mask
