@@ -247,7 +247,7 @@ def prune_conv_layer(conv_layer: nn.Conv2d,
         if fake_prune:
             #bn_layer.weight.data[idx_block.tolist()] = 0
             #bn_layer.bias.data[idx_block.tolist()] = 0
-            print(conv_weight.size(),bn_layer.weight.data.size())
+            print(conv_weight.size(),bn_layer.weight.data.size(),out_channel_mask.sum(),in_channel_mask.sum())
             pass
         else:
             bn_layer.weight.data = bn_layer.weight.data[idx_out.tolist()].clone()
