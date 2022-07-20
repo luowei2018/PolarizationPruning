@@ -61,7 +61,7 @@ def _compute_global_threshold(model, percent: float) -> int:
     sparse_layers = filter(lambda l: l is not None, sparse_layers)
     sparse_weights: np.ndarray = np.concatenate(
         list(map(lambda l: l.weight.view(-1).data.cpu().numpy(), sparse_layers)))
-    sparse_weights = np.sort(sparse_weights)
+    sparse_weights = np.sort(sparse_weights.abs())
 
     threshold_index = int(len(sparse_weights) * percent)
     threshold = sparse_weights[threshold_index]
