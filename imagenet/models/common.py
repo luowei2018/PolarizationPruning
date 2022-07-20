@@ -247,6 +247,7 @@ def prune_conv_layer(conv_layer: nn.Conv2d,
 
         # prune the bn layer
         if fake_prune:
+            print(bn_layer.weight.data[idx_block.tolist()].min(),bn_layer.weight.data[idx_block.tolist()].max())
             bn_layer.weight.data[idx_block.tolist()] = 0
             #bn_layer.bias.data[idx_block.tolist()] = 0
             pass
