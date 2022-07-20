@@ -148,6 +148,7 @@ def prune_conv_layer(conv_layer: nn.Conv2d,
         - `None` or `"default"`: default behaviour. The pruning threshold is determined by `sparse_layer`
     :return out_channel_mask
     """
+    fake_prune = True
     assert isinstance(conv_layer, nn.Conv2d), f"conv_layer got {conv_layer}"
 
     assert isinstance(sparse_layer_out, nn.BatchNorm2d) or isinstance(sparse_layer_out,
@@ -188,7 +189,8 @@ def prune_conv_layer(conv_layer: nn.Conv2d,
 
         # prune the input of the conv layer
         if conv_layer.groups == 1:
-            conv_weight = conv_weight[:, idx_in.tolist(), :, :]
+            if not fake_prune:
+                conv_weight = conv_weight[:, idx_in.tolist(), :, :]
         else:
             assert conv_weight.shape[1] == 1, "only works for groups == num_channels"
 
@@ -213,6 +215,10 @@ def prune_conv_layer(conv_layer: nn.Conv2d,
             out_channel_mask = in_channel_mask
         else:
             raise ValueError(f"invalid prune_output_mode: {prune_output_mode}")
+            
+        if fake_prune:
+            idx_block: np.ndarray = np.squeeze(np.argwhere(np.asarray(1-out_channel_mask)))
+            out_channel_mask = np.ones(conv_layer.weight.size(0), dtype=bool)
 
         idx_out: np.ndarray = np.squeeze(np.argwhere(np.asarray(out_channel_mask)))
         if len(idx_out.shape) == 0:
@@ -223,7 +229,9 @@ def prune_conv_layer(conv_layer: nn.Conv2d,
             # return mask directly
             # the block is supposed to be set as a identity mapping
             return out_channel_mask, in_channel_mask
-        conv_weight = conv_weight[idx_out.tolist(), :, :, :]
+            
+        if not fake_prune:
+            conv_weight = conv_weight[idx_out.tolist(), :, :, :]
 
         # change the property of the conv layer
         conv_layer.in_channels = len(idx_in)
@@ -235,10 +243,14 @@ def prune_conv_layer(conv_layer: nn.Conv2d,
             pass
 
         # prune the bn layer
-        bn_layer.weight.data = bn_layer.weight.data[idx_out.tolist()].clone()
-        bn_layer.bias.data = bn_layer.bias.data[idx_out.tolist()].clone()
-        bn_layer.running_mean = bn_layer.running_mean[idx_out.tolist()].clone()
-        bn_layer.running_var = bn_layer.running_var[idx_out.tolist()].clone()
+        if fake_prune:
+            bn_layer.weight.data[idx_block.tolist()] = 0
+            #bn_layer.bias.data[idx_block.tolist()] = 0
+        else:
+            bn_layer.weight.data = bn_layer.weight.data[idx_out.tolist()].clone()
+            bn_layer.bias.data = bn_layer.bias.data[idx_out.tolist()].clone()
+            bn_layer.running_mean = bn_layer.running_mean[idx_out.tolist()].clone()
+            bn_layer.running_var = bn_layer.running_var[idx_out.tolist()].clone()
 
         # set bn properties
         bn_layer.num_features = len(idx_out)
