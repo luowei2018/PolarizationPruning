@@ -572,8 +572,8 @@ def main_worker(gpu, ngpus_per_node, args):
                 args.start_epoch = checkpoint['epoch']
                 best_prec1 = checkpoint['best_prec1']
                 #optimizer.load_state_dict(checkpoint['optimizer'])
-            print("=> loaded checkpoint '{}' (epoch {})"
-                  .format(args.resume, checkpoint['epoch']))
+            print("=> loaded checkpoint '{}' (epoch {} prec1 {})"
+                  .format(args.resume, checkpoint['epoch'], best_prec1))
         else:
             raise ValueError("=> no checkpoint found at '{}'".format(args.resume))
             
