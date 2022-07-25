@@ -569,7 +569,7 @@ def main_worker(gpu, ngpus_per_node, args):
             checkpoint = torch.load(args.resume)
             model.load_state_dict(checkpoint['state_dict'])
             if not args.load_param_only:
-                args.start_epoch =200# checkpoint['epoch']
+                args.start_epoch = checkpoint['epoch']
                 best_prec1 = checkpoint['best_prec1']
                 #optimizer.load_state_dict(checkpoint['optimizer'])
             print("=> loaded checkpoint '{}' (epoch {} prec1 {})"
@@ -1279,6 +1279,9 @@ def train(train_loader, model, criterion, optimizer, epoch, sparsity, args, is_d
     avg_sparsity_loss = AverageMeter()
     top1 = AverageMeter()
     top5 = AverageMeter()
+    
+    assert args.arch in ['mobilenetv2','resnet50']
+    num_mini_batch = 1024/args.batch_size if args.arch == 'mobilenetv2' else 512/args.batch_size
 
     # switch to train mode
     model.train()
@@ -1311,7 +1314,6 @@ def train(train_loader, model, criterion, optimizer, epoch, sparsity, args, is_d
         top5.update(prec5[0], image.size(0))
 
         # compute gradient and do SGD step
-        optimizer.zero_grad()
         if args.loss in {LossType.POLARIZATION,
                          LossType.POLARIZATION_GRAD,
                          LossType.L2_POLARIZATION}:
@@ -1426,7 +1428,11 @@ def train(train_loader, model, criterion, optimizer, epoch, sparsity, args, is_d
         # BN_grad_zero(model)
         if args.loss in {LossType.LOG_QUANTIZATION}:
             log_quantization(model, args)
-        optimizer.step()
+           
+        # mini batch
+        if (i+1)%num_mini_batch == 0:
+            optimizer.step()
+            optimizer.zero_grad()
         if args.loss in {LossType.POLARIZATION,
                          LossType.POLARIZATION_GRAD,
                          LossType.L2_POLARIZATION} or \
