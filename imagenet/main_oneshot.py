@@ -76,7 +76,7 @@ parser.add_argument('--epochs', default=90, type=int, metavar='N',
                     help='number of total epochs to run')
 parser.add_argument('--start-epoch', default=0, type=int, metavar='N',
                     help='manual epoch number (useful on restarts)')
-parser.add_argument('-b', '--batch-size', default=256, type=int,
+parser.add_argument('-b', '--batch-size', default=128, type=int,
                     metavar='N', help='mini-batch size (default: 256)')
 parser.add_argument('--lr', type=float, nargs='*', default=[1e-1, 1e-2, 1e-3], metavar='LR',
                     help="the learning rate in each stage (default 1e-2, 1e-3)")
@@ -569,7 +569,7 @@ def main_worker(gpu, ngpus_per_node, args):
             checkpoint = torch.load(args.resume)
             model.load_state_dict(checkpoint['state_dict'])
             if not args.load_param_only:
-                args.start_epoch =200# checkpoint['epoch']
+                args.start_epoch = checkpoint['epoch']
                 best_prec1 = checkpoint['best_prec1']
                 #optimizer.load_state_dict(checkpoint['optimizer'])
             print("=> loaded checkpoint '{}' (epoch {} prec1 {})"
