@@ -569,7 +569,7 @@ def main_worker(gpu, ngpus_per_node, args):
             checkpoint = torch.load(args.resume)
             model.load_state_dict(checkpoint['state_dict'])
             if not args.load_param_only:
-                args.start_epoch = checkpoint['epoch']
+                args.start_epoch =80# checkpoint['epoch']
                 best_prec1 = checkpoint['best_prec1']
                 #optimizer.load_state_dict(checkpoint['optimizer'])
             print("=> loaded checkpoint '{}' (epoch {} prec1 {})"
