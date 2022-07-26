@@ -1433,18 +1433,18 @@ def train(train_loader, model, criterion, optimizer, epoch, sparsity, args, is_d
             # BN_grad_zero(model)
             if args.loss in {LossType.LOG_QUANTIZATION}:
                 log_quantization(model, args)
-        if args.loss in {LossType.POLARIZATION,
-                         LossType.POLARIZATION_GRAD,
-                         LossType.L2_POLARIZATION} or \
-                (args.loss == LossType.L1_SPARSITY_REGULARIZATION and args.gate):
-            # if enable gate, do not clamp bn, clamp gate to [0, 1]
-            clamp_bn(model, gate=args.gate, upper_bound=args.clamp)
+            if args.loss in {LossType.POLARIZATION,
+                             LossType.POLARIZATION_GRAD,
+                             LossType.L2_POLARIZATION} or \
+                    (args.loss == LossType.L1_SPARSITY_REGULARIZATION and args.gate):
+                # if enable gate, do not clamp bn, clamp gate to [0, 1]
+                clamp_bn(model, gate=args.gate, upper_bound=args.clamp)
 
         # measure elapsed time
         batch_time.update(time.time() - end)
         end = time.time()
 
-        if args.rank == 0:
+        if args.rank == 0 and (i+1)%num_mini_batch == 0:
             if args.loss not in {LossType.LOG_QUANTIZATION}:
                 train_iter.set_description(
                       'Epoch: [{epoch:03d}]. '
