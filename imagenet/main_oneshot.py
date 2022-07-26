@@ -1419,20 +1419,20 @@ def train(train_loader, model, criterion, optimizer, epoch, sparsity, args, is_d
             avg_sparsity_loss.update(sparsity_loss.data.item(), image.size(0))
         
         loss.backward()
-        if args.loss == LossType.L1_SPARSITY_REGULARIZATION:
-            updateBN(model, sparsity,
-                     sparsity_on_bn3=args.last_sparsity,
-                     is_mobilenet=args.arch == "mobilenetv2",
-                     gate=args.gate,
-                     exclude_out=args.keep_out)
-        # BN_grad_zero(model)
-        if args.loss in {LossType.LOG_QUANTIZATION}:
-            log_quantization(model, args)
            
         # mini batch
         if (i+1)%num_mini_batch == 0:
             optimizer.step()
             optimizer.zero_grad()
+            if args.loss == LossType.L1_SPARSITY_REGULARIZATION:
+                updateBN(model, sparsity,
+                         sparsity_on_bn3=args.last_sparsity,
+                         is_mobilenet=args.arch == "mobilenetv2",
+                         gate=args.gate,
+                         exclude_out=args.keep_out)
+            # BN_grad_zero(model)
+            if args.loss in {LossType.LOG_QUANTIZATION}:
+                log_quantization(model, args)
         if args.loss in {LossType.POLARIZATION,
                          LossType.POLARIZATION_GRAD,
                          LossType.L2_POLARIZATION} or \
