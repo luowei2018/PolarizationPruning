@@ -1179,9 +1179,9 @@ def factor_visualization(iter, model, args, prec):
     sns.histplot(scale_factors.detach().cpu().numpy(), ax=axs[0])
     sns.histplot(torch.log10(scale_factors).detach().cpu().numpy(), ax=axs[1])
 
-    biases = torch.clamp(biases,min=1e-20)
-    sns.histplot(biases.detach().cpu().numpy(), ax=axs[2])
-    sns.histplot(torch.log10(biases).detach().cpu().numpy(), ax=axs[3])
+    #biases = torch.clamp(biases,min=1e-20)
+    #sns.histplot(biases.detach().cpu().numpy(), ax=axs[2])
+    #sns.histplot(torch.log10(biases).detach().cpu().numpy(), ax=axs[3])
     fig.savefig(save_dir + f'{iter:03d}_{prec:.3f}.png')
     plt.close('all')
     
