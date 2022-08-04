@@ -1255,8 +1255,9 @@ def prune_while_training(model, arch, prune_mode, width_multiplier, val_loader, 
             saved_model,_,_ = prune_mobilenet(model, pruning_strategy='percent', percent=ratio,
                                             sanity_check=False, force_same=False,
                                             width_multiplier=width_multiplier)
-            prec1 = validate(val_loader, saved_model.cuda(), criterion, epoch=epoch, args=args, writer=None)
             flop = compute_conv_flops(saved_model, cuda=True)
+            print(flop)
+            prec1 = validate(val_loader, saved_model.cuda(), criterion, epoch=epoch, args=args, writer=None)
             saved_prec1s += [prec1]
             saved_flops += [flop]
         baseline_model = mobilenet_v2(inverted_residual_setting=None,
