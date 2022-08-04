@@ -252,8 +252,10 @@ def prune_conv_layer(conv_layer: nn.Conv2d,
         if fake_prune:
             if idx_block.tolist():
                 print(sparse_layer_out.bias.data[idx_block.tolist()].abs().max())
+            print(sparse_layer_out.bias.data)
             sparse_layer_out.weight.data[idx_block.tolist()] = 0
-            sparse_layer_out.bias.data[idx_block.tolist()] = 1
+            sparse_layer_out.bias.data[idx_block.tolist()] = 0
+            print(sparse_layer_out.bias.data)
         else:
             sparse_layer_out.weight.data = sparse_layer_out.weight.data[idx_out.tolist()].clone()
             sparse_layer_out.bias.data = sparse_layer_out.bias.data[idx_out.tolist()].clone()
