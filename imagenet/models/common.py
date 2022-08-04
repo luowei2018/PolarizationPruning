@@ -250,7 +250,7 @@ def prune_conv_layer(conv_layer: nn.Conv2d,
         # prune the bn layer
         if fake_prune:
             if idx_block.tolist():
-                print(bn_layer.weight.data.mean(),bn_layer.bias.data.mean())
+                print(bn_layer.weight.data[idx_block.tolist()].mean(),bn_layer.bias.data[idx_block.tolist()].mean())
             bn_layer.weight.data[idx_block.tolist()] = 0
             bn_layer.bias.data[idx_block.tolist()] = 0
         else:
