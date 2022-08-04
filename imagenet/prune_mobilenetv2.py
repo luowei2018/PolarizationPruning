@@ -164,7 +164,7 @@ def build_new_model(state_dict, cfg, expand_idx, width_multiplier, gate=False):
     # use input mask in each block to prune the input channel for each block
     model = mobilenet_v2(inverted_residual_setting=cfg,
                          width_mult=width_multiplier, input_mask=gate)
-    print(model.state_dict())
+    print(model.state_dict().keys())
     # make sure forward pass will not change the network parameters, e.g., bn mean and var
     model.eval()
 
