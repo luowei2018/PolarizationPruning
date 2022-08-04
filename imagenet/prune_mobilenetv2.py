@@ -109,7 +109,6 @@ def prune_mobilenet(sparse_model: Module, pruning_strategy: str,
     _prune_mobilenetv2_inplace(pruned_model,
                                pruner=pruner)
     pruned_model.eval()
-    print(pruned_model.get_config())
     #return pruned_model
 
     # save pruned model
