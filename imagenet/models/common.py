@@ -150,7 +150,7 @@ def prune_conv_layer(conv_layer: nn.Conv2d,
     """
     # only use fake prune for resnet50 since it by default uses input_gate
     # there is inconsistency
-    fake_prune = False
+    fake_prune = True
     assert isinstance(conv_layer, nn.Conv2d), f"conv_layer got {conv_layer}"
 
     assert isinstance(sparse_layer_out, nn.BatchNorm2d) or isinstance(sparse_layer_out,
@@ -178,10 +178,7 @@ def prune_conv_layer(conv_layer: nn.Conv2d,
             sparse_weight_in: np.ndarray = torch.abs(sparse_layer_in.weight).view(-1).data.cpu().numpy()
             # the in_channel_mask will be overwrote
             in_channel_mask = pruner(sparse_weight_in)
-            
-        if fake_prune:
-            in_channel_mask = np.ones(conv_layer.weight.size(1), dtype=bool)
-        print(in_channel_mask)
+        
         if in_channel_mask is not None:
             # prune the input channel according to the in_channel_mask
             # convert mask to channel indexes
