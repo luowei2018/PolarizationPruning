@@ -110,7 +110,7 @@ def prune_mobilenet(sparse_model: Module, pruning_strategy: str,
     _prune_mobilenetv2_inplace(pruned_model,
                                pruner=pruner)
     pruned_model.eval()
-    return pruned_model
+    #return pruned_model
 
     # save pruned model
     # extract idx of ChannelExpand and ChannelSelection layers
