@@ -315,7 +315,7 @@ class InvertedResidual(nn.Module):
                                               sparse_layer_out=dw_layer.sparse_layer,
                                               in_channel_mask=in_channel_mask,
                                               pruner=pruner,
-                                              prune_output_mode="same",
+                                              prune_output_mode="prune",
                                               prune_mode='default')
 
         # prune input of the dw-linear layer (the last layer)

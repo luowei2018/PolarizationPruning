@@ -1252,7 +1252,7 @@ def prune_while_training(model, arch, prune_mode, width_multiplier, val_loader, 
     elif arch == 'mobilenetv2':
         from prune_mobilenetv2 import prune_mobilenet
         for ratio in target_ratios:
-            saved_model,_,_ = prune_mobilenet(model, pruning_strategy='percent', percent=ratio,
+            saved_model = prune_mobilenet(model, pruning_strategy='percent', percent=ratio,
                                             sanity_check=False, force_same=False,
                                             width_multiplier=width_multiplier)
             flop = compute_conv_flops(saved_model, cuda=True)
