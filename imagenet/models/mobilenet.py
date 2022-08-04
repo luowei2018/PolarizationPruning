@@ -287,6 +287,7 @@ class InvertedResidual(nn.Module):
                                                                 pruner=pruner,
                                                                 prune_output_mode="prune",
                                                                 prune_mode='default')
+            print(in_channel_mask)
             if not np.any(in_channel_mask) or not np.any(input_gate_mask):
                 # no channel left
                 self._prune_whole_layer()
