@@ -310,7 +310,7 @@ class ThresholdPruner(Pruner):
             threshold = self._global_threshold
         else:
             threshold = self._search_threshold(weight, self._alg)
-        mask = weight.abs() > threshold
+        mask = abs(weight) > threshold
         return mask
 
 
