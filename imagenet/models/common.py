@@ -178,6 +178,7 @@ def prune_conv_layer(conv_layer: nn.Conv2d,
             # the in_channel_mask will be overwrote
             in_channel_mask = pruner(sparse_weight_in)
             
+        # should enable for resnet
         #if fake_prune: in_channel_mask = np.ones(conv_layer.weight.size(1), dtype=bool)
         
         if in_channel_mask is not None:
@@ -252,7 +253,7 @@ def prune_conv_layer(conv_layer: nn.Conv2d,
             if idx_block.tolist():
                 print(sparse_layer_out.weight.data[idx_block.tolist()].abs().max(),sparse_layer_out.bias.data[idx_block.tolist()].abs().max())
             sparse_layer_out.weight.data[idx_block.tolist()] = 0
-            sparse_layer_out.bias.data[idx_block.tolist()] = 0
+            #sparse_layer_out.bias.data[idx_block.tolist()] = 0
         else:
             sparse_layer_out.weight.data = sparse_layer_out.weight.data[idx_out.tolist()].clone()
             sparse_layer_out.bias.data = sparse_layer_out.bias.data[idx_out.tolist()].clone()
