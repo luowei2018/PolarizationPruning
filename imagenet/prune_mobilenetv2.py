@@ -47,6 +47,7 @@ def _get_parser():
 
 def _prune_mobilenetv2_inplace(sparse_model: torch.nn.Module, pruner: Pruner):
     in_channel = sparse_model.input_channel
+    print('/',in_channel)
     for module_name, sub_module in sparse_model.named_modules():
         if isinstance(sub_module, InvertedResidual):
             print(in_channel)
