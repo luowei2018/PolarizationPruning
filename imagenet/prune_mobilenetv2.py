@@ -49,7 +49,8 @@ def _prune_mobilenetv2_inplace(sparse_model: torch.nn.Module, pruner: Pruner):
     in_channel = sparse_model.input_channel
     for module_name, sub_module in sparse_model.named_modules():
         if isinstance(sub_module, InvertedResidual):
-            in_channel = sub_module.do_pruning(pruner=pruner)
+            in_channel = sub_module.do_pruning(in_channel_mask=None,
+                                               pruner=pruner)
 
 
 def compute_global_threshold(model, percent: float) -> int:
