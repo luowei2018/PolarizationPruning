@@ -109,7 +109,6 @@ def prune_mobilenet(sparse_model: Module, pruning_strategy: str,
     _prune_mobilenetv2_inplace(pruned_model,
                                pruner=pruner)
     pruned_model.eval()
-    return pruned_model
 
     # save pruned model
     # extract idx of ChannelExpand and ChannelSelection layers
@@ -117,6 +116,9 @@ def prune_mobilenet(sparse_model: Module, pruning_strategy: str,
     for m_name, sub_module in pruned_model.named_modules():
         if isinstance(sub_module, models.common.ChannelOperation):
             expand_idx[m_name] = sub_module.idx
+            
+    print(expand_idx)
+    return pruned_model
 
     # remove the SparseGate from state_dict
     pruned_state_dict = pruned_model.state_dict()
