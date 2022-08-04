@@ -150,7 +150,7 @@ def prune_conv_layer(conv_layer: nn.Conv2d,
     """
     # only use fake prune for resnet50 since it by default uses input_gate
     # there is inconsistency
-    fake_prune = True
+    fake_prune = False
     assert isinstance(conv_layer, nn.Conv2d), f"conv_layer got {conv_layer}"
 
     assert isinstance(sparse_layer_out, nn.BatchNorm2d) or isinstance(sparse_layer_out,
@@ -250,12 +250,8 @@ def prune_conv_layer(conv_layer: nn.Conv2d,
 
         # prune the bn layer
         if fake_prune:
-            if idx_block.tolist():
-                print(sparse_layer_out.bias.data[idx_block.tolist()].abs().max())
-            print(sparse_layer_out.bias.data)
             sparse_layer_out.weight.data[idx_block.tolist()] = 0
             sparse_layer_out.bias.data[idx_block.tolist()] = 0
-            print(sparse_layer_out.bias.data)
         else:
             sparse_layer_out.weight.data = sparse_layer_out.weight.data[idx_out.tolist()].clone()
             sparse_layer_out.bias.data = sparse_layer_out.bias.data[idx_out.tolist()].clone()
