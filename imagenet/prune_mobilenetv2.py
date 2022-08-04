@@ -105,7 +105,7 @@ def prune_mobilenet(sparse_model: Module, pruning_strategy: str,
         pruner = RandomPruner(ratio=ratio)
     else:
         pruner = ThresholdPruner(pruning_strategy)
-
+    print(global_threshold)
     _prune_mobilenetv2_inplace(pruned_model,
                                pruner=pruner)
     pruned_model.eval()
