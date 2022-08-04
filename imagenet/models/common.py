@@ -250,14 +250,14 @@ def prune_conv_layer(conv_layer: nn.Conv2d,
         # prune the bn layer
         if fake_prune:
             if idx_block.tolist():
-                print(bn_layer.weight.data[idx_block.tolist()].mean(),bn_layer.bias.data[idx_block.tolist()].mean())
-            bn_layer.weight.data[idx_block.tolist()] = 0
-            bn_layer.bias.data[idx_block.tolist()] = 0
+                print(sparse_layer_out.weight.data[idx_block.tolist()].mean(),sparse_layer_out.bias.data[idx_block.tolist()].mean())
+            sparse_layer_out.weight.data[idx_block.tolist()] = 0
+            sparse_layer_out.bias.data[idx_block.tolist()] = 0
         else:
-            bn_layer.weight.data = bn_layer.weight.data[idx_out.tolist()].clone()
-            bn_layer.bias.data = bn_layer.bias.data[idx_out.tolist()].clone()
-            bn_layer.running_mean = bn_layer.running_mean[idx_out.tolist()].clone()
-            bn_layer.running_var = bn_layer.running_var[idx_out.tolist()].clone()
+            sparse_layer_out.weight.data = sparse_layer_out.weight.data[idx_out.tolist()].clone()
+            sparse_layer_out.bias.data = sparse_layer_out.bias.data[idx_out.tolist()].clone()
+            sparse_layer_out.running_mean = sparse_layer_out.running_mean[idx_out.tolist()].clone()
+            sparse_layer_out.running_var = sparse_layer_out.running_var[idx_out.tolist()].clone()
 
         # set bn properties
         bn_layer.num_features = len(idx_out)
