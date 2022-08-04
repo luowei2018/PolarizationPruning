@@ -175,7 +175,7 @@ def build_new_model(state_dict, cfg, expand_idx, width_multiplier, gate=False):
                 state_dict_wo_sparse_gate[key] = state_dict[key]
         state_dict = state_dict_wo_sparse_gate
 
-    model.load_state_dict(state_dict)
+    model.load_state_dict(state_dict, strict=False)
     # restore the mask of the Expand layer
     for m_name, sub_module in model.named_modules():
         if isinstance(sub_module, models.common.ChannelOperation):

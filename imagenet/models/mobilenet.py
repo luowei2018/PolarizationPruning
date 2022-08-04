@@ -200,7 +200,7 @@ class InvertedResidual(nn.Module):
         self._conv_flops_weight: typing.Optional[typing.Tuple[float, float]] = None
         assert stride in [1, 2]
 
-        if hidden_dim != 0:
+        if hidden_dim != 0 and oup != 0:
 
             # the ChannelSelect layer is supposed to select conv_in channels from inp channels
             self.select = ChannelSelect(inp)
