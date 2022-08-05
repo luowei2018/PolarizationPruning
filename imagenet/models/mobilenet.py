@@ -515,9 +515,9 @@ class MobileNetV2(nn.Module):
             self._pruned = True
 
         self._settings = inverted_residual_setting
-        print("MobileNet v2 created. Settings: ")
-        print(self._settings)
-        print()
+        #print("MobileNet v2 created. Settings: ")
+        #print(self._settings)
+        #print()
 
         # only check the first element, assuming user knows t,c,n,s are required
         if len(inverted_residual_setting) == 0 or len(inverted_residual_setting[0]) != 7:

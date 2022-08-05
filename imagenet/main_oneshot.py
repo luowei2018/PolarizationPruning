@@ -1235,7 +1235,7 @@ def prune_while_training(model, arch, prune_mode, width_multiplier, val_loader, 
     if isinstance(model, nn.DataParallel) or isinstance(model, nn.parallel.DistributedDataParallel):
         model = model.module
 
-    target_ratios = [.75]#[0.1 + 0.1*x for x in range(9)]
+    target_ratios = [.25,.5,.75]#[0.1 + 0.1*x for x in range(9)]
     saved_flops = []
     saved_prec1s = []
 
@@ -1248,7 +1248,6 @@ def prune_while_training(model, arch, prune_mode, width_multiplier, val_loader, 
             flop = compute_conv_flops(saved_model, cuda=True)
             saved_prec1s += [prec1]
             saved_flops += [flop]
-        baseline_model = resnet50(width_multiplier=1., gate=False, aux_fc=False)
     elif arch == 'mobilenetv2':
         from prune_mobilenetv2 import prune_mobilenet
         for ratio in target_ratios:
@@ -1259,13 +1258,11 @@ def prune_while_training(model, arch, prune_mode, width_multiplier, val_loader, 
             prec1 = validate(val_loader, saved_model.cuda(), criterion, epoch=epoch, args=args, writer=None)
             saved_prec1s += [prec1]
             saved_flops += [flop]
-        baseline_model = mobilenet_v2(inverted_residual_setting=None,
-                                      width_mult=1., use_gate=False)
     else:
         # not available
         raise NotImplementedError(f"do not support arch {arch}")
 
-    baseline_flops = compute_conv_flops(baseline_model, cuda=True)
+    baseline_flops = compute_conv_flops(model, cuda=True)
     
     for flop,prec1 in zip(saved_flops,saved_prec1s):
         print(f"FLOPs {flop} (ratio: {flop / baseline_flops:.4f}), prec1: {prec1}")
