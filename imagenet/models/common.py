@@ -251,7 +251,7 @@ def prune_conv_layer(conv_layer: nn.Conv2d,
 
         # change the property of the conv layer
         conv_layer.weight.data = conv_weight
-        if conv_layer.groups != 1:
+        if conv_layer.groups != 1 and not fake_prune:
             # set the new groups for dw layer
             conv_layer.groups = conv_layer.in_channels
             pass
