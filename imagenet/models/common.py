@@ -180,7 +180,7 @@ def prune_conv_layer(conv_layer: nn.Conv2d,
             
         # should enable for resnet
         if fake_prune: 
-            print(in_channel_mask.sum(),len(in_channel_mask))
+            conv_layer.in_channels = int(in_channel_mask.sum())
             if conv_layer.groups == 1:
                 in_channel_mask = np.ones(conv_layer.weight.size(1), dtype=bool)
             else:
@@ -243,11 +243,12 @@ def prune_conv_layer(conv_layer: nn.Conv2d,
         if not fake_prune:
             conv_weight = conv_weight[idx_out.tolist(), :, :, :]
         else:
-            print(len(idx_out),len(out_channel_mask))
+            if prune_output_mode == "same":
+                conv_layer.out_channels = conv_layer.in_channels
+            else:
+                conv_layer.out_channels = len(idx_out)
 
         # change the property of the conv layer
-        conv_layer.in_channels = len(idx_in)
-        conv_layer.out_channels = len(idx_out)
         conv_layer.weight.data = conv_weight
         if conv_layer.groups != 1:
             # set the new groups for dw layer
