@@ -179,8 +179,7 @@ def prune_conv_layer(conv_layer: nn.Conv2d,
             in_channel_mask = pruner(sparse_weight_in)
             
         # should enable for resnet
-        #if fake_prune: in_channel_mask = np.ones(conv_layer.weight.size(1), dtype=bool)
-        print(conv_layer.weight.size(),conv_layer.groups)
+        if fake_prune: in_channel_mask = np.ones(conv_layer.weight.size(1)/conv_layer.groups, dtype=bool)
         
         if in_channel_mask is not None:
             # prune the input channel according to the in_channel_mask
@@ -225,7 +224,6 @@ def prune_conv_layer(conv_layer: nn.Conv2d,
             
         if fake_prune:
             idx_block: np.ndarray = np.squeeze(np.argwhere(np.asarray(1-out_channel_mask)))
-            out_channel_mask = np.ones(conv_layer.weight.size(0), dtype=bool)
 
         idx_out: np.ndarray = np.squeeze(np.argwhere(np.asarray(out_channel_mask)))
         if len(idx_out.shape) == 0:
