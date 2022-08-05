@@ -228,7 +228,6 @@ def prune_conv_layer(conv_layer: nn.Conv2d,
             
         if fake_prune:
             idx_block: np.ndarray = np.squeeze(np.argwhere(np.asarray(1-out_channel_mask)))
-            out_channel_mask = np.ones(conv_layer.weight.size(0), dtype=bool)
 
         idx_out: np.ndarray = np.squeeze(np.argwhere(np.asarray(out_channel_mask)))
         if len(idx_out.shape) == 0:
