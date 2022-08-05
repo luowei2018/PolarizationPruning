@@ -510,6 +510,7 @@ class ChannelExpand(ChannelOperation):
             # no need to do expand
             return x
         data = torch.zeros(x.size()[0], self.channel_num, x.size()[2], x.size()[3], device=x.device)
+        print(data.size(),len(self.idx))
         data[:, self.idx, :, :] = x
 
         return data
