@@ -180,7 +180,7 @@ def prune_conv_layer(conv_layer: nn.Conv2d,
             
         # should enable for resnet
         if fake_prune: 
-            print(len(idx_in),len(in_channel_mask))
+            print(in_channel_mask.sum(),len(in_channel_mask))
             if conv_layer.groups == 1:
                 in_channel_mask = np.ones(conv_layer.weight.size(1), dtype=bool)
             else:
