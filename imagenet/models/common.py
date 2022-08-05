@@ -181,6 +181,7 @@ def prune_conv_layer(conv_layer: nn.Conv2d,
         # should enable for resnet
         #if fake_prune: in_channel_mask = np.ones(conv_layer.weight.size(1)/conv_layer.groups, dtype=bool)
         print(conv_layer.weight.size(),conv_layer.groups,conv_layer.in_channels,conv_layer.out_channels)
+        print(in_channel_mask)
         
         if in_channel_mask is not None:
             # prune the input channel according to the in_channel_mask
