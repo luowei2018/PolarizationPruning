@@ -506,11 +506,10 @@ class ChannelOperation(nn.Module, ABC):
 
 class ChannelExpand(ChannelOperation):
     def forward(self, x):
-        if len(self.idx) == self.channel_num:
+        if len(self.idx) == self.channel_num or x.size(1) == self.channel_num:
             # no need to do expand
             return x
         data = torch.zeros(x.size()[0], self.channel_num, x.size()[2], x.size()[3], device=x.device)
-        print(data.size(),len(self.idx),x.size(),self.channel_num)
         data[:, self.idx, :, :] = x
 
         return data
