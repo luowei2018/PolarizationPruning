@@ -1235,7 +1235,7 @@ def prune_while_training(model, arch, prune_mode, width_multiplier, val_loader, 
     if isinstance(model, nn.DataParallel) or isinstance(model, nn.parallel.DistributedDataParallel):
         model = model.module
 
-    target_ratios = [.25,.5,.75]#[0.1 + 0.1*x for x in range(9)]
+    target_ratios = [.75]#[0.1 + 0.1*x for x in range(9)]
     saved_flops = []
     saved_prec1s = []
 
