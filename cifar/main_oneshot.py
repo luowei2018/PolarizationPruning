@@ -496,6 +496,13 @@ def bn_sparsity(model, loss_type, sparsity, t, alpha,
         
         
 def get_pruned_model(model):
+    if args.bin_mode ==2:
+        num_bins, bin_start, bin_stride = 4, -6, 2
+    elif args.bin_mode == 1:
+        num_bins, bin_start, bin_stride = 6, -5, 1
+    else:
+        print("Bin mode not supported")
+        exit(1)
     import copy
     pruned_model = copy.deepcopy(model)
         
