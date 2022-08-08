@@ -503,6 +503,10 @@ def helper(bn_modules):
     else:
         print("Bin mode not supported")
         exit(1)
+    bin_exp = [bin_start+bin_stride*x for x in range(num_bins)]
+    delta = [-1,-.5,.5,1]
+    #bin_exp[3] += 
+    args.bins = torch.pow(10.,torch.tensor(bin_exp)).cuda(0)
     
     all_scale_factors = torch.tensor([]).cuda()
     for bn_module in bn_modules:
@@ -579,10 +583,6 @@ def log_quantization(model):
     # big: easy to get new distribution, but may degrade performance
     # small: maintain good performance but may not affect distribution much
     decay_factor = args.q_factor # lower this to improve perf
-    # how small/low rank bins get more advantage
-    amp_factors = torch.tensor([2**(num_bins-1-x) for x in range(num_bins)]).cuda()
-    #amp_factors = torch.tensor([0,16,.2,0.0]).cuda()
-    #amp_factors = torch.tensor([16,32,0.0,0.0]).cuda()
     args.ista_err_bins = [0 for _ in range(num_bins)]
     args.ista_cnt_bins = [0 for _ in range(num_bins)]
     
