@@ -547,8 +547,8 @@ def helper(bn_modules,target_indices):
     # assign according to absolute distance
     if True:
         dist = torch.abs(all_scale_factors) 
-        _,ch_indices = dist.sort(dim=0)
-        print(dist.tolist())
+        tmp,ch_indices = dist.sort(dim=0)
+        print(tmp.tolist())
         print(ch_indices.tolist())
         exit(0)
         for bin_idx in target_indices:
