@@ -567,7 +567,7 @@ def helper(bn_modules,target_indices):
             
     return assigned_binindices,remain
         
-def get_pruned_model(model，target_indices):
+def get_pruned_model(model,target_indices):
     import copy
     pruned_model = copy.deepcopy(model)
         
