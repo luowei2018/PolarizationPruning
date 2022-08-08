@@ -495,7 +495,7 @@ def bn_sparsity(model, loss_type, sparsity, t, alpha,
         raise ValueError()
         
         
-def helper(bn_modules):
+def helper(bn_modules,target_indices):
     args.weight_err = torch.tensor([0.0]).cuda(0)
     args.bias_err = torch.tensor([0.0]).cuda(0)
     
@@ -545,8 +545,7 @@ def helper(bn_modules):
     assigned_binindices = torch.zeros(total_channels).long().cuda()
     remain = torch.ones(total_channels).long().cuda()
     # assign according to absolute distance
-    target_indices = [3]
-    if False:
+    if True:
         dist = torch.abs(all_scale_factors) 
         _,ch_indices = dist.sort(dim=0)
         for bin_idx in target_indices:
@@ -568,13 +567,13 @@ def helper(bn_modules):
             
     return assigned_binindices,remain
         
-def get_pruned_model(model):
+def get_pruned_model(model，target_indices):
     import copy
     pruned_model = copy.deepcopy(model)
         
     bn_modules = pruned_model.get_sparse_layers()
     
-    assigned_binindices,remain = helper(bn_modules)
+    assigned_binindices,remain = helper(bn_modules,target_indices)
         
     ch_start = 0
     for bn_module in bn_modules:
@@ -620,7 +619,8 @@ def log_quantization(model):
         
     bn_modules = model.get_sparse_layers()
     
-    assigned_binindices,remain = helper(bn_modules)
+    target_indices = [3]
+    assigned_binindices,remain = helper(bn_modules，target_indices)
         
     ch_start = 0
     for bn_module in bn_modules:
@@ -682,9 +682,10 @@ def prune_while_training(model: nn.Module, arch: str, prune_mode: str, num_class
         # not available
         raise NotImplementedError(f"do not support arch {arch}")
         
-    inplace_pruned_model = get_pruned_model(model)
-    inplace_prec1 = test(inplace_pruned_model)
-    print(f"Inplace prec1:{inplace_prec1}")
+    for i in range(4):
+        inplace_pruned_model = get_pruned_model(model,[i])
+        inplace_prec1 = test(inplace_pruned_model)
+        print(f"Inplace prec1:{inplace_prec1}")
 
     baseline_flops = compute_conv_flops(model, cuda=True)
     
