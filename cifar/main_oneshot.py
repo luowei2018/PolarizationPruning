@@ -549,7 +549,6 @@ def get_pruned_model(model):
     bn_modules = pruned_model.get_sparse_layers()
     
     assigned_binindices,remain = helper(bn_modules)
-    print(remain.sum(),len(remain))
         
     ch_start = 0
     for bn_module in bn_modules:
