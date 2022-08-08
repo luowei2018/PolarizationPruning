@@ -496,6 +496,12 @@ def bn_sparsity(model, loss_type, sparsity, t, alpha,
         
         
 def helper(bn_modules):
+    args.weight_err = torch.tensor([0.0]).cuda(0)
+    args.bias_err = torch.tensor([0.0]).cuda(0)
+    
+    args.ista_err_bins = [0 for _ in range(num_bins)]
+    args.ista_cnt_bins = [0 for _ in range(num_bins)]
+    
     if args.bin_mode ==2:
         num_bins, bin_start, bin_stride = 4, -6, 2
     elif args.bin_mode == 1:
@@ -508,8 +514,29 @@ def helper(bn_modules):
     #bin_exp[3] += 
     args.bins = torch.pow(10.,torch.tensor(bin_exp)).cuda(0)
     
+    def get_min_idx(x):
+        dist = torch.abs(torch.log10(torch.abs(x).unsqueeze(-1)/args.bins))
+        _,min_idx = dist.min(dim=-1)
+        return min_idx
+        
+    def get_bin_distribution(x):
+        x = torch.clamp(torch.abs(x), min=1e-8) * torch.sign(x)
+        min_idx = get_min_idx(x)
+        all_err = torch.log10(args.bins[min_idx]/torch.abs(x))
+        abs_err = torch.abs(all_err)
+        # calculate total error
+        args.weight_err += abs_err.sum()
+        # calculating err for each bin
+        for i in range(num_bins):
+            if torch.sum(min_idx==i)>0:
+                args.ista_err_bins[i] += abs_err[min_idx==i].sum().cpu().item()
+                args.ista_cnt_bins[i] += torch.numel(abs_err[min_idx==i])
+                
     all_scale_factors = torch.tensor([]).cuda()
     for bn_module in bn_modules:
+        with torch.no_grad():
+            get_bin_distribution(bn_module.weight.data)
+            args.bias_err += torch.abs(bn_module.bias.data).sum()
         all_scale_factors = torch.cat((all_scale_factors,torch.abs(bn_module.weight.data)))
     # total channels
     total_channels = len(all_scale_factors)
@@ -560,12 +587,6 @@ def get_pruned_model(model):
     return pruned_model
         
 def log_quantization(model):
-    #############SETUP###############
-    args.weight_err = torch.tensor([0.0]).cuda(0)
-    args.bias_err = torch.tensor([0.0]).cuda(0)
-    # locations of bins should fit original dist
-    # start can be tuned to find a best one
-    # distance between bins min=2
     if args.bin_mode ==2:
         num_bins, bin_start, bin_stride = 4, -6, 2
     elif args.bin_mode == 1:
@@ -584,28 +605,7 @@ def log_quantization(model):
     # big: easy to get new distribution, but may degrade performance
     # small: maintain good performance but may not affect distribution much
     decay_factor = args.q_factor # lower this to improve perf
-    args.ista_err_bins = [0 for _ in range(num_bins)]
-    args.ista_cnt_bins = [0 for _ in range(num_bins)]
     
-    #################START###############
-    def get_min_idx(x):
-        dist = torch.abs(torch.log10(torch.abs(x).unsqueeze(-1)/args.bins))
-        _,min_idx = dist.min(dim=-1)
-        return min_idx
-        
-    def get_bin_distribution(x):
-        x = torch.clamp(torch.abs(x), min=1e-8) * torch.sign(x)
-        min_idx = get_min_idx(x)
-        all_err = torch.log10(args.bins[min_idx]/torch.abs(x))
-        abs_err = torch.abs(all_err)
-        # calculate total error
-        args.weight_err += abs_err.sum()
-        # calculating err for each bin
-        for i in range(num_bins):
-            if torch.sum(min_idx==i)>0:
-                args.ista_err_bins[i] += abs_err[min_idx==i].sum().cpu().item()
-                args.ista_cnt_bins[i] += torch.numel(abs_err[min_idx==i])
-                
     def redistribute(x,bin_indices,active):
         # more distant larger multiplier
         # pull force relates to distance and target bin (how off-distribution is it?)
