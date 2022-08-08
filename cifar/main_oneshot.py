@@ -550,8 +550,8 @@ def log_quantization(model):
         # pull force relates to distance and target bin (how off-distribution is it?)
         # low rank bin gets higher pull force
         tar_bins = args.bins[bin_indices]
-        print(tar_bins.to_list())
-        print(active.to_list())
+        print(tar_bins.tolist())
+        print(active.tolist())
         exit(0)
         all_err = torch.log10(tar_bins/torch.abs(x))
         abs_err = torch.abs(all_err)
