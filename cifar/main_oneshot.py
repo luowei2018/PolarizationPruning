@@ -525,6 +525,7 @@ def log_quantization(model):
     #amp_factors = torch.tensor([16,32,0.0,0.0]).cuda()
     args.ista_err_bins = [0 for _ in range(num_bins)]
     args.ista_cnt_bins = [0 for _ in range(num_bins)]
+    return
     
     #################START###############
     def get_min_idx(x):
@@ -839,9 +840,7 @@ for epoch in range(args.start_epoch, args.epochs):
 
     # flops
     # peek the remaining flops
-    prune_while_training(model, arch=args.arch,
-                       prune_mode="default",
-                       num_classes=num_classes)
+    prune_while_training(model, arch=args.arch,prune_mode="default",num_classes=num_classes)
     
     # show log quantization result
     if args.loss in {LossType.LOG_QUANTIZATION}:
