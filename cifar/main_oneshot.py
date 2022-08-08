@@ -550,6 +550,9 @@ def log_quantization(model):
         # pull force relates to distance and target bin (how off-distribution is it?)
         # low rank bin gets higher pull force
         tar_bins = args.bins[bin_indices]
+        print(tar_bins.to_list())
+        print(active.to_list())
+        exit(0)
         all_err = torch.log10(tar_bins/torch.abs(x))
         abs_err = torch.abs(all_err)
         distance = torch.log10(tar_bins/torch.abs(x))
@@ -579,9 +582,7 @@ def log_quantization(model):
     # assign according to absolute distance
     if True:
         dist = torch.abs(all_scale_factors) 
-        tmp,ch_indices = dist.sort(dim=0)
-        print(tmp)
-        exit(0)
+        _,ch_indices = dist.sort(dim=0)
         for bin_idx in [3]:
             selected = ch_indices[bin_idx*ch_per_bin:(bin_idx+1)*ch_per_bin]
             assigned_binindices[selected] = bin_idx
