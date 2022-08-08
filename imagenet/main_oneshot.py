@@ -1150,7 +1150,6 @@ def log_quantization(model, args):
     
 def factor_visualization(iter, model, args, prec):
     scale_factors = torch.tensor([]).cuda()
-    biases = torch.tensor([]).cuda()
     if args.arch == 'resnet50':
         bn_modules = model.module.get_sparse_layer(gate=False,
                                            sparse1=True,
@@ -1168,12 +1167,11 @@ def factor_visualization(iter, model, args, prec):
     for bn_module in bn_modules:
         if bn_module is None:continue
         scale_factors = torch.cat((scale_factors,torch.abs(bn_module.weight.data.view(-1))))
-        biases = torch.cat((biases,torch.abs(bn_module.bias.data.view(-1))))
     # plot figure
     save_dir = args.save + 'factor/'
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
-    fig, axs = plt.subplots(ncols=4, figsize=(20,4))
+    fig, axs = plt.subplots(ncols=2, figsize=(10,4))
     # plots
     scale_factors = torch.clamp(scale_factors,min=1e-20)
     sns.histplot(scale_factors.detach().cpu().numpy(), ax=axs[0])

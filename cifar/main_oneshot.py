@@ -511,7 +511,10 @@ def log_quantization(model):
     # how centralize the bin is, relax this may improve prec
     bin_width = 1e-1
     # locations we want to quantize
-    args.bins = torch.pow(10.,torch.tensor([bin_start+bin_stride*x for x in range(num_bins)])).cuda(0)
+    bin_exp = [bin_start+bin_stride*x for x in range(num_bins)]
+    delta = [-1,-.5,.5,1]
+    #bin_exp[3] += 
+    args.bins = torch.pow(10.,torch.tensor(bin_exp)).cuda(0)
     # trade-off of original distribution and new distribution
     # big: easy to get new distribution, but may degrade performance
     # small: maintain good performance but may not affect distribution much
@@ -525,7 +528,6 @@ def log_quantization(model):
     
     #################START###############
     def get_min_idx(x):
-        args.bins = torch.pow(10.,torch.tensor([bin_start+bin_stride*x for x in range(num_bins)])).to(x.device)
         dist = torch.abs(torch.log10(torch.abs(x).unsqueeze(-1)/args.bins))
         _,min_idx = dist.min(dim=-1)
         return min_idx
@@ -573,7 +575,11 @@ def log_quantization(model):
     remain = torch.ones(total_channels).long().cuda()
     assigned_binindices = torch.zeros(total_channels).long().cuda()
     
-    for bin_idx in bin_indices[:-1]:
+    # start from right most index
+    # find bins iteratively
+    # probably try bin+-
+    #for bin_idx in bin_indices[:-1]:
+    for bin_idx in [3]:
         dist = torch.abs(torch.log10(args.bins[bin_idx]/all_scale_factors)) 
         not_assigned = remain.nonzero()
         # remaining channels importance
@@ -583,7 +589,8 @@ def log_quantization(model):
         selected = not_assigned[selected_in_remain]
         remain[selected] = 0
         assigned_binindices[selected] = bin_idx
-    assigned_binindices[remain.nonzero()] = bin_indices[-1]
+    # fill in the last index
+    #assigned_binindices[remain.nonzero()] = bin_indices[-1]
         
     ch_start = 0
     for bn_module in bn_modules:
