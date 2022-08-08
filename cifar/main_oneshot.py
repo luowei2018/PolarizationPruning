@@ -519,16 +519,17 @@ def helper(bn_modules):
     assigned_binindices = torch.zeros(total_channels).long().cuda()
     remain = torch.ones(total_channels).long().cuda()
     # assign according to absolute distance
+    target_indices = [3]
     if False:
         dist = torch.abs(all_scale_factors) 
         _,ch_indices = dist.sort(dim=0)
-        for bin_idx in [3]:
+        for bin_idx in target_indices:
             selected = ch_indices[bin_idx*ch_per_bin:(bin_idx+1)*ch_per_bin]
             assigned_binindices[selected] = bin_idx
             remain[selected] = 0
     # assign according to relative distance
     else:
-        for bin_idx in bin_indices:
+        for bin_idx in target_indices:
             dist = torch.abs(torch.log10(args.bins[bin_idx]/all_scale_factors)) 
             not_assigned = remain.nonzero()
             # remaining channels importance
