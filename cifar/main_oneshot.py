@@ -525,7 +525,6 @@ def log_quantization(model):
     #amp_factors = torch.tensor([16,32,0.0,0.0]).cuda()
     args.ista_err_bins = [0 for _ in range(num_bins)]
     args.ista_cnt_bins = [0 for _ in range(num_bins)]
-    return
     
     #################START###############
     def get_min_idx(x):
@@ -546,19 +545,17 @@ def log_quantization(model):
                 args.ista_err_bins[i] += abs_err[min_idx==i].sum().cpu().item()
                 args.ista_cnt_bins[i] += torch.numel(abs_err[min_idx==i])
                 
-    def redistribute(x,bin_indices):
-        tar_bins = args.bins[bin_indices]
-        # amplifier based on rank of bin
-        amp = amp_factors[bin_indices]
-        all_err = torch.log10(tar_bins/torch.abs(x))
-        abs_err = torch.abs(all_err)
+    def redistribute(x,bin_indices,active):
         # more distant larger multiplier
         # pull force relates to distance and target bin (how off-distribution is it?)
         # low rank bin gets higher pull force
+        tar_bins = args.bins[bin_indices]
+        all_err = torch.log10(tar_bins/torch.abs(x))
+        abs_err = torch.abs(all_err)
         distance = torch.log10(tar_bins/torch.abs(x))
-        multiplier = 10**(distance*decay_factor*amp)
-        x[abs_err>bin_width] *= multiplier[abs_err>bin_width]
-        # set small weights to 0?
+        multiplier = 10**(distance*decay_factor)
+        mask = torch.logical_and(active,abs_err>bin_width)
+        x[mask] *= multiplier[mask]
         return x
         
     bn_modules = model.get_sparse_layers()
@@ -572,32 +569,41 @@ def log_quantization(model):
     # total channels
     total_channels = len(all_scale_factors)
     ch_per_bin = total_channels//num_bins
+    assert ch_per_bin*num_bins == total_channels
     _,bin_indices = torch.tensor(args.ista_cnt_bins).sort()
-    remain = torch.ones(total_channels).long().cuda()
     assigned_binindices = torch.zeros(total_channels).long().cuda()
-    
+    remain = torch.ones(total_channels).long().cuda()
     # start from right most index
     # find bins iteratively
     # probably try bin+-
-    #for bin_idx in bin_indices[:-1]:
-    for bin_idx in [3]:
-        dist = torch.abs(torch.log10(args.bins[bin_idx]/all_scale_factors)) 
-        not_assigned = remain.nonzero()
-        # remaining channels importance
-        chan_imp = dist[not_assigned] 
-        tmp,ch_indices = chan_imp.sort(dim=0)
-        selected_in_remain = ch_indices[:ch_per_bin]
-        selected = not_assigned[selected_in_remain]
-        remain[selected] = 0
-        assigned_binindices[selected] = bin_idx
-    # fill in the last index
-    #assigned_binindices[remain.nonzero()] = bin_indices[-1]
+    # assign according to absolute distance
+    if True:
+        dist = torch.abs(all_scale_factors) 
+        tmp,ch_indices = dist.sort(dim=0)
+        print(tmp)
+        exit(0)
+        for bin_idx in [3]:
+            selected = ch_indices[bin_idx*ch_per_bin:(bin_idx+1)*ch_per_bin]
+            assigned_binindices[selected] = bin_idx
+            remain[selected] = 0
+    # assign according to relative distance
+    else:
+        for bin_idx in bin_indices:
+            dist = torch.abs(torch.log10(args.bins[bin_idx]/all_scale_factors)) 
+            not_assigned = remain.nonzero()
+            # remaining channels importance
+            chan_imp = dist[not_assigned] 
+            tmp,ch_indices = chan_imp.sort(dim=0)
+            selected_in_remain = ch_indices[:ch_per_bin]
+            selected = not_assigned[selected_in_remain]
+            remain[selected] = 0
+            assigned_binindices[selected] = bin_idx
         
     ch_start = 0
     for bn_module in bn_modules:
         with torch.no_grad():
             ch_len = len(bn_module.weight.data)
-            bn_module.weight.data = redistribute(bn_module.weight.data, assigned_binindices[ch_start:ch_start+ch_len])
+            bn_module.weight.data = redistribute(bn_module.weight.data, assigned_binindices[ch_start:ch_start+ch_len],remain[[ch_start:ch_start+ch_len]]==0)
             ch_start += ch_len
     
 def factor_visualization(iter, model, prec):
