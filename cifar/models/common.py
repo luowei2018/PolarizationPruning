@@ -211,6 +211,17 @@ def prune_conv_layer(conv_layer: Union[nn.Conv2d, nn.Linear],
             # the in_channel_mask will be overwrote
             input_threshold = pruner(sparse_weight_in)
             in_channel_mask: np.ndarray = sparse_weight_in > input_threshold
+            
+        if fake_prune: 
+            # change the property of the conv layer
+            if isinstance(conv_layer, nn.Conv2d):
+                conv_layer.in_channels = int(in_channel_mask.sum())
+            elif isinstance(conv_layer, nn.Linear):
+                conv_layer.in_features = int(in_channel_mask.sum())
+            if conv_layer.groups == 1:
+                in_channel_mask = np.ones(conv_layer.weight.size(1), dtype=bool)
+            else:
+                in_channel_mask = np.ones(conv_layer.weight.size(0), dtype=bool)
 
         # convert mask to channel indexes
         idx_in = np.squeeze(np.argwhere(np.asarray(in_channel_mask)))
@@ -262,7 +273,6 @@ def prune_conv_layer(conv_layer: Union[nn.Conv2d, nn.Linear],
             
         if fake_prune:
             idx_block: np.ndarray = np.squeeze(np.argwhere(np.asarray(1-out_channel_mask)))
-            out_channel_mask = np.ones(conv_layer.weight.size(0), dtype=bool)
 
         if not np.any(out_channel_mask):
             # there is no channel left
@@ -285,10 +295,8 @@ def prune_conv_layer(conv_layer: Union[nn.Conv2d, nn.Linear],
 
         # change the property of the conv layer
         if isinstance(conv_layer, nn.Conv2d):
-            conv_layer.in_channels = len(idx_in)
             conv_layer.out_channels = len(idx_out)
         elif isinstance(conv_layer, nn.Linear):
-            conv_layer.in_features = len(idx_in)
             conv_layer.out_features = len(idx_out)
         conv_layer.weight.data = conv_weight
         if isinstance(conv_layer, nn.Linear):
@@ -311,18 +319,6 @@ def prune_conv_layer(conv_layer: Union[nn.Conv2d, nn.Linear],
 
                 # set bn properties
                 bn_layer.num_features = len(idx_out)
-
-        # prune the gate
-        if isinstance(sparse_layer, SparseGate):
-            sparse_layer.prune(idx_out)
-            # multiply the bn weight and SparseGate weight
-            sparse_weight: torch.Tensor = sparse_layer.weight.view(-1)
-            if bn_layer is not None:
-                bn_layer.weight.data = (bn_layer.weight.data * sparse_weight).clone()
-                bn_layer.bias.data = (bn_layer.bias.data * sparse_weight).clone()
-            # the function of the SparseGate is now replaced by bn layers
-            # the SparseGate should be disabled
-            sparse_layer.set_ones()
     
     return out_channel_mask, in_channel_mask
 

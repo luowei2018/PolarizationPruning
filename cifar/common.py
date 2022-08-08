@@ -47,9 +47,12 @@ def compute_conv_flops(model: torch.nn.Module, cuda=False) -> float:
         batch_size, input_channels, input_height, input_width = input[0].size()
         output_channels, output_height, output_width = output[0].size()
 
-        kernel_ops = self.kernel_size[0] * self.kernel_size[1] * (self.in_channels / self.groups)
+        if self.groups == 1:
+            kernel_ops = self.kernel_size[0] * self.kernel_size[1] * self.in_channels
+        else:
+            kernel_ops = self.kernel_size[0] * self.kernel_size[1]
 
-        flops = kernel_ops * output_channels * output_height * output_width
+        flops = kernel_ops * self.out_channels * output_height * output_width
 
         list_conv.append(flops)
 

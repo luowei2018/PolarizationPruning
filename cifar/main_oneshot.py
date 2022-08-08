@@ -647,7 +647,6 @@ def prune_while_training(model: nn.Module, arch: str, prune_mode: str, num_class
             flop = compute_conv_flops(saved_model, cuda=True)
             saved_prec1s += [prec1]
             saved_flops += [flop]
-        baseline_model = resnet50_expand(num_classes=num_classes, gate=False, aux_fc=False)
     elif arch == 'vgg16_linear':
         from vggprune_gate import prune_vgg
         from models import vgg16_linear
@@ -659,12 +658,11 @@ def prune_while_training(model: nn.Module, arch: str, prune_mode: str, num_class
             flop = compute_conv_flops(saved_model, cuda=True)
             saved_prec1s += [prec1]
             saved_flops += [flop]
-        baseline_model = vgg16_linear(num_classes=num_classes, gate=False)
     else:
         # not available
         raise NotImplementedError(f"do not support arch {arch}")
 
-    baseline_flops = compute_conv_flops(baseline_model, cuda=True)
+    baseline_flops = compute_conv_flops(model, cuda=True)
     
     for flop,prec1 in zip(saved_flops,saved_prec1s):
         print(f" --> FLOPs : {flop:,}, ratio: {flop / baseline_flops}, prec1: {prec1}")
