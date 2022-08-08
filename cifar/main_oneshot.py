@@ -515,7 +515,7 @@ def get_pruned_model(model):
     total_channels = len(all_scale_factors)
     ch_per_bin = total_channels//num_bins
     assert ch_per_bin*num_bins == total_channels
-    _,bin_indices = [0,1,2,3]
+    bin_indices = [0,1,2,3]
     assigned_binindices = torch.zeros(total_channels).long().cuda()
     remain = torch.ones(total_channels).long().cuda()
     # assign according to absolute distance
