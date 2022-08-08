@@ -499,20 +499,18 @@ def helper(bn_modules):
     args.weight_err = torch.tensor([0.0]).cuda(0)
     args.bias_err = torch.tensor([0.0]).cuda(0)
     
-    args.ista_err_bins = [0 for _ in range(num_bins)]
-    args.ista_cnt_bins = [0 for _ in range(num_bins)]
-    
     if args.bin_mode ==2:
-        num_bins, bin_start, bin_stride = 4, -6, 2
+        args.bins = torch.pow(10.,torch.tensor([-6,-4,-2,0])).cuda(0)
     elif args.bin_mode == 1:
-        num_bins, bin_start, bin_stride = 6, -5, 1
+        args.bins = torch.pow(10.,torch.tensor([-5,-4,-3,-2,-1,0])).cuda(0)
     else:
         print("Bin mode not supported")
         exit(1)
-    bin_exp = [bin_start+bin_stride*x for x in range(num_bins)]
-    delta = [-1,-.5,.5,1]
-    #bin_exp[3] += 
-    args.bins = torch.pow(10.,torch.tensor(bin_exp)).cuda(0)
+        
+    num_bins = len(args.bins)
+    
+    args.ista_err_bins = [0 for _ in range(num_bins)]
+    args.ista_cnt_bins = [0 for _ in range(num_bins)]
     
     def get_min_idx(x):
         dist = torch.abs(torch.log10(torch.abs(x).unsqueeze(-1)/args.bins))
@@ -538,6 +536,7 @@ def helper(bn_modules):
             get_bin_distribution(bn_module.weight.data)
             args.bias_err += torch.abs(bn_module.bias.data).sum()
         all_scale_factors = torch.cat((all_scale_factors,torch.abs(bn_module.weight.data)))
+        
     # total channels
     total_channels = len(all_scale_factors)
     ch_per_bin = total_channels//num_bins
@@ -588,25 +587,20 @@ def get_pruned_model(model):
         
 def log_quantization(model):
     if args.bin_mode ==2:
-        num_bins, bin_start, bin_stride = 4, -6, 2
+        args.bins = torch.pow(10.,torch.tensor([-6,-4,-2,0])).cuda(0)
     elif args.bin_mode == 1:
-        num_bins, bin_start, bin_stride = 6, -5, 1
+        args.bins = torch.pow(10.,torch.tensor([-5,-4,-3,-2,-1,0])).cuda(0)
     else:
         print("Bin mode not supported")
         exit(1)
-    # how centralize the bin is, relax this may improve prec
-    bin_width = 1e-1
-    # locations we want to quantize
-    bin_exp = [bin_start+bin_stride*x for x in range(num_bins)]
-    delta = [-1,-.5,.5,1]
-    #bin_exp[3] += 
-    args.bins = torch.pow(10.,torch.tensor(bin_exp)).cuda(0)
     # trade-off of original distribution and new distribution
     # big: easy to get new distribution, but may degrade performance
     # small: maintain good performance but may not affect distribution much
     decay_factor = args.q_factor # lower this to improve perf
     
     def redistribute(x,bin_indices,active):
+        # how centralize the bin is, relax this may improve prec
+        bin_width = 1e-1
         # more distant larger multiplier
         # pull force relates to distance and target bin (how off-distribution is it?)
         # low rank bin gets higher pull force
