@@ -686,6 +686,7 @@ def prune_while_training(model: nn.Module, arch: str, prune_mode: str, num_class
         inplace_pruned_model = get_pruned_model(model,[i])
         inplace_prec1 = test(inplace_pruned_model)
         print(f"Inplace prec1:{inplace_prec1}")
+        factor_visualization(0, inplace_pruned_model, i)
 
     baseline_flops = compute_conv_flops(model, cuda=True)
     
