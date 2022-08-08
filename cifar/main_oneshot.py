@@ -603,7 +603,7 @@ def log_quantization(model):
     for bn_module in bn_modules:
         with torch.no_grad():
             ch_len = len(bn_module.weight.data)
-            bn_module.weight.data = redistribute(bn_module.weight.data, assigned_binindices[ch_start:ch_start+ch_len],remain[[ch_start:ch_start+ch_len]]==0)
+            bn_module.weight.data = redistribute(bn_module.weight.data, assigned_binindices[ch_start:ch_start+ch_len],remain[ch_start:ch_start+ch_len]==0)
             ch_start += ch_len
     
 def factor_visualization(iter, model, prec):
