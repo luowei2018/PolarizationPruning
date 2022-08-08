@@ -548,6 +548,9 @@ def helper(bn_modules,target_indices):
     if True:
         dist = torch.abs(all_scale_factors) 
         _,ch_indices = dist.sort(dim=0)
+        print(dist.tolist())
+        print(ch_indices.tolist())
+        exit(0)
         for bin_idx in target_indices:
             selected = ch_indices[bin_idx*ch_per_bin:(bin_idx+1)*ch_per_bin]
             assigned_binindices[selected] = bin_idx
