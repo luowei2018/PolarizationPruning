@@ -715,14 +715,14 @@ def train(epoch):
             train_iter.set_description(
                 'Step: {} Train Epoch: {} [{}/{} ({:.1f}%)]. Loss: {:.6f}'.format(
                 global_step, epoch, batch_idx * len(data), len(train_loader.dataset),
-                                    100. * batch_idx / len(train_loader), loss.data.item()))
+                                    100. * batch_idx / len(train_loader), avg_loss / len(train_loader)))
         else:
             weight_err = args.weight_err.cpu().item()
             bias_err = args.bias_err.cpu().item()
             train_iter.set_description(
                 'Step: {} Train Epoch: {} [{}/{} ({:.1f}%)]. Loss: {:.6f}. W-Err: {:.4f}. B-Err: {:.4f}'.format(
                 global_step, epoch, batch_idx * len(data), len(train_loader.dataset),
-                                    100. * batch_idx / len(train_loader), loss.data.item(), weight_err, bias_err))
+                                    100. * batch_idx / len(train_loader), avg_loss / len(train_loader), weight_err, bias_err))
 
     history_score[epoch][0] = avg_loss / len(train_loader)
     history_score[epoch][1] = float(train_acc) / float(total_data)
