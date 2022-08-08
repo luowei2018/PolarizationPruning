@@ -548,6 +548,7 @@ def helper(bn_modules,target_indices):
     if True:
         dist = torch.abs(all_scale_factors) 
         tmp,ch_indices = dist.sort(dim=0)
+        print(dist.tolist())
         print(tmp.tolist())
         print(ch_indices.tolist())
         exit(0)
