@@ -103,8 +103,8 @@ parser.add_argument('--width-multiplier', default=1.0, type=float,
                          "Unavailable for other networks. (default 1.0)")
 parser.add_argument('--debug', action='store_true',
                     help='Debug mode.')
-parser.add_argument('--q_factor', type=float, default=0.0001,
-                    help='decay factor (default: 0.0001)')
+parser.add_argument('--q_factor', type=float, default=5e-4,
+                    help='decay factor (default: 5e-4)')
 parser.add_argument('--bin_mode', default=2, type=int, 
                     help='Setup location of bins.')
 parser.add_argument('-e', '--evaluate', dest='evaluate', action='store_true',
@@ -495,7 +495,7 @@ def bn_sparsity(model, loss_type, sparsity, t, alpha,
         raise ValueError()
         
         
-def get_pruned_model(model):
+def helper(bn_modules):
     if args.bin_mode ==2:
         num_bins, bin_start, bin_stride = 4, -6, 2
     elif args.bin_mode == 1:
@@ -503,10 +503,6 @@ def get_pruned_model(model):
     else:
         print("Bin mode not supported")
         exit(1)
-    import copy
-    pruned_model = copy.deepcopy(model)
-        
-    bn_modules = pruned_model.get_sparse_layers()
     
     all_scale_factors = torch.tensor([]).cuda()
     for bn_module in bn_modules:
@@ -519,7 +515,7 @@ def get_pruned_model(model):
     assigned_binindices = torch.zeros(total_channels).long().cuda()
     remain = torch.ones(total_channels).long().cuda()
     # assign according to absolute distance
-    if True:
+    if False:
         dist = torch.abs(all_scale_factors) 
         _,ch_indices = dist.sort(dim=0)
         for bin_idx in [3]:
@@ -538,6 +534,16 @@ def get_pruned_model(model):
             selected = not_assigned[selected_in_remain]
             remain[selected] = 0
             assigned_binindices[selected] = bin_idx
+            
+    return assigned_binindices,remain
+        
+def get_pruned_model(model):
+    import copy
+    pruned_model = copy.deepcopy(model)
+        
+    bn_modules = pruned_model.get_sparse_layers()
+    
+    assigned_binindices,remain = helper(bn_modules)
         
     ch_start = 0
     for bn_module in bn_modules:
@@ -619,42 +625,7 @@ def log_quantization(model):
         
     bn_modules = model.get_sparse_layers()
     
-    all_scale_factors = torch.tensor([]).cuda()
-    for bn_module in bn_modules:
-        with torch.no_grad():
-            get_bin_distribution(bn_module.weight.data)
-            args.bias_err += torch.abs(bn_module.bias.data).sum()
-        all_scale_factors = torch.cat((all_scale_factors,torch.abs(bn_module.weight.data)))
-    # total channels
-    total_channels = len(all_scale_factors)
-    ch_per_bin = total_channels//num_bins
-    assert ch_per_bin*num_bins == total_channels
-    _,bin_indices = torch.tensor(args.ista_cnt_bins).sort()
-    assigned_binindices = torch.zeros(total_channels).long().cuda()
-    remain = torch.ones(total_channels).long().cuda()
-    # start from right most index
-    # find bins iteratively
-    # probably try bin+-
-    # assign according to absolute distance
-    if True:
-        dist = torch.abs(all_scale_factors) 
-        _,ch_indices = dist.sort(dim=0)
-        for bin_idx in [3]:
-            selected = ch_indices[bin_idx*ch_per_bin:(bin_idx+1)*ch_per_bin]
-            assigned_binindices[selected] = bin_idx
-            remain[selected] = 0
-    # assign according to relative distance
-    else:
-        for bin_idx in bin_indices:
-            dist = torch.abs(torch.log10(args.bins[bin_idx]/all_scale_factors)) 
-            not_assigned = remain.nonzero()
-            # remaining channels importance
-            chan_imp = dist[not_assigned] 
-            tmp,ch_indices = chan_imp.sort(dim=0)
-            selected_in_remain = ch_indices[:ch_per_bin]
-            selected = not_assigned[selected_in_remain]
-            remain[selected] = 0
-            assigned_binindices[selected] = bin_idx
+    assigned_binindices,remain = helper(bn_modules)
         
     ch_start = 0
     for bn_module in bn_modules:
