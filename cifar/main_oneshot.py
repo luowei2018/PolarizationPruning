@@ -494,6 +494,53 @@ def bn_sparsity(model, loss_type, sparsity, t, alpha,
     else:
         raise ValueError()
         
+        
+def get_pruned_model(model):
+    import copy
+    pruned_model = copy.deepcopy(model)
+        
+    bn_modules = pruned_model.get_sparse_layers()
+    
+    all_scale_factors = torch.tensor([]).cuda()
+    for bn_module in bn_modules:
+        all_scale_factors = torch.cat((all_scale_factors,torch.abs(bn_module.weight.data)))
+    # total channels
+    total_channels = len(all_scale_factors)
+    ch_per_bin = total_channels//num_bins
+    assert ch_per_bin*num_bins == total_channels
+    _,bin_indices = [0,1,2,3]
+    assigned_binindices = torch.zeros(total_channels).long().cuda()
+    remain = torch.ones(total_channels).long().cuda()
+    # assign according to absolute distance
+    if True:
+        dist = torch.abs(all_scale_factors) 
+        _,ch_indices = dist.sort(dim=0)
+        for bin_idx in [3]:
+            selected = ch_indices[bin_idx*ch_per_bin:(bin_idx+1)*ch_per_bin]
+            assigned_binindices[selected] = bin_idx
+            remain[selected] = 0
+    # assign according to relative distance
+    else:
+        for bin_idx in bin_indices:
+            dist = torch.abs(torch.log10(args.bins[bin_idx]/all_scale_factors)) 
+            not_assigned = remain.nonzero()
+            # remaining channels importance
+            chan_imp = dist[not_assigned] 
+            tmp,ch_indices = chan_imp.sort(dim=0)
+            selected_in_remain = ch_indices[:ch_per_bin]
+            selected = not_assigned[selected_in_remain]
+            remain[selected] = 0
+            assigned_binindices[selected] = bin_idx
+        
+    ch_start = 0
+    for bn_module in bn_modules:
+        with torch.no_grad():
+            ch_len = len(bn_module.weight.data)
+            inactive = remain[ch_start:ch_start+ch_len]==1
+            bn_module.weight.data[inactive] = 0
+            ch_start += ch_len
+    return pruned_model
+        
 def log_quantization(model):
     #############SETUP###############
     args.weight_err = torch.tensor([0.0]).cuda(0)
@@ -661,6 +708,10 @@ def prune_while_training(model: nn.Module, arch: str, prune_mode: str, num_class
     else:
         # not available
         raise NotImplementedError(f"do not support arch {arch}")
+        
+    inplace_pruned_model = get_pruned_model(model)
+    inplace_prec1 = test(inplace_pruned_model)
+    print(f"Inplace prec1:{inplace_prec1}")
 
     baseline_flops = compute_conv_flops(model, cuda=True)
     
