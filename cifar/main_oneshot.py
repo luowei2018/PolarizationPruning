@@ -549,16 +549,18 @@ def log_quantization(model):
         # more distant larger multiplier
         # pull force relates to distance and target bin (how off-distribution is it?)
         # low rank bin gets higher pull force
+        sign_x = torch.sign(x)
+        mask_zero = (sign_x==0)
+        sign_x[mask_zero] = 1
+        clamp_x = torch.clamp(torch.abs(x), min=1e-8) * sign_x
         tar_bins = args.bins[bin_indices]
-        print(bin_indices.tolist())
-        print(active.tolist())
-        exit(0)
-        all_err = torch.log10(tar_bins/torch.abs(x))
-        abs_err = torch.abs(all_err)
-        distance = torch.log10(tar_bins/torch.abs(x))
+        distance = torch.log10(tar_bins/torch.abs(clamp_x))
         multiplier = 10**(distance*decay_factor)
-        mask = torch.logical_and(active,abs_err>bin_width)
-        x[mask] *= multiplier[mask]
+        mask = torch.logical_and(active,torch.abs(distance)>bin_width)
+        mask = torch.logical_and(mask,mask_zero==0)
+        # only modify where it is not too small and distant from bin
+        # no need to force small weights, they have small impact
+        x[mask] = clamp_x[mask] * multiplier[mask]
         return x
         
     bn_modules = model.get_sparse_layers()
