@@ -500,8 +500,8 @@ def helper(bn_modules,target_indices):
     args.bias_err = torch.tensor([0.0]).cuda(0)
     
     if args.bin_mode ==2:
-        #args.bins = torch.pow(10.,torch.tensor([-2,0])).cuda(0)
-        args.bins = torch.pow(10.,torch.tensor([-6,-4,-2,0])).cuda(0)
+        args.bins = torch.pow(10.,torch.tensor([-2,0])).cuda(0)
+        #args.bins = torch.pow(10.,torch.tensor([-6,-4,-2,0])).cuda(0)
     elif args.bin_mode == 1:
         args.bins = torch.pow(10.,torch.tensor([-5,-4,-3,-2,-1,0])).cuda(0)
     else:
@@ -637,7 +637,7 @@ def factor_visualization(iter, model, prec):
     for bn_module in bn_modules:
         scale_factors = torch.cat((scale_factors,torch.abs(bn_module.weight.data.view(-1))))
         biases = torch.cat((biases,torch.abs(bn_module.bias.data.view(-1))))
-    print(scale_factors.min(),scale_factors.max())
+    print(scale_factors.max())
     # plot figure
     save_dir = args.save + 'factor/'
     if not os.path.exists(save_dir):
@@ -684,7 +684,7 @@ def prune_while_training(model: nn.Module, arch: str, prune_mode: str, num_class
         # not available
         raise NotImplementedError(f"do not support arch {arch}")
         
-    for i in range(4):
+    for i in range(len(args.bins)):
         inplace_pruned_model = get_pruned_model(model,[i])
         inplace_prec1 = test(inplace_pruned_model)
         print(f"Inplace prec1:{inplace_prec1}")
