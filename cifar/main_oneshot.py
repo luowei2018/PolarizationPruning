@@ -500,6 +500,7 @@ def helper(bn_modules,target_indices):
     args.bias_err = torch.tensor([0.0]).cuda(0)
     
     if args.bin_mode ==2:
+        #args.bins = torch.pow(10.,torch.tensor([-2,0])).cuda(0)
         args.bins = torch.pow(10.,torch.tensor([-6,-4,-2,0])).cuda(0)
     elif args.bin_mode == 1:
         args.bins = torch.pow(10.,torch.tensor([-5,-4,-3,-2,-1,0])).cuda(0)
@@ -552,7 +553,6 @@ def helper(bn_modules,target_indices):
             selected = ch_indices[bin_idx*ch_per_bin:(bin_idx+1)*ch_per_bin]
             assigned_binindices[selected] = bin_idx
             remain[selected] = 0
-            print(bin_idx,dist[selected].min(),dist[selected].max())
     # assign according to relative distance
     else:
         for bin_idx in target_indices:
@@ -577,18 +577,12 @@ def get_pruned_model(model,target_indices):
     assigned_binindices,remain = helper(bn_modules,target_indices)
         
     ch_start = 0
-    minmax = [100,0]
     for bn_module in bn_modules:
         with torch.no_grad():
             ch_len = len(bn_module.weight.data)
             inactive = remain[ch_start:ch_start+ch_len]==1
-            active = remain[ch_start:ch_start+ch_len]==0
-            if torch.sum(active)>0:
-                minmax[0] = min(minmax[0],min(bn_module.weight.data[active].abs().tolist()))
-                minmax[1] = max(minmax[1],max(bn_module.weight.data[active].abs().tolist()))
             bn_module.weight.data[inactive] = 0
             ch_start += ch_len
-    print(minmax)
     return pruned_model
         
 def log_quantization(model):
