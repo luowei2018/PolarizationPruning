@@ -495,7 +495,7 @@ def bn_sparsity(model, loss_type, sparsity, t, alpha,
         raise ValueError()
         
         
-def helper(bn_modules,target_indices):
+def assign_to_indices(bn_modules,target_indices):
     args.weight_err = torch.tensor([0.0]).cuda(0)
     args.bias_err = torch.tensor([0.0]).cuda(0)
     
@@ -572,7 +572,7 @@ def get_pruned_model(model,target_indices):
         
     bn_modules = pruned_model.get_sparse_layers()
     
-    assigned_binindices,remain = helper(bn_modules,target_indices)
+    assigned_binindices,remain = assign_to_indices(bn_modules,target_indices)
         
     ch_start = 0
     for bn_module in bn_modules:
@@ -584,17 +584,9 @@ def get_pruned_model(model,target_indices):
     return pruned_model
         
 def log_quantization(model):
-    if args.bin_mode ==2:
-        args.bins = torch.pow(10.,torch.tensor([-6,-4,-2,0])).cuda(0)
-    elif args.bin_mode == 1:
-        args.bins = torch.pow(10.,torch.tensor([-5,-4,-3,-2,-1,0])).cuda(0)
-    else:
-        print("Bin mode not supported")
-        exit(1)
     # trade-off of original distribution and new distribution
     # big: easy to get new distribution, but may degrade performance
     # small: maintain good performance but may not affect distribution much
-    decay_factor = args.q_factor # lower this to improve perf
     
     def redistribute(x,bin_indices,active):
         # how centralize the bin is, relax this may improve prec
@@ -608,7 +600,7 @@ def log_quantization(model):
         clamp_x = torch.clamp(torch.abs(x), min=1e-8) * sign_x
         tar_bins = args.bins[bin_indices]
         distance = torch.log10(tar_bins/torch.abs(clamp_x))
-        multiplier = 10**(distance*decay_factor)
+        multiplier = 10**(distance*args.q_factor)
         mask = torch.logical_and(active,torch.abs(distance)>bin_width)
         mask = torch.logical_and(mask,mask_zero==0)
         # only modify where it is not too small and distant from bin
@@ -619,7 +611,7 @@ def log_quantization(model):
     bn_modules = model.get_sparse_layers()
     
     target_indices = [3]
-    assigned_binindices,remain = helper(bn_modules,target_indices)
+    assigned_binindices,remain = assign_to_indices(bn_modules,target_indices)
         
     ch_start = 0
     for bn_module in bn_modules:
@@ -682,9 +674,20 @@ def prune_while_training(model: nn.Module, arch: str, prune_mode: str, num_class
         raise NotImplementedError(f"do not support arch {arch}")
 
     baseline_flops = compute_conv_flops(model, cuda=True)
+        
+    inplace_precs = []
+    inplace_pruned_model = get_pruned_model(model,[3])
+    inplace_prec1 = test(inplace_pruned_model)
+    inplace_precs += [inplace_prec1]
     
+    print_str = ''
     for flop,prec1 in zip(saved_flops,saved_prec1s):
-        print(f" --> FLOPs : {flop:,}, ratio: {flop / baseline_flops}, prec1: {prec1}")
+        print_str += f"[{flop / baseline_flops:.3f}, {prec1:.3f}]\t"
+        
+    for prec1 in inplace_precs:
+        print_str += f"{prec1:.3f}\t"
+        
+    print(print_str)
 
 
 def train(epoch):
