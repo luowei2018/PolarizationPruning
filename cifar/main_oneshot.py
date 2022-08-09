@@ -103,7 +103,7 @@ parser.add_argument('--width-multiplier', default=1.0, type=float,
                          "Unavailable for other networks. (default 1.0)")
 parser.add_argument('--debug', action='store_true',
                     help='Debug mode.')
-parser.add_argument('--q_factor', type=float, default=5e-4,
+parser.add_argument('--q_factor', type=float, default=1e-4,
                     help='decay factor (default: 5e-4)')
 parser.add_argument('--bin_mode', default=2, type=int, 
                     help='Setup location of bins.')
@@ -610,7 +610,7 @@ def log_quantization(model):
         
     bn_modules = model.get_sparse_layers()
     
-    target_indices = [3]
+    target_indices = [0,1,2,3]
     assigned_binindices,remain = assign_to_indices(bn_modules,target_indices)
         
     ch_start = 0
