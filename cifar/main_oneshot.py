@@ -500,8 +500,7 @@ def helper(bn_modules,target_indices):
     args.bias_err = torch.tensor([0.0]).cuda(0)
     
     if args.bin_mode ==2:
-        args.bins = torch.pow(10.,torch.tensor([-2,0])).cuda(0)
-        #args.bins = torch.pow(10.,torch.tensor([-6,-4,-2,0])).cuda(0)
+        args.bins = torch.pow(10.,torch.tensor([-6,-4,-2,0])).cuda(0)
     elif args.bin_mode == 1:
         args.bins = torch.pow(10.,torch.tensor([-5,-4,-3,-2,-1,0])).cuda(0)
     else:
@@ -656,7 +655,7 @@ def factor_visualization(iter, model, prec):
         
 
 def prune_while_training(model: nn.Module, arch: str, prune_mode: str, num_classes: int):
-    target_ratios = [.5]#[.25,.5,.75]#[0.1 + 0.1*x for x in range(9)]
+    target_ratios = [.25,.5,.75]#[0.1 + 0.1*x for x in range(9)]
     saved_flops = []
     saved_prec1s = []
     if arch == "resnet56":
