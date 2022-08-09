@@ -610,7 +610,7 @@ def log_quantization(model):
         
     bn_modules = model.get_sparse_layers()
     
-    target_indices = [0,1,2,3]
+    target_indices = [3]#[0,1,2,3]
     assigned_binindices,remain = assign_to_indices(bn_modules,target_indices)
         
     ch_start = 0
