@@ -583,8 +583,9 @@ def get_pruned_model(model,target_indices):
             ch_len = len(bn_module.weight.data)
             inactive = remain[ch_start:ch_start+ch_len]==1
             active = remain[ch_start:ch_start+ch_len]==0
-            minmax[0] = min(minmax[0],min(bn_module.weight.data[active].tolist()))
-            minmax[1] = min(minmax[1],max(bn_module.weight.data[active].tolist()))
+            if torch.sum(active)>0:
+                minmax[0] = min(minmax[0],min(bn_module.weight.data[active].tolist()))
+                minmax[1] = min(minmax[1],max(bn_module.weight.data[active].tolist()))
             bn_module.weight.data[inactive] = 0
             ch_start += ch_len
     print(minmax)
