@@ -500,7 +500,7 @@ def assign_to_indices(bn_modules,target_indices,default_index=0):
     args.bias_err = torch.tensor([0.0]).cuda(0)
     
     if args.bin_mode ==2:
-        args.bins = torch.pow(10.,torch.tensor([-10,-4,-2,-1])).cuda(0)
+        args.bins = torch.pow(10.,torch.tensor([-10,-4,-2,2])).cuda(0)
     elif args.bin_mode == 1:
         args.bins = torch.pow(10.,torch.tensor([-5,-4,-3,-2,-1,0])).cuda(0)
     else:
