@@ -604,7 +604,8 @@ def log_quantization(model):
         distance = torch.log10(tar_bins/torch.abs(clamp_x))
         amp = amp_factors[bin_indices]
         multiplier = 10**(distance*args.q_factor*amp)
-        mask = torch.logical_and(active,torch.abs(distance)>bin_width)
+        mask = torch.abs(distance)>bin_width
+        # don do anything to zeros
         mask = torch.logical_and(mask,mask_zero==0)
         # only modify where it is not too small and distant from bin
         # no need to force small weights, they have small impact
@@ -613,7 +614,7 @@ def log_quantization(model):
         
     bn_modules = model.get_sparse_layers()
     
-    target_indices = [0,1,2,3]
+    target_indices = [3]
     assigned_binindices,remain = assign_to_indices(bn_modules,target_indices)
         
     ch_start = 0
