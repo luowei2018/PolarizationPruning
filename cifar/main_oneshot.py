@@ -577,12 +577,16 @@ def get_pruned_model(model,target_indices):
     assigned_binindices,remain = helper(bn_modules,target_indices)
         
     ch_start = 0
+    mi,ma=1,0
     for bn_module in bn_modules:
         with torch.no_grad():
             ch_len = len(bn_module.weight.data)
             inactive = remain[ch_start:ch_start+ch_len]==1
             bn_module.weight.data[inactive] = 0
             ch_start += ch_len
+        mi=min(mi,bn_module.weight.data[remain[ch_start:ch_start+ch_len]==0].min())
+        ma=max(ma,bn_module.weight.data[remain[ch_start:ch_start+ch_len]==0].max())
+    print('model:',mi,ma)
     return pruned_model
         
 def log_quantization(model):
