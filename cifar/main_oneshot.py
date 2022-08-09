@@ -589,6 +589,8 @@ def log_quantization(model):
     # small: maintain good performance but may not affect distribution much
     
     def redistribute(x,bin_indices,active):
+        num_bins = len(args.bins)
+        amp_factors = torch.tensor([2**(num_bins-1-x) for x in range(num_bins)]).cuda()
         # how centralize the bin is, relax this may improve prec
         bin_width = 1e-1
         # more distant larger multiplier
@@ -600,7 +602,8 @@ def log_quantization(model):
         clamp_x = torch.clamp(torch.abs(x), min=1e-8) * sign_x
         tar_bins = args.bins[bin_indices]
         distance = torch.log10(tar_bins/torch.abs(clamp_x))
-        multiplier = 10**(distance*args.q_factor)
+        amp = amp_factors[bin_indices]
+        multiplier = 10**(distance*args.q_factor*amp)
         mask = torch.logical_and(active,torch.abs(distance)>bin_width)
         mask = torch.logical_and(mask,mask_zero==0)
         # only modify where it is not too small and distant from bin
@@ -610,7 +613,7 @@ def log_quantization(model):
         
     bn_modules = model.get_sparse_layers()
     
-    target_indices = [3]#[0,1,2,3]
+    target_indices = [0,1,2,3]
     assigned_binindices,remain = assign_to_indices(bn_modules,target_indices)
         
     ch_start = 0
