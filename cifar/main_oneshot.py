@@ -544,7 +544,7 @@ def helper(bn_modules,target_indices):
     assigned_binindices = torch.zeros(total_channels).long().cuda()
     remain = torch.ones(total_channels).long().cuda()
     # assign according to absolute distance
-    if True:
+    if False:
         dist = torch.abs(all_scale_factors) 
         _,ch_indices = dist.sort(dim=0)
         for bin_idx in target_indices:
