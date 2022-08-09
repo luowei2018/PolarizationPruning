@@ -495,7 +495,7 @@ def bn_sparsity(model, loss_type, sparsity, t, alpha,
         raise ValueError()
         
         
-def assign_to_indices(bn_modules,target_indices):
+def assign_to_indices(bn_modules,target_indices,default_index=0):
     args.weight_err = torch.tensor([0.0]).cuda(0)
     args.bias_err = torch.tensor([0.0]).cuda(0)
     
@@ -542,6 +542,7 @@ def assign_to_indices(bn_modules,target_indices):
     ch_per_bin = total_channels//num_bins
     assert ch_per_bin*num_bins == total_channels
     assigned_binindices = torch.zeros(total_channels).long().cuda()
+    assigned_binindices[:] = default_index
     remain = torch.ones(total_channels).long().cuda()
     # assign according to absolute distance
     if False:
@@ -600,6 +601,8 @@ def log_quantization(model):
         mask_zero = (sign_x==0)
         sign_x[mask_zero] = 1
         clamp_x = torch.clamp(torch.abs(x), min=1e-8) * sign_x
+        # by default, all target at left most bin
+        # only selected ones will be assigned to some right bins
         tar_bins = args.bins[bin_indices]
         distance = torch.log10(tar_bins/torch.abs(clamp_x))
         amp = amp_factors[bin_indices]
@@ -615,7 +618,7 @@ def log_quantization(model):
     bn_modules = model.get_sparse_layers()
     
     target_indices = [3]
-    assigned_binindices,remain = assign_to_indices(bn_modules,target_indices)
+    assigned_binindices,remain = assign_to_indices(bn_modules,target_indices,default_index=2)
         
     ch_start = 0
     for bn_module in bn_modules:
