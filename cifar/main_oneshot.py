@@ -541,7 +541,6 @@ def helper(bn_modules,target_indices):
     total_channels = len(all_scale_factors)
     ch_per_bin = total_channels//num_bins
     assert ch_per_bin*num_bins == total_channels
-    bin_indices = [0,1,2,3]
     assigned_binindices = torch.zeros(total_channels).long().cuda()
     remain = torch.ones(total_channels).long().cuda()
     # assign according to absolute distance
@@ -580,8 +579,7 @@ def get_pruned_model(model,target_indices):
         with torch.no_grad():
             ch_len = len(bn_module.weight.data)
             inactive = remain[ch_start:ch_start+ch_len]==1
-            active = remain[ch_start:ch_start+ch_len]==0
-            bn_module.weight.data[active] = 0
+            bn_module.weight.data[inactive] = 0
             ch_start += ch_len
     return pruned_model
         
