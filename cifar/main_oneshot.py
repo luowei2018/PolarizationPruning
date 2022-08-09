@@ -583,10 +583,12 @@ def get_pruned_model(model,target_indices):
             ch_len = len(bn_module.weight.data)
             inactive = remain[ch_start:ch_start+ch_len]==1
             active = remain[ch_start:ch_start+ch_len]==0
+            print(bn_module.weight.data[inactive])
+            print(bn_module.weight.data[active])
             bn_module.weight.data[inactive] = 0
             ch_start += ch_len
-        mi=min(mi,bn_module.weight.data[active].min())
-        ma=max(ma,bn_module.weight.data[active].max())
+        #mi=min(mi,bn_module.weight.data[active])
+        #ma=max(ma,bn_module.weight.data[active])
     print('model:',mi,ma)
     return pruned_model
         
