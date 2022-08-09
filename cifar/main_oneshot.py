@@ -656,7 +656,7 @@ def factor_visualization(iter, model, prec):
         
 
 def prune_while_training(model: nn.Module, arch: str, prune_mode: str, num_classes: int):
-    target_ratios = [.25,.5,.75]#[0.1 + 0.1*x for x in range(9)]
+    target_ratios = [.5]#[.25,.5,.75]#[0.1 + 0.1*x for x in range(9)]
     saved_flops = []
     saved_prec1s = []
     if arch == "resnet56":
@@ -684,7 +684,7 @@ def prune_while_training(model: nn.Module, arch: str, prune_mode: str, num_class
         # not available
         raise NotImplementedError(f"do not support arch {arch}")
         
-    for i in range(len(args.bins)):
+    for i in range(len(target_ratios)+1):
         inplace_pruned_model = get_pruned_model(model,[i])
         inplace_prec1 = test(inplace_pruned_model)
         print(f"Inplace prec1:{inplace_prec1}")
