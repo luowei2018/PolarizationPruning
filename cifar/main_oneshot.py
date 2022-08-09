@@ -582,10 +582,11 @@ def get_pruned_model(model,target_indices):
         with torch.no_grad():
             ch_len = len(bn_module.weight.data)
             inactive = remain[ch_start:ch_start+ch_len]==1
+            active = remain[ch_start:ch_start+ch_len]==0
             bn_module.weight.data[inactive] = 0
             ch_start += ch_len
-        mi=min(mi,bn_module.weight.data[remain[ch_start:ch_start+ch_len]==0].min())
-        ma=max(ma,bn_module.weight.data[remain[ch_start:ch_start+ch_len]==0].max())
+        mi=min(mi,bn_module.weight.data[active].min())
+        ma=max(ma,bn_module.weight.data[active].max())
     print('model:',mi,ma)
     return pruned_model
         
