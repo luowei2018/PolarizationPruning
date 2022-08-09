@@ -600,7 +600,7 @@ def log_quantization(model):
         sign_x = torch.sign(x)
         mask_zero = (sign_x==0)
         sign_x[mask_zero] = 1
-        clamp_x = torch.clamp(torch.abs(x), min=1e-8) * sign_x
+        clamp_x = torch.clamp(torch.abs(x), min=1e-10) * sign_x
         # by default, all target at left most bin
         # only selected ones will be assigned to some right bins
         tar_bins = args.bins[bin_indices]
