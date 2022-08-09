@@ -635,7 +635,6 @@ def factor_visualization(iter, model, prec):
     for bn_module in bn_modules:
         scale_factors = torch.cat((scale_factors,torch.abs(bn_module.weight.data.view(-1))))
         biases = torch.cat((biases,torch.abs(bn_module.bias.data.view(-1))))
-    print(scale_factors.max())
     # plot figure
     save_dir = args.save + 'factor/'
     if not os.path.exists(save_dir):
@@ -681,12 +680,6 @@ def prune_while_training(model: nn.Module, arch: str, prune_mode: str, num_class
     else:
         # not available
         raise NotImplementedError(f"do not support arch {arch}")
-        
-    for i in range(len(target_ratios)+1):
-        inplace_pruned_model = get_pruned_model(model,[i])
-        inplace_prec1 = test(inplace_pruned_model)
-        print(f"Inplace prec1:{inplace_prec1}")
-        factor_visualization(0, inplace_pruned_model, i)
 
     baseline_flops = compute_conv_flops(model, cuda=True)
     
