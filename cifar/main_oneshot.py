@@ -608,7 +608,7 @@ def log_quantization(model):
         tar_bins = args.bins[bin_indices]
         distance = torch.log10(tar_bins/torch.abs(clamp_x))
         amp = args.amp_factors[bin_indices]
-        sparse_rate = args.current_lr/40
+        sparse_rate = args.current_lr/10
         multiplier = 10**(distance*sparse_rate*amp)
         mask = torch.abs(distance)>bin_width
         # don do anything to zeros
