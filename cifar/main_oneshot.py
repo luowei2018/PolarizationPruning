@@ -495,7 +495,7 @@ def bn_sparsity(model, loss_type, sparsity, t, alpha,
         raise ValueError()
      
 if args.bin_mode ==2:
-    args.bins = torch.pow(10.,torch.tensor([-10,-4,-2,.5])).cuda(0)
+    args.bins = torch.pow(10.,torch.tensor([-10,-4,-2,-.5])).cuda(0)
 elif args.bin_mode == 1:
     args.bins = torch.pow(10.,torch.tensor([-5,-4,-3,-2,-1,0])).cuda(0)
 else:
