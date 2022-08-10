@@ -503,7 +503,7 @@ else:
     exit(1)
 
 #amp_factors = torch.tensor([2**(num_bins-1-x) for x in range(num_bins)]).cuda()
-args.amp_factors = torch.tensor([8,4,2,2]).cuda()
+args.amp_factors = torch.tensor([8,4,2,8]).cuda()
         
 def assign_to_indices(bn_modules,target_indices,default_index=0):
     args.weight_err = torch.tensor([0.0]).cuda(0)
