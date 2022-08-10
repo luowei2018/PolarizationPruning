@@ -493,19 +493,21 @@ def bn_sparsity(model, loss_type, sparsity, t, alpha,
             return sparsity_loss
     else:
         raise ValueError()
-        
+     
+if args.bin_mode ==2:
+    args.bins = torch.pow(10.,torch.tensor([-10,-4,-2,1])).cuda(0)
+elif args.bin_mode == 1:
+    args.bins = torch.pow(10.,torch.tensor([-5,-4,-3,-2,-1,0])).cuda(0)
+else:
+    print("Bin mode not supported")
+    exit(1)
+
+#amp_factors = torch.tensor([2**(num_bins-1-x) for x in range(num_bins)]).cuda()
+args.amp_factors = torch.tensor([8,4,2,4]).cuda()
         
 def assign_to_indices(bn_modules,target_indices,default_index=0):
     args.weight_err = torch.tensor([0.0]).cuda(0)
     args.bias_err = torch.tensor([0.0]).cuda(0)
-    
-    if args.bin_mode ==2:
-        args.bins = torch.pow(10.,torch.tensor([-10,-4,-2,3])).cuda(0)
-    elif args.bin_mode == 1:
-        args.bins = torch.pow(10.,torch.tensor([-5,-4,-3,-2,-1,0])).cuda(0)
-    else:
-        print("Bin mode not supported")
-        exit(1)
         
     num_bins = len(args.bins)
     
@@ -591,7 +593,6 @@ def log_quantization(model):
     
     def redistribute(x,bin_indices,active):
         num_bins = len(args.bins)
-        amp_factors = torch.tensor([2**(num_bins-1-x) for x in range(num_bins)]).cuda()
         # how centralize the bin is, relax this may improve prec
         bin_width = 1e-1
         # more distant larger multiplier
@@ -605,7 +606,7 @@ def log_quantization(model):
         # only selected ones will be assigned to some right bins
         tar_bins = args.bins[bin_indices]
         distance = torch.log10(tar_bins/torch.abs(clamp_x))
-        amp = amp_factors[bin_indices]
+        amp = args.amp_factors[bin_indices]
         multiplier = 10**(distance*args.q_factor*amp)
         mask = torch.abs(distance)>bin_width
         # don do anything to zeros
