@@ -495,7 +495,7 @@ def bn_sparsity(model, loss_type, sparsity, t, alpha,
         raise ValueError()
      
 if args.bin_mode ==2:
-    args.bins = torch.pow(10.,torch.tensor([-10,-4,-2,1])).cuda(0)
+    args.bins = torch.pow(10.,torch.tensor([-10,-4,-2,.5])).cuda(0)
 elif args.bin_mode == 1:
     args.bins = torch.pow(10.,torch.tensor([-5,-4,-3,-2,-1,0])).cuda(0)
 else:
@@ -503,7 +503,7 @@ else:
     exit(1)
 
 #amp_factors = torch.tensor([2**(num_bins-1-x) for x in range(num_bins)]).cuda()
-args.amp_factors = torch.tensor([8,4,2,16]).cuda()
+args.amp_factors = torch.tensor([8,4,2,1]).cuda()
         
 def assign_to_indices(bn_modules,target_indices,default_index=0):
     args.weight_err = torch.tensor([0.0]).cuda(0)
@@ -880,7 +880,7 @@ for epoch in range(args.start_epoch, args.epochs):
     # show log quantization result
     if args.loss in {LossType.LOG_QUANTIZATION}:
         print('Weight err:', " ".join(format(x, ".3f") for x in args.ista_err_bins), 'Bias err:', args.bias_err)
-        print('BinCnt:', " ".join(format(x, "05d") for x in args.ista_cnt_bins), args.bins)
+        print('BinCnt:', " ".join(format(x, "05d") for x in args.ista_cnt_bins), args.bins.tolist(), args.amp_factors.tolist())
 
 if args.loss == LossType.POLARIZATION and args.target_flops and (
         flops_grad / baseline_flops) > args.target_flops and args.gate:
