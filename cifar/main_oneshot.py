@@ -495,7 +495,7 @@ def bn_sparsity(model, loss_type, sparsity, t, alpha,
         raise ValueError()
      
 if args.bin_mode ==2:
-    args.bins = torch.pow(10.,torch.tensor([-10,-4,-2,.5])).cuda(0)
+    args.bins = torch.pow(10.,torch.tensor([-10,-4,-2,0])).cuda(0)
     #args.bins = torch.tensor([1e-10,1e-4,1e-2,1e0.5]).cuda(0)
 elif args.bin_mode == 1:
     args.bins = torch.pow(10.,torch.tensor([-5,-4,-3,-2,-1,0])).cuda(0)
@@ -504,7 +504,7 @@ else:
     exit(1)
 
 #amp_factors = torch.tensor([2**(num_bins-1-x) for x in range(num_bins)]).cuda()
-args.amp_factors = torch.tensor([8,4,2,8]).cuda()
+args.amp_factors = torch.tensor([8,4,2,1]).cuda()
         
 def assign_to_indices(bn_modules,target_indices,default_index=0):
     args.weight_err = torch.tensor([0.0]).cuda(0)
@@ -608,7 +608,8 @@ def log_quantization(model):
         tar_bins = args.bins[bin_indices]
         distance = torch.log10(tar_bins/torch.abs(clamp_x))
         amp = args.amp_factors[bin_indices]
-        multiplier = 10**(distance*args.q_factor*amp)
+        sparse_rate = args.current_lr*0.1
+        multiplier = 10**(distance*sparse_rate*amp)
         mask = torch.abs(distance)>bin_width
         # don do anything to zeros
         mask = torch.logical_and(mask,mask_zero==0)
@@ -826,29 +827,13 @@ for epoch in range(args.start_epoch, args.epochs):
     if args.max_epoch is not None and epoch >= args.max_epoch:
         break
 
-    current_learning_rate = adjust_learning_rate(optimizer, epoch, args.gammas, args.decay_epoch)
-    print("Start epoch {}/{} with learning rate {}...".format(epoch, args.epochs, current_learning_rate))
-
-    weights, bias = bn_weights(model)
-    for bn_name, bn_weight in weights:
-        writer.add_histogram("bn/" + bn_name, bn_weight, global_step=epoch)
-    for bn_name, bn_bias in bias:
-        writer.add_histogram("bn_bias/" + bn_name, bn_bias, global_step=epoch)
-    # visualize conv kernels
-    for name, sub_modules in model.named_modules():
-        if isinstance(sub_modules, nn.Conv2d):
-            writer.add_histogram("conv_kernels/" + name, sub_modules.weight, global_step=epoch)
-    if args.gate:
-        for gate_name, m in model.named_modules():
-            if isinstance(m, SparseGate):
-                writer.add_histogram("gate/" + gate_name, m.weight, global_step=epoch)
+    args.current_lr = adjust_learning_rate(optimizer, epoch, args.gammas, args.decay_epoch)
+    print("Start epoch {}/{} with learning rate {}...".format(epoch, args.epochs, args.current_lr))
 
     train(epoch) # train with regularization
 
     prec1 = test(model)
     print(f"All Prec1: {prec1}")
-    history_score[epoch][2] = prec1
-    np.savetxt(os.path.join(args.save, 'record.txt'), history_score, fmt='%10.5f', delimiter=',')
     is_best = prec1 > best_prec1
     best_prec1 = max(prec1, best_prec1)
     save_checkpoint({
@@ -865,14 +850,6 @@ for epoch in range(args.start_epoch, args.epochs):
     
     # visualize scale factors
     factor_visualization(epoch, model, prec1)
-
-    # write the tensorboard
-    writer.add_scalar("train/average_loss", history_score[epoch][0], epoch)
-    writer.add_scalar("train/sparsity_loss", history_score[epoch][3], epoch)
-    writer.add_scalar("train/train_acc", history_score[epoch][1], epoch)
-    writer.add_scalar("train/lr", optimizer.param_groups[0]['lr'], epoch)
-    writer.add_scalar("val/acc", prec1, epoch)
-    writer.add_scalar("val/best_acc", best_prec1, epoch)
 
     # flops
     # peek the remaining flops
