@@ -500,7 +500,7 @@ def assign_to_indices(bn_modules,target_indices,default_index=0):
     args.bias_err = torch.tensor([0.0]).cuda(0)
     
     if args.bin_mode ==2:
-        args.bins = torch.pow(10.,torch.tensor([-10,-4,-2,2])).cuda(0)
+        args.bins = torch.pow(10.,torch.tensor([-10,-4,-2,3])).cuda(0)
     elif args.bin_mode == 1:
         args.bins = torch.pow(10.,torch.tensor([-5,-4,-3,-2,-1,0])).cuda(0)
     else:
@@ -683,9 +683,7 @@ def prune_while_training(model: nn.Module, arch: str, prune_mode: str, num_class
     baseline_flops = compute_conv_flops(model, cuda=True)
         
     inplace_precs = []
-    inplace_pruned_model = get_pruned_model(model,[3])
-    inplace_prec1 = test(inplace_pruned_model)
-    inplace_precs += [inplace_prec1]
+    inplace_precs += [test(get_pruned_model(model,[3]))]
     
     print_str = ''
     for flop,prec1 in zip(saved_flops,saved_prec1s):
