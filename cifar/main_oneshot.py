@@ -594,7 +594,7 @@ def log_quantization(model):
         #mask = torch.abs(distance)>bin_width
         mask = torch.logical_and(torch.abs(x)<=0.05,torch.abs(x)>=0.25)
         mask = torch.logical_and(mask,bin_indices==3)
-        mask = torch.logical_or(mask,bin_indices=0)
+        mask = torch.logical_or(mask,bin_indices==0)
         mask = torch.logical_and(mask,x!=0)
         # only modify where it is not too small and distant from bin
         # no need to force small weights, they have small impact
@@ -607,7 +607,7 @@ def log_quantization(model):
         #mask = torch.abs(distance)>bin_width
         mask = torch.logical_and(torch.abs(x)<=0.05,torch.abs(x)>=0.25)
         mask = torch.logical_and(mask,bin_indices==3)
-        mask = torch.logical_or(mask,bin_indices=0)
+        mask = torch.logical_or(mask,bin_indices==0)
         abs_x = torch.abs(x[mask]) + torch.sign(distance[mask]) * args.lbd
         x[mask] = torch.sign(x[mask]) * abs_x
         return x
