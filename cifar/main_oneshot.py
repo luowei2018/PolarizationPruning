@@ -603,6 +603,7 @@ def log_quantization(model):
         
     def get_bin_distribution(x,bin_indices):
         tar_bins = args.bins[bin_indices]
+        print(tar_bins.size(),x.size(),bin_indices.size())
         distance = tar_bins-x
         abs_err = torch.abs(distance)
         args.weight_err += abs_err.sum()
@@ -627,11 +628,11 @@ def log_quantization(model):
     for bn_module in bn_modules:
         with torch.no_grad():
             ch_len = len(bn_module.weight.data)
+            get_bin_distribution(bn_module.weight.data, assigned_binindices[ch_start:ch_start+ch_len])
+            args.bias_err += torch.abs(bn_module.bias.data).sum()
             #bn_module.weight.data = redistribute(bn_module.weight.data, assigned_binindices[ch_start:ch_start+ch_len])
             bn_module.weight.data = bin_sparsity(bn_module.weight.data, assigned_binindices[ch_start:ch_start+ch_len])
             ch_start += ch_len
-            get_bin_distribution(bn_module.weight.data, assigned_binindices[ch_start:ch_start+ch_len])
-            args.bias_err += torch.abs(bn_module.bias.data).sum()
     
     
 def factor_visualization(iter, model, prec):
