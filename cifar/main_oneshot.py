@@ -606,7 +606,7 @@ def log_quantization(model):
     def std_sparsity(x,bin_indices):
         bin_width = 0.1
         distance = args.bins[bin_indices]-torch.abs(x)
-        use_range = True:
+        use_range = False
         if use_range:
             tar_mask = torch.logical_and(torch.logical_and(torch.abs(x)<=0.05,torch.abs(x)>=0.25),bin_indices==3)
             mask = torch.logical_or(tar_mask,bin_indices==0)
