@@ -611,6 +611,9 @@ def log_quantization(model):
             if torch.sum(tar_bins==i)>0:
                 args.ista_err_bins[i] += abs_err[tar_bins==i].sum().cpu().item()
                 args.ista_cnt_bins[i] += torch.numel(abs_err[tar_bins==i])
+        print(args.ista_cnt_bins)
+        print(tar_bins)
+        exit(0)
         
     args.weight_err = torch.tensor([0.0]).cuda(0)
     args.bias_err = torch.tensor([0.0]).cuda(0)
