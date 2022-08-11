@@ -619,7 +619,7 @@ def log_quantization(model):
         x[mask] = clamp_x[mask] * multiplier[mask]
         return x
         
-    def bin_sparsity(model):
+    def bin_sparsity(x,bin_indices):
         bin_width = 0.1
         distance = args.bins[bin_indices]-x
         mask = torch.abs(distance)>bin_width
