@@ -512,35 +512,9 @@ args.amp_factors = torch.tensor([8,4,2,1]).cuda()
 # default_index: those not assigned to target indices will be assigned the default index 
 # num_bins and target_indices can be adjust to get any ratio
 def assign_to_indices(bn_modules,target_indices,num_bins,default_index=0):
-    args.weight_err = torch.tensor([0.0]).cuda(0)
-    args.bias_err = torch.tensor([0.0]).cuda(0)
-    
-    args.ista_err_bins = [0 for _ in range(len(args.bins))]
-    args.ista_cnt_bins = [0 for _ in range(len(args.bins))]
-    
-    def get_min_idx(x):
-        dist = torch.abs(torch.log10(torch.abs(x).unsqueeze(-1)/args.bins))
-        _,min_idx = dist.min(dim=-1)
-        return min_idx
-        
-    def get_bin_distribution(x):
-        x = torch.clamp(torch.abs(x), min=1e-8) * torch.sign(x)
-        min_idx = get_min_idx(x)
-        all_err = torch.log10(args.bins[min_idx]/torch.abs(x))
-        abs_err = torch.abs(all_err)
-        # calculate total error
-        args.weight_err += abs_err.sum()
-        # calculating err for each bin
-        for i in range(len(args.bins)):
-            if torch.sum(min_idx==i)>0:
-                args.ista_err_bins[i] += abs_err[min_idx==i].sum().cpu().item()
-                args.ista_cnt_bins[i] += torch.numel(abs_err[min_idx==i])
                 
     all_scale_factors = torch.tensor([]).cuda()
     for bn_module in bn_modules:
-        with torch.no_grad():
-            get_bin_distribution(bn_module.weight.data)
-            args.bias_err += torch.abs(bn_module.bias.data).sum()
         all_scale_factors = torch.cat((all_scale_factors,torch.abs(bn_module.weight.data)))
         
     # total channels
@@ -626,6 +600,22 @@ def log_quantization(model):
         mask = torch.abs(distance)>bin_width
         x[mask] += torch.sign(distance[mask]) * args.lbd
         return x
+        
+    def get_bin_distribution(x,bin_indices):
+        tar_bins = args.bins[bin_indices]
+        distance = tar_bins-x
+        args.weight_err += torch.abs(distance).sum()
+    
+        for i in range(len(args.bins)):
+            if torch.sum(tar_bins==i)>0:
+                args.ista_err_bins[i] += abs_err[tar_bins==i].sum().cpu().item()
+                args.ista_cnt_bins[i] += torch.numel(abs_err[min_idx==i])
+        
+    args.weight_err = torch.tensor([0.0]).cuda(0)
+    args.bias_err = torch.tensor([0.0]).cuda(0)
+    
+    args.ista_err_bins = [0 for _ in range(len(args.bins))]
+    args.ista_cnt_bins = [0 for _ in range(len(args.bins))]
     
     bn_modules = model.get_sparse_layers()
     
@@ -639,6 +629,8 @@ def log_quantization(model):
             #bn_module.weight.data = redistribute(bn_module.weight.data, assigned_binindices[ch_start:ch_start+ch_len])
             bn_module.weight.data = bin_sparsity(bn_module.weight.data, assigned_binindices[ch_start:ch_start+ch_len])
             ch_start += ch_len
+            get_bin_distribution(bn_module.weight.data, assigned_binindices[ch_start:ch_start+ch_len])
+            args.bias_err += torch.abs(bn_module.bias.data).sum()
     
     
 def factor_visualization(iter, model, prec):
