@@ -111,6 +111,8 @@ parser.add_argument('-e', '--evaluate', dest='evaluate', action='store_true',
                     help='evaluate model on validation set')
 parser.add_argument('--bias-decay', action='store_true',
                     help='Apply bias decay on BatchNorm layers')
+parser.add_argument('--log-scale', action='store_true',
+                    help='use log scale')
 
 args = parser.parse_args()
 args.cuda = not args.no_cuda and torch.cuda.is_available()
@@ -516,7 +518,8 @@ def assign_to_indices(bn_modules,target_indices,num_bins,default_index=0):
     all_scale_factors = torch.tensor([]).cuda()
     for bn_module in bn_modules:
         all_scale_factors = torch.cat((all_scale_factors,torch.abs(bn_module.weight.data)))
-        
+    all_scale_factors = torch.clamp(all_scale_factors, min=1e-10)    
+    
     # total channels
     total_channels = len(all_scale_factors)
     ch_per_bin = total_channels//num_bins
@@ -534,8 +537,10 @@ def assign_to_indices(bn_modules,target_indices,num_bins,default_index=0):
     # assign according to relative distance
     else:
         for bin_idx in target_indices:
-            #dist = torch.abs(torch.log10(args.bins[bin_idx]/all_scale_factors)) 
-            dist = torch.abs(args.bins[bin_idx]-all_scale_factors)
+            if args.log_scale:
+                dist = torch.abs(torch.log10(args.bins[bin_idx]/all_scale_factors)) 
+            else:
+                dist = torch.abs(args.bins[bin_idx]-all_scale_factors)
             not_assigned = remain.nonzero()
             # remaining channels importance
             chan_imp = dist[not_assigned] 
@@ -569,9 +574,9 @@ def log_quantization(model):
     # big: easy to get new distribution, but may degrade performance
     # small: maintain good performance but may not affect distribution much
     
-    def redistribute(x,bin_indices):
+    def log_sparsity(x,bin_indices):
         # how centralize the bin is, relax this may improve prec
-        bin_width = 1e-1
+        bin_width = 0.1
         # more distant larger multiplier
         # pull force relates to distance and target bin (how off-distribution is it?)
         # low rank bin gets higher pull force
@@ -584,7 +589,7 @@ def log_quantization(model):
         tar_bins = args.bins[bin_indices]
         distance = torch.log10(tar_bins/torch.abs(clamp_x))
         amp = args.amp_factors[bin_indices]
-        sparse_rate = args.q_factor#args.current_lr/40
+        sparse_rate = args.lbd#args.current_lr/40
         multiplier = 10**(distance*sparse_rate*amp)
         mask = torch.abs(distance)>bin_width
         # don do anything to zeros
@@ -594,15 +599,20 @@ def log_quantization(model):
         x[mask] = clamp_x[mask] * multiplier[mask]
         return x
         
-    def bin_sparsity(x,bin_indices):
+    def std_sparsity(x,bin_indices):
         bin_width = 0.1
-        distance = args.bins[bin_indices]-x
+        distance = args.bins[bin_indices]-torch.abs(x)
         mask = torch.abs(distance)>bin_width
-        x[mask] += torch.sign(distance[mask]) * args.lbd
+        abs_x = torch.abs(x[mask]) + torch.sign(distance[mask]) * args.lbd
+        x[mask] = torch.sign(x[mask]) * abs_x
         return x
         
     def get_bin_distribution(x,bin_indices):
-        distance = args.bins[bin_indices]-x
+        if args.log_scale:
+            distance = args.bins[bin_indices]-torch.abs(x)
+        else:
+            x = torch.clamp(torch.abs(x), min=1e-10) * torch.sign(x)
+            distance = torch.log10(args.bins[bin_indices]/torch.abs(x))
         abs_err = torch.abs(distance)
         args.weight_err += abs_err.sum()
         for i in range(len(args.bins)):
@@ -627,8 +637,10 @@ def log_quantization(model):
             ch_len = len(bn_module.weight.data)
             get_bin_distribution(bn_module.weight.data, assigned_binindices[ch_start:ch_start+ch_len])
             args.bias_err += torch.abs(bn_module.bias.data).sum()
-            #bn_module.weight.data = redistribute(bn_module.weight.data, assigned_binindices[ch_start:ch_start+ch_len])
-            bn_module.weight.data = bin_sparsity(bn_module.weight.data, assigned_binindices[ch_start:ch_start+ch_len])
+            if args.log_scale:
+                bn_module.weight.data = log_sparsity(bn_module.weight.data, assigned_binindices[ch_start:ch_start+ch_len])
+            else:
+                bn_module.weight.data = std_sparsity(bn_module.weight.data, assigned_binindices[ch_start:ch_start+ch_len])
             ch_start += ch_len
     
     
