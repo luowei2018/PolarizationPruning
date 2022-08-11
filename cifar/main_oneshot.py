@@ -495,8 +495,8 @@ def bn_sparsity(model, loss_type, sparsity, t, alpha,
         raise ValueError()
      
 if args.bin_mode ==2:
-    args.bins = torch.pow(10.,torch.tensor([-10,-4,-2,0])).cuda(0)# -0.5 also good
-    #args.bins = torch.tensor([1e-10,1e-4,1e-2,1e0.5]).cuda(0)
+    #args.bins = torch.pow(10.,torch.tensor([-10,-4,-2,0])).cuda(0)# -0.5 also good
+    args.bins = torch.tensor([0,0,0,0.15]).cuda(0)
 elif args.bin_mode == 1:
     args.bins = torch.pow(10.,torch.tensor([-5,-4,-3,-2,-1,0])).cuda(0)
 else:
@@ -506,14 +506,17 @@ else:
 #amp_factors = torch.tensor([2**(num_bins-1-x) for x in range(num_bins)]).cuda()
 args.amp_factors = torch.tensor([8,4,2,1]).cuda()
         
-def assign_to_indices(bn_modules,target_indices,default_index=0):
+# assign bin indices to scale factors
+# num_bins: number of total bins
+# target_indices: indices of bins that need to be assigned
+# default_index: those not assigned to target indices will be assigned the default index 
+# num_bins and target_indices can be adjust to get any ratio
+def assign_to_indices(bn_modules,target_indices,num_bins,default_index=0):
     args.weight_err = torch.tensor([0.0]).cuda(0)
     args.bias_err = torch.tensor([0.0]).cuda(0)
-        
-    num_bins = len(args.bins)
     
-    args.ista_err_bins = [0 for _ in range(num_bins)]
-    args.ista_cnt_bins = [0 for _ in range(num_bins)]
+    args.ista_err_bins = [0 for _ in range(len(args.bins))]
+    args.ista_cnt_bins = [0 for _ in range(len(args.bins))]
     
     def get_min_idx(x):
         dist = torch.abs(torch.log10(torch.abs(x).unsqueeze(-1)/args.bins))
@@ -528,7 +531,7 @@ def assign_to_indices(bn_modules,target_indices,default_index=0):
         # calculate total error
         args.weight_err += abs_err.sum()
         # calculating err for each bin
-        for i in range(num_bins):
+        for i in range(len(args.bins)):
             if torch.sum(min_idx==i)>0:
                 args.ista_err_bins[i] += abs_err[min_idx==i].sum().cpu().item()
                 args.ista_cnt_bins[i] += torch.numel(abs_err[min_idx==i])
@@ -543,7 +546,6 @@ def assign_to_indices(bn_modules,target_indices,default_index=0):
     # total channels
     total_channels = len(all_scale_factors)
     ch_per_bin = total_channels//num_bins
-    assert ch_per_bin*num_bins == total_channels
     assigned_binindices = torch.zeros(total_channels).long().cuda()
     assigned_binindices[:] = default_index
     remain = torch.ones(total_channels).long().cuda()
@@ -576,7 +578,7 @@ def get_pruned_model(model,target_indices):
         
     bn_modules = pruned_model.get_sparse_layers()
     
-    assigned_binindices,remain = assign_to_indices(bn_modules,target_indices)
+    assigned_binindices,remain = assign_to_indices(bn_modules,target_indices,num_bins=len(args.bins))
         
     ch_start = 0
     for bn_module in bn_modules:
@@ -592,8 +594,7 @@ def log_quantization(model):
     # big: easy to get new distribution, but may degrade performance
     # small: maintain good performance but may not affect distribution much
     
-    def redistribute(x,bin_indices,active):
-        num_bins = len(args.bins)
+    def redistribute(x,bin_indices):
         # how centralize the bin is, relax this may improve prec
         bin_width = 1e-1
         # more distant larger multiplier
@@ -608,7 +609,7 @@ def log_quantization(model):
         tar_bins = args.bins[bin_indices]
         distance = torch.log10(tar_bins/torch.abs(clamp_x))
         amp = args.amp_factors[bin_indices]
-        sparse_rate = args.current_lr/40
+        sparse_rate = args.q_factor#args.current_lr/40
         multiplier = 10**(distance*sparse_rate*amp)
         mask = torch.abs(distance)>bin_width
         # don do anything to zeros
@@ -618,17 +619,26 @@ def log_quantization(model):
         x[mask] = clamp_x[mask] * multiplier[mask]
         return x
         
+    def bin_sparsity(model):
+        bin_width = 0.1
+        distance = args.bins[bin_indices]-x
+        mask = torch.abs(distance)>bin_width
+        x[mask] += torch.sign(distance[mask]) * args.lbd
+        return x
+    
     bn_modules = model.get_sparse_layers()
     
     target_indices = [3]
-    assigned_binindices,remain = assign_to_indices(bn_modules,target_indices,default_index=0)
+    assigned_binindices,remain = assign_to_indices(bn_modules,target_indices,num_bins = len(args.bins),default_index=0)
         
     ch_start = 0
     for bn_module in bn_modules:
         with torch.no_grad():
             ch_len = len(bn_module.weight.data)
-            bn_module.weight.data = redistribute(bn_module.weight.data, assigned_binindices[ch_start:ch_start+ch_len],remain[ch_start:ch_start+ch_len]==0)
+            #bn_module.weight.data = redistribute(bn_module.weight.data, assigned_binindices[ch_start:ch_start+ch_len])
+            bn_module.weight.data = bin_sparsity(bn_module.weight.data, assigned_binindices[ch_start:ch_start+ch_len])
             ch_start += ch_len
+    
     
 def factor_visualization(iter, model, prec):
     scale_factors = torch.tensor([]).cuda()
