@@ -602,18 +602,13 @@ def log_quantization(model):
         return x
         
     def get_bin_distribution(x,bin_indices):
-        tar_bins = args.bins[bin_indices]
-        distance = tar_bins-x
+        distance = args.bins[bin_indices]-x
         abs_err = torch.abs(distance)
         args.weight_err += abs_err.sum()
-    
         for i in range(len(args.bins)):
-            if torch.sum(tar_bins==i)>0:
-                args.ista_err_bins[i] += abs_err[tar_bins==i].sum().cpu().item()
-                args.ista_cnt_bins[i] += torch.numel(abs_err[tar_bins==i])
-        print(args.ista_cnt_bins)
-        print(tar_bins)
-        exit(0)
+            if torch.sum(bin_indices==i)>0:
+                args.ista_err_bins[i] += abs_err[bin_indices==i].sum().cpu().item()
+                args.ista_cnt_bins[i] += torch.numel(abs_err[bin_indices==i])
         
     args.weight_err = torch.tensor([0.0]).cuda(0)
     args.bias_err = torch.tensor([0.0]).cuda(0)
