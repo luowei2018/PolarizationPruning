@@ -609,10 +609,10 @@ def log_quantization(model):
         
     def get_bin_distribution(x,bin_indices):
         if args.log_scale:
-            distance = args.bins[bin_indices]-torch.abs(x)
-        else:
             x = torch.clamp(torch.abs(x), min=1e-10) * torch.sign(x)
             distance = torch.log10(args.bins[bin_indices]/torch.abs(x))
+        else:
+            distance = args.bins[bin_indices]-torch.abs(x)
         abs_err = torch.abs(distance)
         args.weight_err += abs_err.sum()
         for i in range(len(args.bins)):
