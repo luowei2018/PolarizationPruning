@@ -606,13 +606,19 @@ def log_quantization(model):
     def std_sparsity(x,bin_indices):
         bin_width = 0.1
         distance = args.bins[bin_indices]-torch.abs(x)
-        #mask = torch.abs(distance)>bin_width
-        mask = torch.logical_and(torch.logical_and(torch.abs(x)<=0.05,torch.abs(x)>=0.25),bin_indices==3)
-        mask = torch.logical_or(mask,bin_indices==0)
-        abs_x = torch.abs(x) + torch.sign(distance) * args.lbd
-        small_mask = torch.logical_and(bin_indices==0,abs_x<args.eps)
-        abs_x[small_mask] = 0
-        x[mask] = torch.sign(x[mask]) * abs_x[mask]
+        use_range = True:
+        if use_range:
+            tar_mask = torch.logical_and(torch.logical_and(torch.abs(x)<=0.05,torch.abs(x)>=0.25),bin_indices==3)
+            mask = torch.logical_or(tar_mask,bin_indices==0)
+            abs_x = torch.abs(x) + torch.sign(distance) * args.lbd
+            small_mask = torch.logical_and(bin_indices==0,abs_x<args.lbd)
+            abs_x[small_mask] = 0
+            x[mask] = torch.sign(x[mask]) * abs_x[mask]
+        else:
+            abs_x = torch.abs(x) + torch.sign(distance) * args.lbd
+            small_mask = torch.logical_and(bin_indices==0,abs_x<args.lbd)
+            abs_x[small_mask] = 0
+            x = torch.sign(x) * abs_x
         
         return x
         
@@ -698,12 +704,13 @@ def prune_while_training(model: nn.Module, arch: str, prune_mode: str, num_class
         from models import vgg16_linear
         # todo: update
         for ratio in target_ratios:
-            saved_model = prune_vgg(sparse_model=model, pruning_strategy='fixed', prune_type='ns', l1_norm_ratio=ratio,
+            saved_model,thresh = prune_vgg(sparse_model=model, pruning_strategy='fixed', prune_type='ns', l1_norm_ratio=ratio,
                                           sanity_check=False, prune_mode=prune_mode, num_classes=num_classes)
             prec1 = test(saved_model.cuda())
             flop = compute_conv_flops(saved_model, cuda=True)
             saved_prec1s += [prec1]
             saved_flops += [flop]
+            saved_thresh += [thresh]
     else:
         # not available
         raise NotImplementedError(f"do not support arch {arch}")
