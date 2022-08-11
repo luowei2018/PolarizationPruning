@@ -591,9 +591,11 @@ def log_quantization(model):
         amp = args.amp_factors[bin_indices]
         sparse_rate = args.lbd#args.current_lr/40
         multiplier = 10**(distance*sparse_rate*amp)
-        mask = torch.abs(distance)>bin_width
-        # don do anything to zeros
-        mask = torch.logical_and(mask,mask_zero==0)
+        #mask = torch.abs(distance)>bin_width
+        mask = torch.logical_and(torch.abs(x)<=0.05,torch.abs(x)>=0.25)
+        mask = torch.logical_and(mask,bin_indices==3)
+        mask = torch.logical_or(mask,bin_indices=0)
+        mask = torch.logical_and(mask,x!=0)
         # only modify where it is not too small and distant from bin
         # no need to force small weights, they have small impact
         x[mask] = clamp_x[mask] * multiplier[mask]
@@ -602,7 +604,10 @@ def log_quantization(model):
     def std_sparsity(x,bin_indices):
         bin_width = 0.1
         distance = args.bins[bin_indices]-torch.abs(x)
-        mask = torch.abs(distance)>bin_width
+        #mask = torch.abs(distance)>bin_width
+        mask = torch.logical_and(torch.abs(x)<=0.05,torch.abs(x)>=0.25)
+        mask = torch.logical_and(mask,bin_indices==3)
+        mask = torch.logical_or(mask,bin_indices=0)
         abs_x = torch.abs(x[mask]) + torch.sign(distance[mask]) * args.lbd
         x[mask] = torch.sign(x[mask]) * abs_x
         return x
