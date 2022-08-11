@@ -507,6 +507,8 @@ else:
 
 #amp_factors = torch.tensor([2**(num_bins-1-x) for x in range(num_bins)]).cuda()
 args.amp_factors = torch.tensor([8,4,2,1]).cuda()
+
+args.eps = 1e-6
         
 # assign bin indices to scale factors
 # num_bins: number of total bins
@@ -518,7 +520,7 @@ def assign_to_indices(bn_modules,target_indices,num_bins,default_index=0):
     all_scale_factors = torch.tensor([]).cuda()
     for bn_module in bn_modules:
         all_scale_factors = torch.cat((all_scale_factors,torch.abs(bn_module.weight.data)))
-    all_scale_factors = torch.clamp(all_scale_factors, min=1e-10)    
+    all_scale_factors = torch.clamp(all_scale_factors, min=args.eps)    
     
     # total channels
     total_channels = len(all_scale_factors)
@@ -583,7 +585,7 @@ def log_quantization(model):
         sign_x = torch.sign(x)
         mask_zero = (sign_x==0)
         sign_x[mask_zero] = 1
-        clamp_x = torch.clamp(torch.abs(x), min=1e-10) * sign_x
+        clamp_x = torch.clamp(torch.abs(x), min=args.eps) * sign_x
         # by default, all target at left most bin
         # only selected ones will be assigned to some right bins
         tar_bins = args.bins[bin_indices]
@@ -608,12 +610,15 @@ def log_quantization(model):
         mask = torch.logical_and(torch.logical_and(torch.abs(x)<=0.05,torch.abs(x)>=0.25),bin_indices==3)
         mask = torch.logical_or(mask,bin_indices==0)
         abs_x = torch.abs(x) + torch.sign(distance) * args.lbd
+        small_mask = torch.logical(bin_indices==0,abs_x<args.eps)
+        abs_x[small_mask] = 0
         x[mask] = torch.sign(x[mask]) * abs_x[mask]
+        
         return x
         
     def get_bin_distribution(x,bin_indices):
         if args.log_scale:
-            x = torch.clamp(torch.abs(x), min=1e-10) * torch.sign(x)
+            x = torch.clamp(torch.abs(x), min=args.eps) * torch.sign(x)
             distance = torch.log10(args.bins[bin_indices]/torch.abs(x))
         else:
             distance = args.bins[bin_indices]-torch.abs(x)
@@ -661,11 +666,11 @@ def factor_visualization(iter, model, prec):
         os.makedirs(save_dir)
     fig, axs = plt.subplots(ncols=4, figsize=(20,4))
     # plots
-    scale_factors = torch.clamp(scale_factors,min=1e-10)
+    scale_factors = torch.clamp(scale_factors,min=args.eps)
     sns.histplot(scale_factors.detach().cpu().numpy(), ax=axs[0])
     sns.histplot(torch.log10(scale_factors).detach().cpu().numpy(), ax=axs[1])
 
-    biases = torch.clamp(biases,min=1e-10)
+    biases = torch.clamp(biases,min=args.eps)
     sns.histplot(biases.detach().cpu().numpy(), ax=axs[2])
     sns.histplot(torch.log10(biases).detach().cpu().numpy(), ax=axs[3])
     fig.savefig(save_dir + f'{iter:03d}_{prec:.3f}.png')
