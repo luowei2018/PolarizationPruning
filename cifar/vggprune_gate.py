@@ -89,6 +89,7 @@ def prune_vgg(num_classes: int, sparse_model: torch.nn.Module, pruning_strategy:
                              prune_mode=prune_mode)
     #print("Pruning finished. cfg:")
     #print(pruned_model.config())
+    return pruned_model,threshold
 
     if sanity_check:
         # sanity check: check if pruned model is as same as sparse model

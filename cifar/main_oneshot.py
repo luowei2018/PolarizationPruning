@@ -681,16 +681,18 @@ def prune_while_training(model: nn.Module, arch: str, prune_mode: str, num_class
     target_ratios = [.25,.5,.75]#[0.1 + 0.1*x for x in range(9)]
     saved_flops = []
     saved_prec1s = []
+    saved_thresh = []
     if arch == "resnet56":
         from resprune_gate import prune_resnet
         from models.resnet_expand import resnet56 as resnet50_expand
         for ratio in target_ratios:
-            saved_model = prune_resnet(sparse_model=model, pruning_strategy='fixed', prune_type='ns', l1_norm_ratio=ratio,
+            saved_model,thresh = prune_resnet(sparse_model=model, pruning_strategy='fixed', prune_type='ns', l1_norm_ratio=ratio,
                                              sanity_check=False, prune_mode=prune_mode, num_classes=num_classes)
             prec1 = test(saved_model.cuda())
             flop = compute_conv_flops(saved_model, cuda=True)
             saved_prec1s += [prec1]
             saved_flops += [flop]
+            saved_thresh += [thresh]
     elif arch == 'vgg16_linear':
         from vggprune_gate import prune_vgg
         from models import vgg16_linear
@@ -712,8 +714,8 @@ def prune_while_training(model: nn.Module, arch: str, prune_mode: str, num_class
     inplace_precs += [test(get_pruned_model(model,[3]))]
     
     print_str = ''
-    for flop,prec1 in zip(saved_flops,saved_prec1s):
-        print_str += f"[{flop / baseline_flops:.3f}, {prec1:.3f}]\t"
+    for flop,prec1,thresh in zip(saved_flops,saved_prec1s,saved_thresh):
+        print_str += f"[{flop / baseline_flops:.3f}, {prec1:.3f}, {thresh:.3f}]\t"
         
     for prec1 in inplace_precs:
         print_str += f"{prec1:.3f}\t"
