@@ -561,7 +561,7 @@ def assign_to_indices(bn_modules,target_indices,num_bins,default_index=0):
     else:
         for bin_idx in target_indices:
             #dist = torch.abs(torch.log10(args.bins[bin_idx]/all_scale_factors)) 
-            dist = torch.abs((args.bins[bin_idx]-all_scale_factors)
+            dist = torch.abs(args.bins[bin_idx]-all_scale_factors)
             not_assigned = remain.nonzero()
             # remaining channels importance
             chan_imp = dist[not_assigned] 
