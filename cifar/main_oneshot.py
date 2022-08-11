@@ -605,7 +605,6 @@ def log_quantization(model):
         bin_width = 0.1
         distance = args.bins[bin_indices]-torch.abs(x)
         #mask = torch.abs(distance)>bin_width
-        assert torch.logical_or(bin_indices==0,bin_indices==3).sum()==len(bin_indices)
         mask = torch.logical_and(torch.logical_and(torch.abs(x)<=0.05,torch.abs(x)>=0.25),bin_indices==3)
         mask = torch.logical_or(mask,bin_indices==0)
         abs_x = torch.abs(x) + torch.sign(distance) * args.lbd
