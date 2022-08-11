@@ -610,7 +610,7 @@ def log_quantization(model):
         mask = torch.logical_and(torch.logical_and(torch.abs(x)<=0.05,torch.abs(x)>=0.25),bin_indices==3)
         mask = torch.logical_or(mask,bin_indices==0)
         abs_x = torch.abs(x) + torch.sign(distance) * args.lbd
-        small_mask = torch.logical(bin_indices==0,abs_x<args.eps)
+        small_mask = torch.logical_and(bin_indices==0,abs_x<args.eps)
         abs_x[small_mask] = 0
         x[mask] = torch.sign(x[mask]) * abs_x[mask]
         
