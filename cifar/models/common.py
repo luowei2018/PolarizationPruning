@@ -218,7 +218,7 @@ def prune_conv_layer(conv_layer: Union[nn.Conv2d, nn.Linear],
                 conv_layer.in_channels = int(in_channel_mask.sum())
             elif isinstance(conv_layer, nn.Linear):
                 conv_layer.in_features = int(in_channel_mask.sum())
-            if conv_layer.groups == 1:
+            if not hasattr(conv_layer,'groups') or conv_layer.groups == 1:
                 in_channel_mask = np.ones(conv_layer.weight.size(1), dtype=bool)
             else:
                 in_channel_mask = np.ones(conv_layer.weight.size(0), dtype=bool)
@@ -237,7 +237,8 @@ def prune_conv_layer(conv_layer: Union[nn.Conv2d, nn.Linear],
             else:
                 assert conv_weight.shape[1] == 1, "only works for groups == num_channels"
         elif isinstance(conv_layer, nn.Linear):
-            conv_weight = conv_weight[:, idx_in.tolist()]
+            if not fake_prune:
+                conv_weight = conv_weight[:, idx_in.tolist()]
         else:
             raise ValueError(f"unsupported conv layer type: {conv_layer}")
 
@@ -287,9 +288,10 @@ def prune_conv_layer(conv_layer: Union[nn.Conv2d, nn.Linear],
             if not fake_prune:
                 conv_weight = conv_weight[idx_out.tolist(), :, :, :]
         elif isinstance(conv_layer, nn.Linear):
-            conv_weight = conv_weight[idx_out.tolist(), :]
-            linear_bias = conv_layer.bias.clone()
-            linear_bias = linear_bias[idx_out.tolist()]
+            if not fake_prune:
+                conv_weight = conv_weight[idx_out.tolist(), :]
+                linear_bias = conv_layer.bias.clone()
+                linear_bias = linear_bias[idx_out.tolist()]
         else:
             raise ValueError(f"unsupported conv layer type: {conv_layer}")
 
