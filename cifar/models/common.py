@@ -302,7 +302,8 @@ def prune_conv_layer(conv_layer: Union[nn.Conv2d, nn.Linear],
             conv_layer.out_features = len(idx_out)
         conv_layer.weight.data = conv_weight
         if isinstance(conv_layer, nn.Linear):
-            conv_layer.bias.data = linear_bias
+            if not fake_prune:
+                conv_layer.bias.data = linear_bias
         if isinstance(conv_layer, nn.Conv2d) and conv_layer.groups != 1:
             # set the new groups for dw layer (for MobileNet)
             conv_layer.groups = conv_layer.in_channels
