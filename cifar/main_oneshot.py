@@ -608,12 +608,12 @@ def log_quantization(model):
         distance = args.bins[bin_indices]-torch.abs(x)
         use_range = True
         if use_range:
-            lt_lbd = torch.abs(x)<=args.lbd
-            mask0 = torch.logical_and(bin_indices==0,lt_lbd)
-            in_range = torch.logical_or(torch.abs(x)<=0.05,torch.abs(x)>=0.25)
-            mask1 = torch.logical_and(bin_indices==3,in_range)
+            mask0 = torch.logical_and(bin_indices==0,torch.abs(x)>=args.lbd)
+            mask1 = torch.logical_and(bin_indices==3,torch.logical_or(torch.abs(x)<=0.05,torch.abs(x)>=0.25))
             mask = torch.logical_or(mask0,mask1)
-            print(lt_lbd.sum(),in_range.sum())
+            print(x)
+            print(distance)
+            print(mask0.sum(),mask1.sum(),mask.sum())
             amp = args.amp_factors[bin_indices]
             abs_x = torch.abs(x) + torch.sign(distance) * args.lbd * amp
             x[mask] = torch.sign(x[mask]) * abs_x[mask]
