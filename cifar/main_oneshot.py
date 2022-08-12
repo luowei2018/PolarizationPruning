@@ -882,7 +882,7 @@ for epoch in range(args.start_epoch, args.epochs):
 
     # flops
     # peek the remaining flops
-    prune_while_training(model, arch=args.arch,prune_mode="default",num_classes=num_classes)
+    #prune_while_training(model, arch=args.arch,prune_mode="default",num_classes=num_classes)
     
     # show log quantization result
     if args.loss in {LossType.LOG_QUANTIZATION}:
