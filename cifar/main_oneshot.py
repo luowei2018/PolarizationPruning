@@ -656,6 +656,7 @@ def log_quantization(model):
             ch_len = len(bn_module.weight.data)
             get_bin_distribution(bn_module.weight.data, assigned_binindices[ch_start:ch_start+ch_len])
             args.bias_err += torch.abs(bn_module.bias.data).sum()
+            print(bn_module.weight.data.size())
             if args.log_scale:
                 bn_module.weight.data = log_sparsity(bn_module.weight.data, assigned_binindices[ch_start:ch_start+ch_len])
             else:
