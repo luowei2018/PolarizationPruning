@@ -497,8 +497,8 @@ def bn_sparsity(model, loss_type, sparsity, t, alpha,
         raise ValueError()
      
 if args.bin_mode ==2:
-    args.bins = torch.pow(10.,torch.tensor([-6,-4,-2,0])).cuda(0)# -0.5 also good
-    #args.bins = torch.tensor([1e-6,0,0,0.15]).cuda(0)
+    #args.bins = torch.pow(10.,torch.tensor([-6,-4,-2,0])).cuda(0)# -0.5 also good
+    args.bins = torch.tensor([1e-6,0,0,0.15]).cuda(0)
 elif args.bin_mode == 1:
     args.bins = torch.pow(10.,torch.tensor([-5,-4,-3,-2,-1,0])).cuda(0)
 else:
@@ -587,17 +587,16 @@ def log_quantization(model):
         amp = args.amp_factors[bin_indices]
         multiplier = 10**(distance*args.lbd*amp)
         
-        #mask0 = torch.logical_and(bin_indices==0,distance<=-1)
+        mask0 = torch.logical_and(bin_indices==0,distance<=-1)
+        mask1 = torch.logical_and(bin_indices==3,torch.abs(x)<=0.05)
         #mask1 = torch.logical_and(bin_indices==3,torch.logical_or(torch.abs(x)<=0.05,torch.abs(x)>=0.25))
-        #mask = torch.logical_or(mask0,mask1)
-        mask = torch.abs(distance)>0.1
+        mask = torch.logical_or(mask0,mask1)
         mask = torch.logical_and(mask,x!=0)
-        
         # only modify where it is not too small and distant from bin
         # no need to force small weights, they have small impact
         x[mask] = clamp_x[mask] * multiplier[mask]
-        #args.ista_cnt_bins[0] += mask0.sum().cpu().item()
-        #args.ista_cnt_bins[3] += mask1.sum().cpu().item()
+        args.ista_cnt_bins[0] += mask0.sum().cpu().item()
+        args.ista_cnt_bins[3] += mask1.sum().cpu().item()
         return x
         
     def std_sparsity(x,bin_indices):
