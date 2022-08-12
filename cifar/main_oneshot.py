@@ -587,7 +587,7 @@ def log_quantization(model):
         amp = args.amp_factors[bin_indices]
         multiplier = 10**(distance*args.lbd*amp)
         
-        mask0 = torch.logical_and(bin_indices==0,distance<=0.1)
+        mask0 = torch.logical_and(bin_indices==0,distance<=-1)
         mask1 = torch.logical_and(bin_indices==3,torch.logical_or(torch.abs(x)<=0.05,torch.abs(x)>=0.25))
         mask = torch.logical_or(mask0,mask1)
         mask = torch.logical_and(mask,x!=0)
