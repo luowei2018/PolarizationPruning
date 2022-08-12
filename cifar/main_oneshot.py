@@ -614,6 +614,8 @@ def log_quantization(model):
             amp = args.amp_factors[bin_indices]
             abs_x = torch.abs(x) + torch.sign(distance) * args.lbd * amp
             x[mask] = torch.sign(x[mask]) * abs_x[mask]
+            args.ista_cnt_bins[0] += mask0.sum().cpu().item()
+            args.ista_cnt_bins[3] += mask1.sum().cpu().item()
         else:
             abs_x = torch.abs(x) + torch.sign(distance) * args.lbd
             small_mask = torch.logical_and(bin_indices==0,abs_x<args.lbd)
@@ -633,7 +635,7 @@ def log_quantization(model):
         for i in range(len(args.bins)):
             if torch.sum(bin_indices==i)>0:
                 args.ista_err_bins[i] += abs_err[bin_indices==i].sum().cpu().item()
-                args.ista_cnt_bins[i] += torch.numel(abs_err[bin_indices==i])
+                #args.ista_cnt_bins[i] += torch.numel(abs_err[bin_indices==i])
         
     args.weight_err = torch.tensor([0.0]).cuda(0)
     args.bias_err = torch.tensor([0.0]).cuda(0)
