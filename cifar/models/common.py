@@ -300,7 +300,8 @@ def prune_conv_layer(conv_layer: Union[nn.Conv2d, nn.Linear],
             conv_layer.out_channels = len(idx_out)
         elif isinstance(conv_layer, nn.Linear):
             conv_layer.out_features = len(idx_out)
-        conv_layer.weight.data = conv_weight
+        if not fake_prune:
+            conv_layer.weight.data = conv_weight
         if isinstance(conv_layer, nn.Linear):
             if not fake_prune:
                 conv_layer.bias.data = linear_bias
