@@ -506,7 +506,7 @@ else:
     exit(1)
 
 #amp_factors = torch.tensor([2**(num_bins-1-x) for x in range(num_bins)]).cuda()
-args.amp_factors = torch.tensor([1,1,1,1]).cuda()
+args.amp_factors = torch.tensor([8,4,2,1]).cuda()
 
 args.eps = 1e-6
         
@@ -577,30 +577,25 @@ def log_quantization(model):
     # small: maintain good performance but may not affect distribution much
     
     def log_sparsity(x,bin_indices):
-        # how centralize the bin is, relax this may improve prec
-        bin_width = 0.1
-        # more distant larger multiplier
-        # pull force relates to distance and target bin (how off-distribution is it?)
-        # low rank bin gets higher pull force
         sign_x = torch.sign(x)
-        mask_zero = (sign_x==0)
-        sign_x[mask_zero] = 1
+        sign_x[sign_x==0] = 1
         clamp_x = torch.clamp(torch.abs(x), min=args.eps) * sign_x
         # by default, all target at left most bin
         # only selected ones will be assigned to some right bins
         tar_bins = args.bins[bin_indices]
         distance = torch.log10(tar_bins/torch.abs(clamp_x))
         amp = args.amp_factors[bin_indices]
-        sparse_rate = args.lbd#args.current_lr/40
-        multiplier = 10**(distance*sparse_rate*amp)
-        #mask = torch.abs(distance)>bin_width
-        mask = torch.logical_and(torch.abs(x)<=0.05,torch.abs(x)>=0.25)
-        mask = torch.logical_and(mask,bin_indices==3)
-        mask = torch.logical_or(mask,bin_indices==0)
+        multiplier = 10**(distance*args.lbd*amp)
+        
+        mask0 = torch.logical_and(bin_indices==0,distance<=0.1)
+        mask1 = torch.logical_and(bin_indices==3,torch.logical_or(torch.abs(x)<=0.05,torch.abs(x)>=0.25))
+        mask = torch.logical_or(mask0,mask1)
         mask = torch.logical_and(mask,x!=0)
         # only modify where it is not too small and distant from bin
         # no need to force small weights, they have small impact
         x[mask] = clamp_x[mask] * multiplier[mask]
+        args.ista_cnt_bins[0] += mask0.sum().cpu().item()
+        args.ista_cnt_bins[3] += mask1.sum().cpu().item()
         return x
         
     def std_sparsity(x,bin_indices):
