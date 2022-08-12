@@ -506,7 +506,7 @@ else:
     exit(1)
 
 #amp_factors = torch.tensor([2**(num_bins-1-x) for x in range(num_bins)]).cuda()
-args.amp_factors = torch.tensor([2,4,2,1]).cuda()
+args.amp_factors = torch.tensor([1,1,1,1]).cuda()
 
 args.eps = 1e-6
         
@@ -611,7 +611,9 @@ def log_quantization(model):
             mask1 = torch.logical_and(bin_indices==3,torch.logical_and(torch.abs(x)<=0.05,torch.abs(x)>=0.25))
             mask0 = torch.logical_and(bin_indices==0,torch.abs(x)<=args.lbd)
             mask = torch.logical_or(mask0,mask1)
-            abs_x = torch.abs(x) + torch.sign(distance) * args.lbd
+            print(mask0.sum(),mask1.sum(),mask.sum())
+            amp = args.amp_factors[bin_indices]
+            abs_x = torch.abs(x) + torch.sign(distance) * args.lbd * amp
             x[mask] = torch.sign(x[mask]) * abs_x[mask]
         else:
             abs_x = torch.abs(x) + torch.sign(distance) * args.lbd
