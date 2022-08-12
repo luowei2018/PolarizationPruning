@@ -609,9 +609,8 @@ def log_quantization(model):
         use_range = True
         if use_range:
             mask0 = torch.logical_and(bin_indices==0,torch.abs(x)>=args.lbd)
-            mask1 = torch.logical_and(bin_indices==3,torch.logical_or(torch.abs(x)<=0.14,torch.abs(x)>=0.16))
+            mask1 = torch.logical_and(bin_indices==3,torch.logical_or(torch.abs(x)<=0.05,torch.abs(x)>=0.25))
             mask = torch.logical_or(mask0,mask1)
-            assert mask1.sum()==0
             amp = args.amp_factors[bin_indices]
             abs_x = torch.abs(x) + torch.sign(distance) * args.lbd * amp
             x[mask] = torch.sign(x[mask]) * abs_x[mask]
