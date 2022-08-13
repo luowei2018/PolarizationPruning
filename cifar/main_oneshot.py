@@ -497,8 +497,8 @@ def bn_sparsity(model, loss_type, sparsity, t, alpha,
         raise ValueError()
      
 if args.bin_mode ==2:
-    #args.bins = torch.pow(10.,torch.tensor([-6,-4,-2,0])).cuda(0)# -0.5 also good
-    args.bins = torch.tensor([1e-6,0,0,0.15]).cuda(0)
+    args.bins = torch.pow(10.,torch.tensor([-6,-4,-2,0])).cuda(0)# -0.5 also good
+    #args.bins = torch.tensor([1e-6,0,0,0.15]).cuda(0)
 elif args.bin_mode == 1:
     args.bins = torch.pow(10.,torch.tensor([-5,-4,-3,-2,-1,0])).cuda(0)
 else:
@@ -572,9 +572,6 @@ def get_pruned_model(model,target_indices):
     return pruned_model
         
 def log_quantization(model):
-    # trade-off of original distribution and new distribution
-    # big: easy to get new distribution, but may degrade performance
-    # small: maintain good performance but may not affect distribution much
     
     def log_sparsity(x,bin_indices):
         sign_x = torch.sign(x)
@@ -586,12 +583,13 @@ def log_quantization(model):
         distance = torch.log10(tar_bins/torch.abs(clamp_x))
         amp = args.amp_factors[bin_indices]
         multiplier = 10**(distance*args.lbd*amp)
-        
-        mask0 = torch.logical_and(bin_indices==0,torch.abs(x)>1e-4)
-        mask1 = torch.logical_and(bin_indices==3,torch.abs(x)<=0.05)
+        #mask0 = torch.logical_and(bin_indices==0,torch.abs(x)>1e-4)
+        #mask1 = torch.logical_and(bin_indices==3,torch.abs(x)<=0.05)
         #mask1 = torch.logical_and(bin_indices==3,torch.logical_or(torch.abs(x)<=0.05,torch.abs(x)>=0.25))
-        mask = torch.logical_or(mask0,mask1)
-        mask = torch.logical_and(mask,x!=0)
+        #mask = torch.logical_or(mask0,mask1)
+        mask = torch.abs(distance)>0.1
+        mask0 = torch.logical_and(mask,bin_indices==0)
+        mask1 = torch.logical_and(mask,bin_indices==3)
         # only modify where it is not too small and distant from bin
         # no need to force small weights, they have small impact
         x[mask] = clamp_x[mask] * multiplier[mask]
@@ -651,7 +649,8 @@ def log_quantization(model):
             get_bin_distribution(bn_module.weight.data, assigned_binindices[ch_start:ch_start+ch_len])
             args.bias_err += torch.abs(bn_module.bias.data).sum()
             if args.log_scale:
-                bn_module.weight.data = log_sparsity(bn_module.weight.data, assigned_binindices[ch_start:ch_start+ch_len])
+                #bn_module.weight.data = log_sparsity(bn_module.weight.data, assigned_binindices[ch_start:ch_start+ch_len])
+                bn_module.weight.data = redistribute(bn_module.weight.data, assigned_binindices[ch_start:ch_start+ch_len])
             else:
                 bn_module.weight.data = std_sparsity(bn_module.weight.data, assigned_binindices[ch_start:ch_start+ch_len])
             ch_start += ch_len
