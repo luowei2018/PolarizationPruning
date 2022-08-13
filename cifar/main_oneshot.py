@@ -520,7 +520,6 @@ def assign_to_indices(bn_modules,target_indices,num_bins,default_index=0):
     all_scale_factors = torch.tensor([]).cuda()
     for bn_module in bn_modules:
         all_scale_factors = torch.cat((all_scale_factors,torch.abs(bn_module.weight.data)))
-    abs_mean_x = all_scale_factors.mean()
     all_scale_factors = torch.clamp(all_scale_factors, min=args.eps)    
     
     # total channels
@@ -531,12 +530,13 @@ def assign_to_indices(bn_modules,target_indices,num_bins,default_index=0):
     remain = torch.ones(total_channels).long().cuda()
     # assign according to absolute distance
     if True:
-        _,ch_indices = all_scale_factors.sort(dim=0)
+        tmp,ch_indices = all_scale_factors.sort(dim=0)
+        x_split = tmp[target_indices[-1]*ch_per_bin]
         for bin_idx in target_indices:
             selected = ch_indices[bin_idx*ch_per_bin:(bin_idx+1)*ch_per_bin]
             assigned_binindices[selected] = bin_idx
             remain[selected] = 0
-        print(all_scale_factors[assigned_binindices==0].mean(),all_scale_factors[assigned_binindices==3].mean())
+        print(all_scale_factors[assigned_binindices==0].mean(),all_scale_factors[assigned_binindices==3].mean(),x_split)
         exit(0)
     # assign according to relative distance
     else:
@@ -554,7 +554,7 @@ def assign_to_indices(bn_modules,target_indices,num_bins,default_index=0):
             remain[selected] = 0
             assigned_binindices[selected] = bin_idx
             
-    return assigned_binindices,remain,abs_mean_x
+    return assigned_binindices,remain,x_split
         
 def get_pruned_model(model,target_indices):
     import copy
@@ -594,7 +594,7 @@ def log_quantization(model):
         #args.ista_cnt_bins[3] += mask1.sum().cpu().item()
         return x
         
-    def std_sparsity(x,bin_indices,abs_mean_x):
+    def std_sparsity(x,bin_indices,x_split):
         abs_x = torch.abs(x)
         order = 2
         if order == 1:
@@ -604,7 +604,7 @@ def log_quantization(model):
             abs_x[lmask] -= args.lbd * (args.t + 1)
             abs_x[rmask] += args.lbd * (args.t - 1)
         else:
-            grad = -2 * abs_x + 2 * abs_mean_x + args.t
+            grad = -2 * abs_x + 2 * x_split + args.t
             abs_x -= args.lbd * grad
         
         x = torch.sign(x) * abs_x
@@ -633,7 +633,7 @@ def log_quantization(model):
     bn_modules = model.get_sparse_layers()
     
     target_indices = [3]
-    assigned_binindices,remain,abs_mean_x = assign_to_indices(bn_modules,target_indices,num_bins = len(args.bins),default_index=0)
+    assigned_binindices,remain,x_split = assign_to_indices(bn_modules,target_indices,num_bins = len(args.bins),default_index=0)
         
     ch_start = 0
     for bn_module in bn_modules:
@@ -644,7 +644,7 @@ def log_quantization(model):
             if args.log_scale:
                 bn_module.weight.data = log_sparsity(bn_module.weight.data, assigned_binindices[ch_start:ch_start+ch_len])
             else:
-                bn_module.weight.data = std_sparsity(bn_module.weight.data, assigned_binindices[ch_start:ch_start+ch_len],abs_mean_x)
+                bn_module.weight.data = std_sparsity(bn_module.weight.data, assigned_binindices[ch_start:ch_start+ch_len],x_split)
             ch_start += ch_len
     
     
