@@ -536,8 +536,6 @@ def assign_to_indices(bn_modules,target_indices,num_bins,default_index=0):
             selected = ch_indices[bin_idx*ch_per_bin:(bin_idx+1)*ch_per_bin]
             assigned_binindices[selected] = bin_idx
             remain[selected] = 0
-        print(all_scale_factors[assigned_binindices==0].mean(),all_scale_factors[assigned_binindices==3].mean(),x_split)
-        exit(0)
     # assign according to relative distance
     else:
         for bin_idx in target_indices:
