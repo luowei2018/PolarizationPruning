@@ -623,8 +623,8 @@ def log_quantization(model):
             lmask = bin_indices == 0
             rmask = bin_indices == 3
             sparse_coef = (rmask.sum()-lmask.sum())/lmask.numel()
-            x[lmask] -= args.lbd * (args.t - 1 + sparse_coef)
-            x[rmask] += args.lbd * (args.t - 1 - sparse_coef)
+            x[lmask] -= args.lbd * (args.t + 1 + sparse_coef)
+            x[rmask] -= args.lbd * (args.t - 1 + sparse_coef)
         else:
             grad = -2 * x + 2 * x_split + args.t
             x -= args.lbd * grad
@@ -632,12 +632,12 @@ def log_quantization(model):
         return x
         
     def mean_sparsity(x,mean_sf,sparse_coef,N):
-        order = 2
+        order = 1
         if order == 1:
             lmask = x < mean_sf
             rmask = x >= mean_sf
-            x[lmask] -= args.lbd * (args.t - 1 + sparse_coef)
-            x[rmask] += args.lbd * (args.t - 1 - sparse_coef)
+            x[lmask] -= args.lbd * (args.t + 1 + sparse_coef)
+            x[rmask] -= args.lbd * (args.t - 1 + sparse_coef)
         else:
             grad = args.t - 2.*(N-1)*(N-1)/N/N*x + 2.*(N-1)/N*(mean_sf*N-x)/N
             x -= args.lbd * grad
@@ -687,21 +687,19 @@ def factor_visualization(iter, model, prec):
     biases = torch.tensor([]).cuda()
     bn_modules = model.get_sparse_layers()
     for bn_module in bn_modules:
-        scale_factors = torch.cat((scale_factors,torch.abs(bn_module.weight.data.view(-1))))
-        biases = torch.cat((biases,torch.abs(bn_module.bias.data.view(-1))))
+        scale_factors = torch.cat((scale_factors,(bn_module.weight.data.view(-1))))
+        biases = torch.cat((biases,(bn_module.bias.data.view(-1))))
     # plot figure
     save_dir = args.save + 'factor/'
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
     fig, axs = plt.subplots(ncols=4, figsize=(20,4))
     # plots
-    scale_factors = torch.clamp(scale_factors,min=args.eps)
     sns.histplot(scale_factors.detach().cpu().numpy(), ax=axs[0])
-    sns.histplot(torch.log10(scale_factors).detach().cpu().numpy(), ax=axs[1])
+    sns.histplot(torch.log10(torch.clamp(scale_factors.abs(),min=args.eps)).detach().cpu().numpy(), ax=axs[1])
 
-    biases = torch.clamp(biases,min=args.eps)
     sns.histplot(biases.detach().cpu().numpy(), ax=axs[2])
-    sns.histplot(torch.log10(biases).detach().cpu().numpy(), ax=axs[3])
+    sns.histplot(torch.log10(torch.clamp(biases.abs(),min=args.eps)).detach().cpu().numpy(), ax=axs[3])
     fig.savefig(save_dir + f'{iter:03d}_{prec:.3f}.png')
     plt.close('all')
         
@@ -742,8 +740,7 @@ def prune_while_training(model: nn.Module, arch: str, prune_mode: str, num_class
         
     inplace_precs = []
     #inplace_precs += [test(get_pruned_model(model,[3]))]
-    inplace_precs += [test(prune_by_thresh(model,right=1e-8))]
-    inplace_precs += [test(prune_by_thresh(model,left=1e-8))]
+    #inplace_precs += [test(prune_by_thresh(model,right=1e-8))]
     
     print_str = ''
     for flop,prec1,thresh in zip(saved_flops,saved_prec1s,saved_thresh):
