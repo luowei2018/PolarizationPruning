@@ -560,7 +560,7 @@ def sparse_helper(bn_modules):
         all_scale_factors = torch.cat((all_scale_factors,(bn_module.weight.data)))
     mean = all_scale_factors.mean()
     sparse_coef = ((all_scale_factors>mean).sum() - (all_scale_factors<=mean).sum())/all_scale_factors.numel()
-    return mean,sparse_coef
+    return mean,sparse_coef,all_scale_factors.numel()
         
 def get_pruned_model(model,target_indices):
     import copy
@@ -631,11 +631,16 @@ def log_quantization(model):
         
         return x
         
-    def mean_sparsity(x,mean_sf,sparse_coef):
-        lmask = x < mean_sf
-        rmask = x >= mean_sf
-        x[lmask] -= args.lbd * (args.t - 1 + sparse_coef)
-        x[rmask] += args.lbd * (args.t - 1 - sparse_coef)
+    def mean_sparsity(x,mean_sf,sparse_coef,N):
+        order = 2
+        if order == 1:
+            lmask = x < mean_sf
+            rmask = x >= mean_sf
+            x[lmask] -= args.lbd * (args.t - 1 + sparse_coef)
+            x[rmask] += args.lbd * (args.t - 1 - sparse_coef)
+        else:
+            grad = args.t - 2.*(N-1)*(N-1)/N/N*x + 2.*(N-1)/N*(mean_sf*N-x)/N
+            x -= args.lbd * grad
         return x
         
     def get_bin_distribution(x,bin_indices):
@@ -661,7 +666,7 @@ def log_quantization(model):
     
     target_indices = [3]
     #assigned_binindices,remain,x_split = assign_to_indices(bn_modules,target_indices,num_bins = len(args.bins),default_index=0)
-    mean_sf,sparse_coef = sparse_helper(bn_modules)
+    mean_sf,sparse_coef,N = sparse_helper(bn_modules)
         
     ch_start = 0
     for bn_module in bn_modules:
@@ -673,7 +678,7 @@ def log_quantization(model):
                 bn_module.weight.data = log_sparsity(bn_module.weight.data, assigned_binindices[ch_start:ch_start+ch_len])
             else:
                 #bn_module.weight.data = ratio_sparsity(bn_module.weight.data, assigned_binindices[ch_start:ch_start+ch_len],x_split)
-                bn_module.weight.data = mean_sparsity(bn_module.weight.data, mean_sf, sparse_coef)
+                bn_module.weight.data = mean_sparsity(bn_module.weight.data, mean_sf, sparse_coef,N)
             ch_start += ch_len
     
     
