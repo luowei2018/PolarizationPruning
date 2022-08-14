@@ -660,8 +660,8 @@ def log_quantization(model):
     bn_modules = model.get_sparse_layers()
     
     target_indices = [3]
-    assigned_binindices,remain,x_split = assign_to_indices(bn_modules,target_indices,num_bins = len(args.bins),default_index=0)
-    #mean_sf,sparse_coef = sparse_helper(bn_modules)
+    #assigned_binindices,remain,x_split = assign_to_indices(bn_modules,target_indices,num_bins = len(args.bins),default_index=0)
+    mean_sf,sparse_coef = sparse_helper(bn_modules)
         
     ch_start = 0
     for bn_module in bn_modules:
@@ -672,8 +672,8 @@ def log_quantization(model):
             if args.log_scale:
                 bn_module.weight.data = log_sparsity(bn_module.weight.data, assigned_binindices[ch_start:ch_start+ch_len])
             else:
-                bn_module.weight.data = ratio_sparsity(bn_module.weight.data, assigned_binindices[ch_start:ch_start+ch_len],x_split)
-                #bn_module.weight.data = mean_sparsity(bn_module.weight.data, mean_sf, sparse_coef)
+                #bn_module.weight.data = ratio_sparsity(bn_module.weight.data, assigned_binindices[ch_start:ch_start+ch_len],x_split)
+                bn_module.weight.data = mean_sparsity(bn_module.weight.data, mean_sf, sparse_coef)
             ch_start += ch_len
     
     
