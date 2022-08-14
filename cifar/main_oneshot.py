@@ -579,7 +579,7 @@ def get_pruned_model(model,target_indices):
             ch_start += ch_len
     return pruned_model
     
-def prune_by_thresh(model,left=None,right=None):
+def prune_by_thresh(model,left=0,right=100):
     import copy
     pruned_model = copy.deepcopy(model)
         
@@ -589,8 +589,8 @@ def prune_by_thresh(model,left=None,right=None):
     for bn_module in bn_modules:
         with torch.no_grad():
             ch_len = len(bn_module.weight.data)
-            mask0 = True if left is None else bn_module.weight.data<left
-            mask1 = True if right is None else bn_module.weight.data>right
+            mask0 = bn_module.weight.data.abs()<left
+            mask1 = bn_module.weight.data.abs()>right
             inactive = torch.logical_or(mask0,mask1)
             bn_module.weight.data[inactive] = 0
             ch_start += ch_len
