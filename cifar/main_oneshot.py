@@ -742,8 +742,8 @@ def prune_while_training(model: nn.Module, arch: str, prune_mode: str, num_class
         
     inplace_precs = []
     #inplace_precs += [test(get_pruned_model(model,[3]))]
-    inplace_precs += [test(prune_by_thresh(model,right=.5))]
-    inplace_precs += [test(prune_by_thresh(model,left=.5))]
+    inplace_precs += [test(prune_by_thresh(model,right=1e-8))]
+    inplace_precs += [test(prune_by_thresh(model,left=1e-8))]
     
     print_str = ''
     for flop,prec1,thresh in zip(saved_flops,saved_prec1s,saved_thresh):
