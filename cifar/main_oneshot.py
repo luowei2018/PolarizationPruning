@@ -580,6 +580,7 @@ def get_pruned_model(model,target_indices):
     return pruned_model
     
 def prune_by_thresh(model,left=None,right=None):
+    import copy
     pruned_model = copy.deepcopy(model)
         
     bn_modules = pruned_model.get_sparse_layers()
