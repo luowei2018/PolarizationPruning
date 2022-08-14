@@ -578,6 +578,22 @@ def get_pruned_model(model,target_indices):
             bn_module.weight.data[inactive] = 0
             ch_start += ch_len
     return pruned_model
+    
+def prune_by_thresh(model,left=None,right=None):
+    pruned_model = copy.deepcopy(model)
+        
+    bn_modules = pruned_model.get_sparse_layers()
+    
+    ch_start = 0
+    for bn_module in bn_modules:
+        with torch.no_grad():
+            ch_len = len(bn_module.weight.data)
+            mask0 = True if left is None else bn_module.weight.data<left
+            mask1 = True if right is None else bn_module.weight.data>right
+            inactive = torch.logical_or(mask0,mask1)
+            bn_module.weight.data[inactive] = 0
+            ch_start += ch_len
+    return pruned_model
         
 def log_quantization(model):
     
@@ -727,7 +743,9 @@ def prune_while_training(model: nn.Module, arch: str, prune_mode: str, num_class
     baseline_flops = compute_conv_flops(model, cuda=True)
         
     inplace_precs = []
-    inplace_precs += [test(get_pruned_model(model,[3]))]
+    #inplace_precs += [test(get_pruned_model(model,[3]))]
+    inplace_precs += [prune_by_thresh(model,left=4)]
+    inplace_precs += [prune_by_thresh(model,right=4)]
     
     print_str = ''
     for flop,prec1,thresh in zip(saved_flops,saved_prec1s,saved_thresh):
