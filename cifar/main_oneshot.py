@@ -632,14 +632,14 @@ def log_quantization(model):
         return x
         
     def mean_sparsity(x,mean_sf,sparse_coef,N):
-        order = 1
+        order = 2
         if order == 1:
             lmask = x < mean_sf
             rmask = x >= mean_sf
             x[lmask] -= args.lbd * (args.t + 1 + sparse_coef)
             x[rmask] -= args.lbd * (args.t - 1 + sparse_coef)
         else:
-            grad = args.t - 2.*(N-1)*(N-1)/N/N*x + 2.*(N-1)/N*(mean_sf*N-x)/N
+            grad = args.t - 2.*(N-1)*(N-1)/N/N*x + 2.*(N-1)/N*(mean_sf*N-x)/N + 2./N * (mean_sf*N-x-mean_sf*(N-1))
             x -= args.lbd * grad
         return x
         
@@ -790,7 +790,8 @@ def train(epoch):
             updateBN()
         optimizer.step()
         if args.loss in {LossType.POLARIZATION,
-                         LossType.L2_POLARIZATION}:
+                         LossType.L2_POLARIZATION,
+                         LossType.LOG_QUANTIZATION}:
             clamp_bn(model, upper_bound=args.clamp)
         global_step += 1
         if args.loss not in {LossType.LOG_QUANTIZATION}:
