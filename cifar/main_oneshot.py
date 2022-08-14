@@ -553,12 +553,6 @@ def assign_to_indices(bn_modules,target_indices,num_bins,default_index=0):
             assigned_binindices[selected] = bin_idx
             
     return assigned_binindices,remain,x_split
-    
-def calc_mean(bn_modules):
-    all_scale_factors = torch.tensor([]).cuda()
-    for bn_module in bn_modules:
-        all_scale_factors = torch.cat((all_scale_factors,(bn_module.weight.data)))
-    return all_scale_factors.mean()
         
 def get_pruned_model(model,target_indices):
     import copy
@@ -615,17 +609,6 @@ def log_quantization(model):
         
         return x
         
-    def std_sparsity2(x,mean_sf):
-        abs_x = x#torch.abs(x)
-        lmask = abs_x < mean_sf
-        rmask = abs_x >= mean_sf
-        abs_x[lmask] -= args.lbd * (args.t + 1)
-        abs_x[rmask] += args.lbd * (args.t - 1)
-        
-        #x = torch.sign(x) * abs_x
-        
-        return abs_x
-        
     def get_bin_distribution(x,bin_indices):
         if args.log_scale:
             x = torch.clamp(torch.abs(x), min=args.eps) * torch.sign(x)
@@ -648,20 +631,18 @@ def log_quantization(model):
     bn_modules = model.get_sparse_layers()
     
     target_indices = [3]
-    #assigned_binindices,remain,x_split = assign_to_indices(bn_modules,target_indices,num_bins = len(args.bins),default_index=0)
-    mean_sf = calc_mean(bn_modules)    
+    assigned_binindices,remain,x_split = assign_to_indices(bn_modules,target_indices,num_bins = len(args.bins),default_index=0)
         
     ch_start = 0
     for bn_module in bn_modules:
         with torch.no_grad():
             ch_len = len(bn_module.weight.data)
-            #get_bin_distribution(bn_module.weight.data, assigned_binindices[ch_start:ch_start+ch_len])
+            get_bin_distribution(bn_module.weight.data, assigned_binindices[ch_start:ch_start+ch_len])
             args.bias_err += torch.abs(bn_module.bias.data).sum()
             if args.log_scale:
                 bn_module.weight.data = log_sparsity(bn_module.weight.data, assigned_binindices[ch_start:ch_start+ch_len])
             else:
-                #bn_module.weight.data = std_sparsity(bn_module.weight.data, assigned_binindices[ch_start:ch_start+ch_len],x_split)
-                bn_module.weight.data = std_sparsity2(bn_module.weight.data, mean_sf)
+                bn_module.weight.data = std_sparsity(bn_module.weight.data, assigned_binindices[ch_start:ch_start+ch_len],x_split)
             ch_start += ch_len
     
     
