@@ -508,7 +508,7 @@ else:
 #amp_factors = torch.tensor([2**(num_bins-1-x) for x in range(num_bins)]).cuda()
 args.amp_factors = torch.tensor([1,1,1,1]).cuda()
 
-args.eps = 1e-6
+args.eps = 1e-10
         
 # assign bin indices to scale factors
 # num_bins: number of total bins
@@ -748,11 +748,11 @@ def train(epoch):
                                         weight_max=args.weight_max, weight_min=args.weight_min)
             loss += sparsity_loss
             avg_sparsity_loss += sparsity_loss.data.item()
+        if args.loss in {LossType.LOG_QUANTIZATION}:
+            log_quantization(model)
         loss.backward()
         if args.loss in {LossType.L1_SPARSITY_REGULARIZATION}:
             updateBN()
-        if args.loss in {LossType.LOG_QUANTIZATION}:
-            log_quantization(model)
         optimizer.step()
         if args.loss in {LossType.POLARIZATION,
                          LossType.L2_POLARIZATION}:
