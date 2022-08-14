@@ -594,7 +594,7 @@ def log_quantization(model):
         
     def std_sparsity(x,bin_indices,x_split):
         abs_x = torch.abs(x)
-        order = 2
+        order = 1
         if order == 1:
             lmask = bin_indices == 0
             rmask = bin_indices == 3
