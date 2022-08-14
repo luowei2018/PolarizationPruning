@@ -557,7 +557,7 @@ def assign_to_indices(bn_modules,target_indices,num_bins,default_index=0):
 def calc_mean(bn_modules):
     all_scale_factors = torch.tensor([]).cuda()
     for bn_module in bn_modules:
-        all_scale_factors = torch.cat((all_scale_factors,torch.abs(bn_module.weight.data)))
+        all_scale_factors = torch.cat((all_scale_factors,(bn_module.weight.data)))
     return all_scale_factors.mean()
         
 def get_pruned_model(model,target_indices):
@@ -616,15 +616,15 @@ def log_quantization(model):
         return x
         
     def std_sparsity2(x,mean_sf):
-        abs_x = torch.abs(x)
+        abs_x = x#torch.abs(x)
         lmask = abs_x < mean_sf
         rmask = abs_x >= mean_sf
         abs_x[lmask] -= args.lbd * (args.t + 1)
         abs_x[rmask] += args.lbd * (args.t - 1)
         
-        x = torch.sign(x) * abs_x
+        #x = torch.sign(x) * abs_x
         
-        return x
+        return abs_x
         
     def get_bin_distribution(x,bin_indices):
         if args.log_scale:
