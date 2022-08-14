@@ -598,9 +598,10 @@ def log_quantization(model):
         if order == 1:
             lmask = bin_indices == 0
             rmask = bin_indices == 3
-            assert lmask.sum()+rmask.sum()==x.numel()
-            abs_x[lmask] -= args.lbd * (args.t + 1)
-            abs_x[rmask] += args.lbd * (args.t - 1)
+            gt_grad = 1 + (lmask.sum()-rmask.sum())/lmask.numel()
+            lt_grad = -1 + (lmask.sum()-rmask.sum())/lmask.numel()
+            abs_x[lmask] -= args.lbd * (args.t - lt_grad)
+            abs_x[rmask] += args.lbd * (args.t - gt_grad)
         else:
             grad = -2 * abs_x + 2 * x_split + args.t
             abs_x -= args.lbd * grad
