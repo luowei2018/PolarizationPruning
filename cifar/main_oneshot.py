@@ -745,8 +745,8 @@ def prune_while_training(model: nn.Module, arch: str, prune_mode: str, num_class
         
     inplace_precs = []
     #inplace_precs += [test(get_pruned_model(model,[3]))]
-    inplace_precs += [test(prune_by_thresh(model,left=3))]
-    inplace_precs += [test(prune_by_thresh(model,right=3))]
+    inplace_precs += [test(prune_by_thresh(model,left=1.5))]
+    inplace_precs += [test(prune_by_thresh(model,right=1.5))]
     inplace_precs += [test(prune_by_thresh(model,left=2))]
     inplace_precs += [test(prune_by_thresh(model,right=2))]
     
