@@ -617,34 +617,26 @@ def log_quantization(model):
         #args.ista_cnt_bins[3] += mask1.sum().cpu().item()
         return x
         
-    def std_sparsity(x,bin_indices,x_split):
-        abs_x = torch.abs(x)
+    def ratio_sparsity(x,bin_indices,x_split):
         order = 1
         if order == 1:
             lmask = bin_indices == 0
             rmask = bin_indices == 3
-            gt_grad = 1 + (lmask.sum()-rmask.sum())/lmask.numel()
-            lt_grad = -1 + (lmask.sum()-rmask.sum())/lmask.numel()
-            abs_x[lmask] -= args.lbd * (args.t - lt_grad)
-            abs_x[rmask] += args.lbd * (args.t - gt_grad)
+            sparse_coef = (rmask.sum()-lmask.sum())/lmask.numel()
+            x[lmask] -= args.lbd * (args.t - 1 + sparse_coef)
+            x[rmask] += args.lbd * (args.t - 1 - sparse_coef)
         else:
-            grad = -2 * abs_x + 2 * x_split + args.t
-            abs_x -= args.lbd * grad
-        
-        x = torch.sign(x) * abs_x
+            grad = -2 * x + 2 * x_split + args.t
+            x -= args.lbd * grad
         
         return x
         
-    def std_sparsity2(x,mean_sf,sparse_coef):
-        abs_x = x#torch.abs(x)
-        lmask = abs_x < mean_sf
-        rmask = abs_x >= mean_sf
-        abs_x[lmask] -= args.lbd * (args.t - 1 + sparse_coef)
-        abs_x[rmask] += args.lbd * (args.t - 1 - sparse_coef)
-        
-        #x = torch.sign(x) * abs_x
-        
-        return abs_x
+    def mean_sparsity(x,mean_sf,sparse_coef):
+        lmask = x < mean_sf
+        rmask = x >= mean_sf
+        x[lmask] -= args.lbd * (args.t - 1 + sparse_coef)
+        x[rmask] += args.lbd * (args.t - 1 - sparse_coef)
+        return x
         
     def get_bin_distribution(x,bin_indices):
         if args.log_scale:
@@ -668,8 +660,8 @@ def log_quantization(model):
     bn_modules = model.get_sparse_layers()
     
     target_indices = [3]
-    #assigned_binindices,remain,x_split = assign_to_indices(bn_modules,target_indices,num_bins = len(args.bins),default_index=0)
-    mean_sf,sparse_coef = sparse_helper(bn_modules)
+    assigned_binindices,remain,x_split = assign_to_indices(bn_modules,target_indices,num_bins = len(args.bins),default_index=0)
+    #mean_sf,sparse_coef = sparse_helper(bn_modules)
         
     ch_start = 0
     for bn_module in bn_modules:
@@ -680,8 +672,8 @@ def log_quantization(model):
             if args.log_scale:
                 bn_module.weight.data = log_sparsity(bn_module.weight.data, assigned_binindices[ch_start:ch_start+ch_len])
             else:
-                #bn_module.weight.data = std_sparsity(bn_module.weight.data, assigned_binindices[ch_start:ch_start+ch_len],x_split)
-                bn_module.weight.data = std_sparsity2(bn_module.weight.data, mean_sf, sparse_coef)
+                bn_module.weight.data = ratio_sparsity(bn_module.weight.data, assigned_binindices[ch_start:ch_start+ch_len],x_split)
+                #bn_module.weight.data = mean_sparsity(bn_module.weight.data, mean_sf, sparse_coef)
             ch_start += ch_len
     
     
@@ -745,8 +737,7 @@ def prune_while_training(model: nn.Module, arch: str, prune_mode: str, num_class
         
     inplace_precs = []
     #inplace_precs += [test(get_pruned_model(model,[3]))]
-    inplace_precs += [test(prune_by_thresh(model,left=5))]
-    inplace_precs += [test(prune_by_thresh(model,right=5))]
+    #inplace_precs += [test(prune_by_thresh(model,right=5))]
     
     print_str = ''
     for flop,prec1,thresh in zip(saved_flops,saved_prec1s,saved_thresh):
