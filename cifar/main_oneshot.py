@@ -643,12 +643,14 @@ def log_quantization(model):
         return x
         
     def mean_sparsity(x,sf_split,sparse_coef=None,N=None):
-        order = 2
+        order = 1
         if order == 1:
-            lmask = x < sf_split
-            rmask = x >= sf_split
-            x[lmask] -= args.lbd * (args.t + 1 + sparse_coef) * args.current_lr
-            x[rmask] -= args.lbd * (args.t - 1 + sparse_coef) * args.current_lr
+            #lmask = x < sf_split
+            #rmask = x >= sf_split
+            #x[lmask] -= args.lbd * (args.t + 1 + sparse_coef) * args.current_lr
+            #x[rmask] -= args.lbd * (args.t - 1 + sparse_coef) * args.current_lr
+            grad = (args.t + sparse_coef - torch.sign(x-sf_split))
+            x -= args.lbd * args.current_lr * grad
         else:
             grad = args.t - 2.*(N-1)*(N-1)/N/N*x + 2.*(N-1)/N*(sf_split*N-x)/N + 2./N * (sf_split*N-x-sf_split*(N-1))
             x -= args.lbd * grad * args.current_lr
