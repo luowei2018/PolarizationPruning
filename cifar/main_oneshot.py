@@ -554,7 +554,7 @@ def assign_to_indices(bn_modules,target_indices,num_bins,default_index=0):
             
     return assigned_binindices,remain,x_split
     
-def sparse_helper(bn_modules):
+def mean_sparse(bn_modules):
     all_scale_factors = torch.tensor([]).cuda()
     for bn_module in bn_modules:
         all_scale_factors = torch.cat((all_scale_factors,(bn_module.weight.data)))
@@ -562,7 +562,7 @@ def sparse_helper(bn_modules):
     sparse_coef = ((all_scale_factors>mean).sum() - (all_scale_factors<=mean).sum())/all_scale_factors.numel()
     return mean,sparse_coef,all_scale_factors.numel()
     
-def sparse_helper2(bn_modules,ratio):
+def quntile_sparse(bn_modules,ratio):
     all_scale_factors = torch.tensor([]).cuda()
     for bn_module in bn_modules:
         all_scale_factors = torch.cat((all_scale_factors,(bn_module.weight.data)))
@@ -632,11 +632,8 @@ def log_quantization(model):
         if order == 1:
             lmask = bin_indices == 0
             rmask = bin_indices == 3
-            #sparse_coef = (rmask.sum()-lmask.sum())/lmask.numel()
-            #x[lmask] -= args.lbd * (args.t + 1 + sparse_coef)
-            #x[rmask] -= args.lbd * (args.t - 1 + sparse_coef)
-            x[lmask] -= args.lbd * (args.t + 1)
-            x[rmask] += args.lbd * (args.t - 1)
+            x[lmask] -= args.lbd * args.current_lr * 1
+            x[rmask] -= args.lbd * args.current_lr * 0.1
         else:
             grad = -2 * x + 2 * x_split + args.t
             x -= args.lbd * grad
@@ -646,10 +643,6 @@ def log_quantization(model):
     def mean_sparsity(x,sf_split,sparse_coef=None,N=None):
         order = 1
         if order == 1:
-            #lmask = x < sf_split
-            #rmask = x >= sf_split
-            #x[lmask] -= args.lbd * (args.t + 1 + sparse_coef) * args.current_lr
-            #x[rmask] -= args.lbd * (args.t - 1 + sparse_coef) * args.current_lr
             grad = (args.t + sparse_coef - torch.sign(x-sf_split))
             x -= args.lbd * args.current_lr * grad
         else:
@@ -679,9 +672,9 @@ def log_quantization(model):
     bn_modules = model.get_sparse_layers()
     
     target_indices = [3]
-    #assigned_binindices,remain,x_split = assign_to_indices(bn_modules,target_indices,num_bins = len(args.bins),default_index=0)
-    #sf_split,sparse_coef,N = sparse_helper2(bn_modules,0.75)
-    sf_split,sparse_coef,N = sparse_helper(bn_modules)
+    assigned_binindices,remain,x_split = assign_to_indices(bn_modules,target_indices,num_bins = len(args.bins),default_index=0)
+    #sf_split,sparse_coef,N = quntile_sparse(bn_modules,0.75)
+    #sf_split,sparse_coef,N = mean_sparse(bn_modules)
         
     ch_start = 0
     for bn_module in bn_modules:
@@ -692,8 +685,8 @@ def log_quantization(model):
             if args.log_scale:
                 bn_module.weight.data = log_sparsity(bn_module.weight.data, assigned_binindices[ch_start:ch_start+ch_len])
             else:
-                #bn_module.weight.data = ratio_sparsity(bn_module.weight.data, assigned_binindices[ch_start:ch_start+ch_len],x_split)
-                bn_module.weight.data = mean_sparsity(bn_module.weight.data, sf_split, sparse_coef=sparse_coef,N=N)
+                bn_module.weight.data = ratio_sparsity(bn_module.weight.data, assigned_binindices[ch_start:ch_start+ch_len],x_split)
+                #bn_module.weight.data = mean_sparsity(bn_module.weight.data, sf_split, sparse_coef=sparse_coef,N=N)
             ch_start += ch_len
     
     
@@ -762,18 +755,18 @@ def prune_while_training(model: nn.Module, arch: str, prune_mode: str, num_class
     baseline_flops = compute_conv_flops(model, cuda=True)
         
     inplace_precs = []
-    inplace_precs += [test(get_pruned_model(model,[1,2,3]))]
-    inplace_precs += [test(get_pruned_model(model,[2,3]))]
-    inplace_precs += [test(get_pruned_model(model,[3]))]
+    #inplace_precs += [test(get_pruned_model(model,[1,2,3]))]
+    #inplace_precs += [test(get_pruned_model(model,[2,3]))]
+    #inplace_precs += [test(get_pruned_model(model,[3]))]
     #inplace_precs += [test(prune_by_thresh(model,left=1e-6))]
     #inplace_precs += [test(prune_by_thresh(model,left=1e-4))]
     
     print_str = ''
     for flop,prec1,thresh in zip(saved_flops,saved_prec1s,saved_thresh):
-        print_str += f"[{flop / baseline_flops:.3f}, {prec1:.3f}, {thresh:.3f}]\t"
+        print_str += f"[{prec1:.4f}({flop / baseline_flops:.4f}), {thresh:.3f}]\t"
         
     for prec1 in inplace_precs:
-        print_str += f"{prec1:.3f}\t"
+        print_str += f"{prec1:.4f}\t"
         
     print(print_str)
 
