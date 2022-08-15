@@ -585,6 +585,7 @@ def get_pruned_model(model,target_indices):
             ch_len = len(bn_module.weight.data)
             inactive = remain[ch_start:ch_start+ch_len]==1
             bn_module.weight.data[inactive] = 0
+            bn_module.bias.data[inactive] = 0
             ch_start += ch_len
     return pruned_model
     
@@ -761,7 +762,9 @@ def prune_while_training(model: nn.Module, arch: str, prune_mode: str, num_class
     baseline_flops = compute_conv_flops(model, cuda=True)
         
     inplace_precs = []
-    #inplace_precs += [test(get_pruned_model(model,[3]))]
+    inplace_precs += [test(get_pruned_model(model,[1,2,3]))]
+    inplace_precs += [test(get_pruned_model(model,[2,3]))]
+    inplace_precs += [test(get_pruned_model(model,[3]))]
     #inplace_precs += [test(prune_by_thresh(model,left=1e-6))]
     #inplace_precs += [test(prune_by_thresh(model,left=1e-4))]
     
