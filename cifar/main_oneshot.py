@@ -632,7 +632,7 @@ def log_quantization(model):
         if order == 1:
             lmask = bin_indices == 0
             rmask = bin_indices == 3
-            x[lmask] -= args.lbd * args.current_lr * 10
+            x[lmask] -= args.lbd * args.current_lr * 1
             x[rmask] -= args.lbd * args.current_lr * 0.1
         else:
             grad = -2 * x + 2 * x_split + args.t
@@ -720,7 +720,7 @@ def prune_while_training(model: nn.Module, arch: str, prune_mode: str, num_class
     if arch == "resnet56":
         from resprune_gate import prune_resnet
         from models.resnet_expand import resnet56 as resnet50_expand
-        for strat in ['grad','fixed']:
+        for strat in []:#['grad','fixed']:
             saved_model,thresh = prune_resnet(sparse_model=model, pruning_strategy=strat,
                                             sanity_check=False, prune_mode=prune_mode, num_classes=num_classes)
             prec1 = test(saved_model.cuda())
