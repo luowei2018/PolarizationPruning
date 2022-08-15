@@ -568,6 +568,7 @@ def sparse_helper2(bn_modules):
         all_scale_factors = torch.cat((all_scale_factors,(bn_module.weight.data)))
     tmp,indices = all_scale_factors.sort(dim=0)
     idx = int(all_scale_factors.numel()*0.75)
+    print(tmp)
     print(tmp[idx])
     print(all_scale_factors[indices[idx]])
     exit(0)
