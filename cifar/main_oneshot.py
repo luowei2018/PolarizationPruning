@@ -459,6 +459,8 @@ def bn_sparsity(model, loss_type, sparsity, t, alpha,
     :type loss_type: LossType
     """
     bn_modules = model.get_sparse_layers()
+    print(loss_type, sparsity, t, alpha, flops_weighted, weight_min, weight_max)
+    exit(0)
 
     if loss_type == LossType.POLARIZATION or loss_type == LossType.L2_POLARIZATION:
         # compute global mean of all sparse vectors
