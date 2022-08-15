@@ -642,7 +642,7 @@ def log_quantization(model):
         return x
         
     def mean_sparsity(x,sf_split,sparse_coef=None,N=None):
-        order = 1
+        order = 2
         if order == 1:
             lmask = x < sf_split
             rmask = x >= sf_split
