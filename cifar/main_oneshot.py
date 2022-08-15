@@ -646,13 +646,13 @@ def log_quantization(model):
         if order == 1:
             lmask = x < sf_split
             rmask = x >= sf_split
-            #x[lmask] -= args.lbd * (args.t + 1 + sparse_coef)
-            #x[rmask] -= args.lbd * (args.t - 1 + sparse_coef)
-            x[lmask] -= args.lbd * 2.5
-            x[rmask] += args.lbd * 0.5
+            x[lmask] -= args.lbd * (args.t + 1 + sparse_coef) * args.current_lr
+            x[rmask] -= args.lbd * (args.t - 1 + sparse_coef) * args.current_lr
+            #x[lmask] -= args.lbd * 2.5
+            #x[rmask] += args.lbd * 0.5
         else:
             grad = args.t - 2.*(N-1)*(N-1)/N/N*x + 2.*(N-1)/N*(sf_split*N-x)/N + 2./N * (sf_split*N-x-sf_split*(N-1))
-            x -= args.lbd * grad
+            x -= args.lbd * grad * args.current_lr
         return x
         
     def get_bin_distribution(x,bin_indices):
@@ -796,25 +796,17 @@ def train(epoch):
                                         t=args.t, alpha=args.alpha,
                                         flops_weighted=args.flops_weighted,
                                         weight_max=args.weight_max, weight_min=args.weight_min)
-            #loss += sparsity_loss
-            loss = sparsity_loss
+            loss += sparsity_loss
             avg_sparsity_loss += sparsity_loss.data.item()
         if args.loss in {LossType.LOG_QUANTIZATION}:
             log_quantization(model)
         loss.backward()
-        sf_split,sparse_coef,N = sparse_helper(model.get_sparse_layers())
-        for m in model.get_sparse_layers():
-            print(m.weight.grad)
-            print(float((args.t + 1 + sparse_coef)*args.lbd),(args.t - 1 + sparse_coef)*args.lbd)
-            grad = (args.t - 2.*(N-1)*(N-1)/N/N*m.weight + 2.*(N-1)/N*(sf_split*N-m.weight)/N + 2./N * (sf_split*N-m.weight-sf_split*(N-1)))
-            print(grad)
-            break
-        exit(0)
         if args.loss in {LossType.L1_SPARSITY_REGULARIZATION}:
             updateBN()
         optimizer.step()
         if args.loss in {LossType.POLARIZATION,
-                         LossType.L2_POLARIZATION}:
+                         LossType.L2_POLARIZATION,
+                         LossType.LOG_QUANTIZATION}:
             clamp_bn(model, upper_bound=args.clamp)
         global_step += 1
         if args.loss not in {LossType.LOG_QUANTIZATION}:
