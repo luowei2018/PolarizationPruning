@@ -622,9 +622,11 @@ def log_quantization(model):
         if order == 1:
             lmask = bin_indices == 0
             rmask = bin_indices == 3
-            sparse_coef = (rmask.sum()-lmask.sum())/lmask.numel()
-            x[lmask] -= args.lbd * (args.t + 1 + sparse_coef)
-            x[rmask] -= args.lbd * (args.t - 1 + sparse_coef)
+            #sparse_coef = (rmask.sum()-lmask.sum())/lmask.numel()
+            #x[lmask] -= args.lbd * (args.t + 1 + sparse_coef)
+            #x[rmask] -= args.lbd * (args.t - 1 + sparse_coef)
+            x[lmask] -= args.lbd * (args.t + 1)
+            x[rmask] += args.lbd * (args.t - 1)
         else:
             grad = -2 * x + 2 * x_split + args.t
             x -= args.lbd * grad
@@ -667,20 +669,20 @@ def log_quantization(model):
     bn_modules = model.get_sparse_layers()
     
     target_indices = [3]
-    #assigned_binindices,remain,x_split = assign_to_indices(bn_modules,target_indices,num_bins = len(args.bins),default_index=0)
-    mean_sf,sparse_coef,N = sparse_helper(bn_modules)
+    assigned_binindices,remain,x_split = assign_to_indices(bn_modules,target_indices,num_bins = len(args.bins),default_index=0)
+    #mean_sf,sparse_coef,N = sparse_helper(bn_modules)
         
     ch_start = 0
     for bn_module in bn_modules:
         with torch.no_grad():
             ch_len = len(bn_module.weight.data)
-            #get_bin_distribution(bn_module.weight.data, assigned_binindices[ch_start:ch_start+ch_len])
+            get_bin_distribution(bn_module.weight.data, assigned_binindices[ch_start:ch_start+ch_len])
             args.bias_err += torch.abs(bn_module.bias.data).sum()
             if args.log_scale:
                 bn_module.weight.data = log_sparsity(bn_module.weight.data, assigned_binindices[ch_start:ch_start+ch_len])
             else:
-                #bn_module.weight.data = ratio_sparsity(bn_module.weight.data, assigned_binindices[ch_start:ch_start+ch_len],x_split)
-                bn_module.weight.data = mean_sparsity(bn_module.weight.data, mean_sf, sparse_coef,N)
+                bn_module.weight.data = ratio_sparsity(bn_module.weight.data, assigned_binindices[ch_start:ch_start+ch_len],x_split)
+                #bn_module.weight.data = mean_sparsity(bn_module.weight.data, mean_sf, sparse_coef,N)
             ch_start += ch_len
     
     
