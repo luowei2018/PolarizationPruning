@@ -726,7 +726,7 @@ def prune_while_training(model: nn.Module, arch: str, prune_mode: str, num_class
     if arch == "resnet56":
         from resprune_gate import prune_resnet
         from models.resnet_expand import resnet56 as resnet50_expand
-        for strat in ['grad','fixed']：
+        for strat in ['grad','fixed']:
             saved_model,thresh = prune_resnet(sparse_model=model, pruning_strategy=strat,
                                             sanity_check=False, prune_mode=prune_mode, num_classes=num_classes)
             flop = compute_conv_flops(saved_model, cuda=True)
