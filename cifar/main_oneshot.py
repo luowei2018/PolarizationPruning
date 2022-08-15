@@ -801,14 +801,12 @@ def train(epoch):
             avg_sparsity_loss += sparsity_loss.data.item()
         if args.loss in {LossType.LOG_QUANTIZATION}:
             log_quantization(model)
-        for m in model.get_sparse_layers():
-            print(m.weight.grad)
-            break
         loss.backward()
         sf_split,sparse_coef,N = sparse_helper(model.get_sparse_layers())
         for m in model.get_sparse_layers():
+            print(m.weight)
             print(m.weight.grad)
-            print(args.t + 1 + sparse_coef,args.t - 1 + sparse_coef)
+            print(args.lbd*(args.t + 1 + sparse_coef),args.lbd*(args.t - 1 + sparse_coef))
             break
         exit(0)
         if args.loss in {LossType.L1_SPARSITY_REGULARIZATION}:
