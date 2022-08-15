@@ -679,8 +679,8 @@ def log_quantization(model):
     
     target_indices = [3]
     #assigned_binindices,remain,x_split = assign_to_indices(bn_modules,target_indices,num_bins = len(args.bins),default_index=0)
-    sf_split,sparse_coef,N = sparse_helper2(bn_modules,0.75)
-    #sf_split,sparse_coef,N = sparse_helper(bn_modules)
+    #sf_split,sparse_coef,N = sparse_helper2(bn_modules,0.75)
+    sf_split,sparse_coef,N = sparse_helper(bn_modules)
         
     ch_start = 0
     for bn_module in bn_modules:
