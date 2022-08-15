@@ -648,8 +648,8 @@ def log_quantization(model):
             rmask = x >= sf_split
             #x[lmask] -= args.lbd * (args.t + 1 + sparse_coef)
             #x[rmask] -= args.lbd * (args.t - 1 + sparse_coef)
-            x[lmask] -= args.lbd * (args.t + 1)
-            x[rmask] += args.lbd * (args.t - 1)
+            x[lmask] -= args.lbd * 2.5
+            x[rmask] += args.lbd * 0.5
         else:
             grad = args.t - 2.*(N-1)*(N-1)/N/N*x + 2.*(N-1)/N*(sf_split*N-x)/N + 2./N * (sf_split*N-x-sf_split*(N-1))
             x -= args.lbd * grad
@@ -680,7 +680,7 @@ def log_quantization(model):
     #assigned_binindices,remain,x_split = assign_to_indices(bn_modules,target_indices,num_bins = len(args.bins),default_index=0)
     sparse_coef = N = None
     #sf_split = sparse_helper2(bn_modules,0.75)
-    #sf_split,sparse_coef,N = sparse_helper(bn_modules)
+    sf_split,sparse_coef,N = sparse_helper(bn_modules)
         
     ch_start = 0
     for bn_module in bn_modules:
