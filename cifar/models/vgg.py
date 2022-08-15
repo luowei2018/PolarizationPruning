@@ -202,6 +202,7 @@ class VGG(nn.Module):
                 m.bias.data.zero_()
 
     def prune_model(self, pruner: Callable[[np.ndarray], float], prune_mode: str) -> None:
+        fake_prune = True
         input_mask = np.ones(3)
         for submodule in self.modules():
             if isinstance(submodule, VGGBlock):
@@ -209,13 +210,14 @@ class VGG(nn.Module):
                 input_mask = submodule.do_pruning(in_channel_mask=input_mask, pruner=pruner, prune_mode=prune_mode)
 
         # prune the last linear layer
-        linear_weight: torch.Tensor = self._logit_layer.weight.data.clone()
-        idx_in = np.squeeze(np.argwhere(np.asarray(input_mask)))
-        if len(idx_in.shape) == 0:
-            # expand the single scalar to array
-            idx_in = np.expand_dims(idx_in, 0)
-        linear_weight = linear_weight[:, idx_in.tolist()]
-        self._logit_layer.weight.data = linear_weight
+        if not fake_prune:
+            linear_weight: torch.Tensor = self._logit_layer.weight.data.clone()
+            idx_in = np.squeeze(np.argwhere(np.asarray(input_mask)))
+            if len(idx_in.shape) == 0:
+                # expand the single scalar to array
+                idx_in = np.expand_dims(idx_in, 0)
+            linear_weight = linear_weight[:, idx_in.tolist()]
+            self._logit_layer.weight.data = linear_weight
 
     @property
     def _logit_layer(self) -> nn.Linear:
