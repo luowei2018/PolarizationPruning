@@ -184,7 +184,6 @@ class VGG(nn.Module):
         x = self.feature(x)
         x = nn.AvgPool2d(2)(x)
         x = x.view(x.size(0), -1)
-        print(self.classifier[1].weight.size())
         y = self.classifier(x)
         return y
 
