@@ -85,6 +85,7 @@ def prune_resnet(num_classes: int, sparse_model: torch.nn.Module, pruning_strate
     if prune_type == 'polarization':
         pruner = lambda weight: search_threshold(weight, pruning_strategy) # find the cut of factors
         prune_on = 'factor'
+        threshold = pruner(0)
     elif prune_type == 'l1-norm':
         pruner = lambda weight: l1_norm_threshold(weight, ratio=l1_norm_ratio)
         prune_on = 'weight'
