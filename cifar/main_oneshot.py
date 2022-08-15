@@ -562,16 +562,12 @@ def sparse_helper(bn_modules):
     sparse_coef = ((all_scale_factors>mean).sum() - (all_scale_factors<=mean).sum())/all_scale_factors.numel()
     return mean,sparse_coef,all_scale_factors.numel()
     
-def sparse_helper2(bn_modules):
+def sparse_helper2(bn_modules,ratio):
     all_scale_factors = torch.tensor([]).cuda()
     for bn_module in bn_modules:
         all_scale_factors = torch.cat((all_scale_factors,(bn_module.weight.data)))
     tmp,indices = all_scale_factors.sort(dim=0)
-    idx = int(all_scale_factors.numel()*0.75)
-    print(tmp)
-    print(tmp[idx])
-    print(all_scale_factors[indices[idx]])
-    exit(0)
+    idx = int(all_scale_factors.numel()*ratio)
     return all_scale_factors[indices[idx]]
         
 def get_pruned_model(model,target_indices):
@@ -682,7 +678,7 @@ def log_quantization(model):
     
     target_indices = [3]
     #assigned_binindices,remain,x_split = assign_to_indices(bn_modules,target_indices,num_bins = len(args.bins),default_index=0)
-    sf_split = sparse_helper2(bn_modules)
+    sf_split = sparse_helper2(bn_modules,0.75)
     sparse_coef = N = None
     #sf_split,sparse_coef,N = sparse_helper(bn_modules)
         
