@@ -561,6 +561,17 @@ def sparse_helper(bn_modules):
     mean = all_scale_factors.mean()
     sparse_coef = ((all_scale_factors>mean).sum() - (all_scale_factors<=mean).sum())/all_scale_factors.numel()
     return mean,sparse_coef,all_scale_factors.numel()
+    
+def sparse_helper2(bn_modules):
+    all_scale_factors = torch.tensor([]).cuda()
+    for bn_module in bn_modules:
+        all_scale_factors = torch.cat((all_scale_factors,(bn_module.weight.data)))
+    tmp,indices = all_scale_factors.sort(dim=0)
+    idx = int(all_scale_factors.numel()*0.75)
+    print(tmp[idx])
+    print(all_scale_factors[indices[idx]])
+    exit(0)
+    return all_scale_factors[indices[idx]]
         
 def get_pruned_model(model,target_indices):
     import copy
@@ -633,17 +644,17 @@ def log_quantization(model):
         
         return x
         
-    def mean_sparsity(x,mean_sf,sparse_coef,N):
+    def mean_sparsity(x,sf_split,sparse_coef=None,N=None):
         order = 1
         if order == 1:
-            lmask = x < mean_sf
-            rmask = x >= mean_sf
+            lmask = x < sf_split
+            rmask = x >= sf_split
             #x[lmask] -= args.lbd * (args.t + 1 + sparse_coef)
             #x[rmask] -= args.lbd * (args.t - 1 + sparse_coef)
             x[lmask] -= args.lbd * (args.t + 1)
             x[rmask] += args.lbd * (args.t - 1)
         else:
-            grad = args.t - 2.*(N-1)*(N-1)/N/N*x + 2.*(N-1)/N*(mean_sf*N-x)/N + 2./N * (mean_sf*N-x-mean_sf*(N-1))
+            grad = args.t - 2.*(N-1)*(N-1)/N/N*x + 2.*(N-1)/N*(sf_split*N-x)/N + 2./N * (sf_split*N-x-sf_split*(N-1))
             x -= args.lbd * grad
         return x
         
@@ -669,20 +680,22 @@ def log_quantization(model):
     bn_modules = model.get_sparse_layers()
     
     target_indices = [3]
-    assigned_binindices,remain,x_split = assign_to_indices(bn_modules,target_indices,num_bins = len(args.bins),default_index=0)
-    #mean_sf,sparse_coef,N = sparse_helper(bn_modules)
+    #assigned_binindices,remain,x_split = assign_to_indices(bn_modules,target_indices,num_bins = len(args.bins),default_index=0)
+    sf_split = sparse_helper2(bn_modules)
+    sparse_coef = N = None
+    #sf_split,sparse_coef,N = sparse_helper(bn_modules)
         
     ch_start = 0
     for bn_module in bn_modules:
         with torch.no_grad():
             ch_len = len(bn_module.weight.data)
-            get_bin_distribution(bn_module.weight.data, assigned_binindices[ch_start:ch_start+ch_len])
+            #get_bin_distribution(bn_module.weight.data, assigned_binindices[ch_start:ch_start+ch_len])
             args.bias_err += torch.abs(bn_module.bias.data).sum()
             if args.log_scale:
                 bn_module.weight.data = log_sparsity(bn_module.weight.data, assigned_binindices[ch_start:ch_start+ch_len])
             else:
-                bn_module.weight.data = ratio_sparsity(bn_module.weight.data, assigned_binindices[ch_start:ch_start+ch_len],x_split)
-                #bn_module.weight.data = mean_sparsity(bn_module.weight.data, mean_sf, sparse_coef,N)
+                #bn_module.weight.data = ratio_sparsity(bn_module.weight.data, assigned_binindices[ch_start:ch_start+ch_len],x_split)
+                bn_module.weight.data = mean_sparsity(bn_module.weight.data, sf_split, sparse_coef=sparse_coef,N=N)
             ch_start += ch_len
     
     
@@ -744,8 +757,8 @@ def prune_while_training(model: nn.Module, arch: str, prune_mode: str, num_class
         
     inplace_precs = []
     #inplace_precs += [test(get_pruned_model(model,[3]))]
-    inplace_precs += [test(prune_by_thresh(model,left=1e-67))]
-    inplace_precs += [test(prune_by_thresh(model,left=1e-4))]
+    #inplace_precs += [test(prune_by_thresh(model,left=1e-6))]
+    #inplace_precs += [test(prune_by_thresh(model,left=1e-4))]
     
     print_str = ''
     for flop,prec1,thresh in zip(saved_flops,saved_prec1s,saved_thresh):
@@ -795,8 +808,7 @@ def train(epoch):
             updateBN()
         optimizer.step()
         if args.loss in {LossType.POLARIZATION,
-                         LossType.L2_POLARIZATION,
-                         LossType.LOG_QUANTIZATION}:
+                         LossType.L2_POLARIZATION}:
             clamp_bn(model, upper_bound=args.clamp)
         global_step += 1
         if args.loss not in {LossType.LOG_QUANTIZATION}:
