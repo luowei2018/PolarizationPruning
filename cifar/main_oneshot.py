@@ -806,6 +806,7 @@ def train(epoch):
         for m in model.get_sparse_layers():
             print(m.weight.grad)
             print(args.lbd*(args.t + 1 + sparse_coef),args.lbd*(args.t - 1 + sparse_coef))
+            print(args.t - 2.*(N-1)*(N-1)/N/N*m.weight + 2.*(N-1)/N*(sf_split*N-m.weight)/N + 2./N * (sf_split*N-m.weight-sf_split*(N-1)))
             break
         exit(0)
         if args.loss in {LossType.L1_SPARSITY_REGULARIZATION}:
