@@ -792,7 +792,8 @@ def train(epoch):
             updateBN()
         optimizer.step()
         if args.loss in {LossType.POLARIZATION,
-                         LossType.L2_POLARIZATION}:
+                         LossType.L2_POLARIZATION,
+                         LossType.LOG_QUANTIZATION}:
             clamp_bn(model, upper_bound=args.clamp)
         global_step += 1
         if args.loss not in {LossType.LOG_QUANTIZATION}:
