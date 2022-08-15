@@ -568,7 +568,8 @@ def sparse_helper2(bn_modules,ratio):
         all_scale_factors = torch.cat((all_scale_factors,(bn_module.weight.data)))
     tmp,indices = all_scale_factors.sort(dim=0)
     idx = int(all_scale_factors.numel()*ratio)
-    return all_scale_factors[indices[idx]]
+    sparse_coef = 1-ratio-ratio
+    return all_scale_factors[indices[idx]],sparse_coef,all_scale_factors.numel()
         
 def get_pruned_model(model,target_indices):
     import copy
@@ -648,8 +649,6 @@ def log_quantization(model):
             rmask = x >= sf_split
             x[lmask] -= args.lbd * (args.t + 1 + sparse_coef) * args.current_lr
             x[rmask] -= args.lbd * (args.t - 1 + sparse_coef) * args.current_lr
-            #x[lmask] -= args.lbd * 2.5
-            #x[rmask] += args.lbd * 0.5
         else:
             grad = args.t - 2.*(N-1)*(N-1)/N/N*x + 2.*(N-1)/N*(sf_split*N-x)/N + 2./N * (sf_split*N-x-sf_split*(N-1))
             x -= args.lbd * grad * args.current_lr
@@ -678,8 +677,7 @@ def log_quantization(model):
     
     target_indices = [3]
     #assigned_binindices,remain,x_split = assign_to_indices(bn_modules,target_indices,num_bins = len(args.bins),default_index=0)
-    sparse_coef = N = None
-    sf_split = sparse_helper2(bn_modules,0.75)
+    sf_split,sparse_coef,N = sparse_helper2(bn_modules,0.75)
     #sf_split,sparse_coef,N = sparse_helper(bn_modules)
         
     ch_start = 0
