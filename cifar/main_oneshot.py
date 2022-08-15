@@ -804,8 +804,8 @@ def train(epoch):
         loss.backward()
         sf_split,sparse_coef,N = sparse_helper(model.get_sparse_layers())
         for m in model.get_sparse_layers():
-            print(m.weight.grad/args.lbd)
-            print((args.t + 1 + sparse_coef),(args.t - 1 + sparse_coef))
+            print(m.weight.grad)
+            print((args.t + 1 + sparse_coef)*args.lbd,(args.t - 1 + sparse_coef)*args.lbd)
             grad = (args.t - 2.*(N-1)*(N-1)/N/N*m.weight + 2.*(N-1)/N*(sf_split*N-m.weight)/N + 2./N * (sf_split*N-m.weight-sf_split*(N-1)))
             print(grad)
             break
