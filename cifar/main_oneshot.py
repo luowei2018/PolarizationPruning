@@ -459,8 +459,6 @@ def bn_sparsity(model, loss_type, sparsity, t, alpha,
     :type loss_type: LossType
     """
     bn_modules = model.get_sparse_layers()
-    print(loss_type, sparsity, t, alpha, flops_weighted, weight_min, weight_max)
-    exit(0)
 
     if loss_type == LossType.POLARIZATION or loss_type == LossType.L2_POLARIZATION:
         # compute global mean of all sparse vectors
@@ -798,11 +796,21 @@ def train(epoch):
                                         t=args.t, alpha=args.alpha,
                                         flops_weighted=args.flops_weighted,
                                         weight_max=args.weight_max, weight_min=args.weight_min)
-            loss += sparsity_loss
+            #loss += sparsity_loss
+            loss = sparsity_loss
             avg_sparsity_loss += sparsity_loss.data.item()
         if args.loss in {LossType.LOG_QUANTIZATION}:
             log_quantization(model)
+        for m in model.get_sparse_layers():
+            print(m.weight.grad)
+            break
         loss.backward()
+        sf_split,sparse_coef,N = sparse_helper(model.get_sparse_layers())
+        for m in model.get_sparse_layers():
+            print(m.weight.grad)
+            print(args.t + 1 + sparse_coef,args.t - 1 + sparse_coef)
+            break
+        exit(0)
         if args.loss in {LossType.L1_SPARSITY_REGULARIZATION}:
             updateBN()
         optimizer.step()
