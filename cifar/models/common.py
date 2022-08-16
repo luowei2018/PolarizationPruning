@@ -324,6 +324,7 @@ def prune_conv_layer(conv_layer: Union[nn.Conv2d, nn.Linear],
                 # set bn properties
                 bn_layer.num_features = len(idx_out)
     
+        return np.ones(conv_layer.weight.size(0), dtype=bool),np.ones(conv_layer.weight.size(1), dtype=bool)
     return out_channel_mask, in_channel_mask
 
 
