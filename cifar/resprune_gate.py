@@ -101,7 +101,7 @@ def prune_resnet(num_classes: int, sparse_model: torch.nn.Module, pruning_strate
         prune_on = 'factor'
     else:
         raise ValueError(f"Unsupport prune type: {prune_type}")
-    return pruned_model,-1
+
     pruned_model.prune_model(pruner=pruner,
                              prune_mode=prune_mode,
                              prune_on=prune_on)
