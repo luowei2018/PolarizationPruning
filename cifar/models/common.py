@@ -229,7 +229,7 @@ def prune_conv_layer(conv_layer: Union[nn.Conv2d, nn.Linear],
             # expand the single scalar to array
             idx_in = np.expand_dims(idx_in, 0)
 
-    return np.ones(conv_layer.weight.size(0), dtype=bool),np.ones(conv_layer.weight.size(1), dtype=bool)
+        return np.ones(conv_layer.weight.size(0), dtype=bool),np.ones(conv_layer.weight.size(1), dtype=bool)
         # prune the input of the conv layer
         if isinstance(conv_layer, nn.Conv2d):
             if conv_layer.groups == 1:
