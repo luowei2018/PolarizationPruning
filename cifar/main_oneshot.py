@@ -753,7 +753,7 @@ def prune_while_training(model: nn.Module, arch: str, prune_mode: str, num_class
     baseline_flops = compute_conv_flops(model, cuda=True)
         
     inplace_precs = []
-    inplace_precs += [test(prune_by_thresh(model,left=1e-6))]
+    #inplace_precs += [test(prune_by_thresh(model,left=1e-6))]
     #inplace_precs += [test(prune_by_thresh(model,left=1e-2))]
     
     print_str = ''
