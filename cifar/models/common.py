@@ -229,7 +229,6 @@ def prune_conv_layer(conv_layer: Union[nn.Conv2d, nn.Linear],
             # expand the single scalar to array
             idx_in = np.expand_dims(idx_in, 0)
 
-        return np.ones(conv_layer.weight.size(0), dtype=bool),np.ones(conv_layer.weight.size(1), dtype=bool)
         # prune the input of the conv layer
         if isinstance(conv_layer, nn.Conv2d):
             if conv_layer.groups == 1:
@@ -280,6 +279,7 @@ def prune_conv_layer(conv_layer: Union[nn.Conv2d, nn.Linear],
             # there is no channel left
             return out_channel_mask, in_channel_mask
             
+        return np.ones(conv_layer.weight.size(0), dtype=bool),np.ones(conv_layer.weight.size(1), dtype=bool)
         idx_out: np.ndarray = np.squeeze(np.argwhere(np.asarray(out_channel_mask)))
         if len(idx_out.shape) == 0:
             # 0-d scalar
