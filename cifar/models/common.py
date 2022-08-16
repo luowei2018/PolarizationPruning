@@ -180,7 +180,6 @@ def prune_conv_layer(conv_layer: Union[nn.Conv2d, nn.Linear],
         Note: `in_channel_mask` is CONFLICT with `sparse_layer_in`!
     :return out_channel_mask
     """
-    return np.ones(conv_layer.weight.size(0), dtype=bool),np.ones(conv_layer.weight.size(1), dtype=bool)
     fake_prune = True
     assert isinstance(conv_layer, nn.Conv2d) or isinstance(conv_layer, nn.Linear), f"conv_layer got {conv_layer}"
 
@@ -230,6 +229,7 @@ def prune_conv_layer(conv_layer: Union[nn.Conv2d, nn.Linear],
             # expand the single scalar to array
             idx_in = np.expand_dims(idx_in, 0)
 
+    return np.ones(conv_layer.weight.size(0), dtype=bool),np.ones(conv_layer.weight.size(1), dtype=bool)
         # prune the input of the conv layer
         if isinstance(conv_layer, nn.Conv2d):
             if conv_layer.groups == 1:
