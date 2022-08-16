@@ -275,12 +275,10 @@ def prune_conv_layer(conv_layer: Union[nn.Conv2d, nn.Linear],
         if fake_prune:
             idx_block: np.ndarray = np.squeeze(np.argwhere(np.asarray(1-out_channel_mask)))
 
-        if not np.any(out_channel_mask):
+        if not np.any(out_channel_mask) and not fake_prune:
             # there is no channel left
-            exit(0)
             return out_channel_mask, in_channel_mask
             
-        return np.ones(conv_layer.weight.size(0), dtype=bool),np.ones(conv_layer.weight.size(1), dtype=bool)
         idx_out: np.ndarray = np.squeeze(np.argwhere(np.asarray(out_channel_mask)))
         if len(idx_out.shape) == 0:
             # 0-d scalar
@@ -297,6 +295,7 @@ def prune_conv_layer(conv_layer: Union[nn.Conv2d, nn.Linear],
         else:
             raise ValueError(f"unsupported conv layer type: {conv_layer}")
 
+        return np.ones(conv_layer.weight.size(0), dtype=bool),np.ones(conv_layer.weight.size(1), dtype=bool)
         # change the property of the conv layer
         if isinstance(conv_layer, nn.Conv2d):
             conv_layer.out_channels = len(idx_out)
