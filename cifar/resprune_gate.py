@@ -95,10 +95,14 @@ def prune_resnet(num_classes: int, sparse_model: torch.nn.Module, pruning_strate
         sparse_weight_concat = np.concatenate([l.weight.data.clone().view(-1).cpu().numpy() for l in sparse_layers])
         sparse_weight_concat = np.abs(sparse_weight_concat)
         sparse_weight_concat = np.sort(sparse_weight_concat)
+        print(len(sparse_weight_concat))
+        print(sparse_weight_concat)
         thre_index = int(len(sparse_weight_concat) * l1_norm_ratio)
         threshold = sparse_weight_concat[thre_index]
         pruner = lambda weight: threshold
         prune_on = 'factor'
+        print(threshold)
+        exit(0)
     else:
         raise ValueError(f"Unsupport prune type: {prune_type}")
 
