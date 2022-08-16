@@ -126,7 +126,7 @@ class Bottleneck(nn.Module):
                                                                           prune_mode=prune_mode)
         # this layer has no channel left. the whole block is pruned
         if not np.any(in_channel_mask) or not np.any(input_gate_mask):
-            self.identity = True
+            #self.identity = True
             return
 
         # prune the input dimension of the first conv layer (conv1)
@@ -155,7 +155,7 @@ class Bottleneck(nn.Module):
         remain_channel_num = np.sum(in_channel_mask == 1)
         if remain_channel_num == 0:
             # this layer has no channel left. the whole block is pruned
-            self.identity = True
+            #self.identity = True
             return
 
             # prune conv3
@@ -171,7 +171,7 @@ class Bottleneck(nn.Module):
         remain_channel_num = np.sum(out_channel_mask == 1)
         if remain_channel_num == 0:
             # this layer has no channel left. the whole block is pruned
-            self.identity = True
+            #self.identity = True
             return
 
         # do not prune downsample layers

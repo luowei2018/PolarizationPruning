@@ -231,6 +231,7 @@ class BasicBlock(BuildingBlock):
                                                                      prune_on=prune_on, )
         if not np.any(in_channel_mask) or not np.any(conv1_input_channel_mask):
             # prune the entire block
+            # dont do this in fake prune
             #self.is_empty_block = True
             return
 
@@ -259,6 +260,7 @@ class BasicBlock(BuildingBlock):
                                                prune_on=prune_on, )
         if not np.any(out_channel_mask):
             # prune the entire block
+            # dont do this in fake prune
             #self.is_empty_block = True
             return
 
