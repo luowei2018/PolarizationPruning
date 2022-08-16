@@ -634,8 +634,8 @@ def log_quantization(model):
             rmask = bin_indices == 3
             x[lmask] -= args.lbd * args.current_lr * 1
             x[rmask] -= args.lbd * args.current_lr * (-1)
-            args.ista_err_bins[0] += x[lmask].sum().cpu().item()
-            args.ista_err_bins[3] += (1-x[rmask]).sum().cpu().item()
+            #args.ista_err_bins[0] += x[lmask].sum().cpu().item()
+            #args.ista_err_bins[3] += (1-x[rmask]).sum().cpu().item()
         else:
             grad = -2 * x + 2 * x_split + args.t
             x -= args.lbd * grad
