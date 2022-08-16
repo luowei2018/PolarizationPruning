@@ -345,6 +345,8 @@ if args.debug:
 
             print(f"{name} remains {one_num}")
 
+args.mask_list = None
+args.stage = 0
 if args.resume:
     if os.path.isfile(args.resume):
         print("=> loading checkpoint '{}'".format(args.resume))
@@ -362,6 +364,9 @@ if args.resume:
         best_prec1 = checkpoint['best_prec1']
         model.load_state_dict(checkpoint['state_dict'])
         #optimizer.load_state_dict(checkpoint['optimizer'])
+        if hasattr(checkpoint,'mask_list'):
+            args.mask_list = checkpoint['mask_list']
+            args.stage = checkpoint['stage']
 
         print("=> loaded checkpoint '{}' (epoch {}) Prec1: {:f}"
               .format(args.resume, checkpoint['epoch'], best_prec1))
@@ -505,8 +510,6 @@ else:
     print("Bin mode not supported")
     exit(1)
 
-#amp_factors = torch.tensor([2**(num_bins-1-x) for x in range(num_bins)]).cuda()
-args.amp_factors = torch.tensor([1,1,1,1]).cuda()
 
 args.eps = 1e-10
         
@@ -529,28 +532,12 @@ def assign_to_indices(bn_modules,target_indices,num_bins,default_index=0):
     assigned_binindices[:] = default_index
     remain = torch.ones(total_channels).long().cuda()
     # assign according to absolute distance
-    if True:
-        tmp,ch_indices = all_scale_factors.sort(dim=0)
-        x_split = tmp[target_indices[-1]*ch_per_bin]
-        for bin_idx in target_indices:
-            selected = ch_indices[bin_idx*ch_per_bin:(bin_idx+1)*ch_per_bin]
-            assigned_binindices[selected] = bin_idx
-            remain[selected] = 0
-    # assign according to relative distance
-    else:
-        for bin_idx in target_indices:
-            if args.log_scale:
-                dist = torch.abs(torch.log10(args.bins[bin_idx]/all_scale_factors)) 
-            else:
-                dist = torch.abs(args.bins[bin_idx]-all_scale_factors)
-            not_assigned = remain.nonzero()
-            # remaining channels importance
-            chan_imp = dist[not_assigned] 
-            tmp,ch_indices = chan_imp.sort(dim=0)
-            selected_in_remain = ch_indices[:ch_per_bin]
-            selected = not_assigned[selected_in_remain]
-            remain[selected] = 0
-            assigned_binindices[selected] = bin_idx
+    tmp,ch_indices = all_scale_factors.sort(dim=0)
+    x_split = tmp[target_indices[-1]*ch_per_bin]
+    for bin_idx in target_indices:
+        selected = ch_indices[bin_idx*ch_per_bin:(bin_idx+1)*ch_per_bin]
+        assigned_binindices[selected] = bin_idx
+        remain[selected] = 0
             
     return assigned_binindices,remain,x_split
     
@@ -571,7 +558,7 @@ def quntile_sparse(bn_modules,ratio):
     sparse_coef = 1-ratio-ratio
     return all_scale_factors[indices[idx]],sparse_coef,all_scale_factors.numel()
         
-def get_pruned_model(model,target_indices):
+def prune_by_mask(model,target_indices):
     import copy
     pruned_model = copy.deepcopy(model)
         
@@ -607,30 +594,11 @@ def prune_by_thresh(model,left=0,right=100):
     return pruned_model
         
 def log_quantization(model):
-    
-    def log_sparsity(x,bin_indices):
-        sign_x = torch.sign(x)
-        sign_x[sign_x==0] = 1
-        clamp_x = torch.clamp(torch.abs(x), min=args.eps) * sign_x
-        tar_bins = args.bins[bin_indices]
-        distance = torch.log10(tar_bins/torch.abs(clamp_x))
-        #amp = args.amp_factors[bin_indices]
-        #multiplier = 10**(distance*args.lbd*amp)
-        multiplier = 10**(torch.sign(distance)*args.lbd)
-        #mask0 = torch.logical_and(bin_indices==0,torch.abs(x)>1e-4)
-        #mask1 = torch.logical_and(bin_indices==3,torch.abs(x)<=0.05)
-        #mask1 = torch.logical_and(bin_indices==3,torch.logical_or(torch.abs(x)<=0.05,torch.abs(x)>=0.25))
-        #mask = torch.logical_or(mask0,mask1)
-        #x[mask] = clamp_x[mask] * multiplier[mask]
-        x = clamp_x * multiplier
-        #args.ista_cnt_bins[0] += mask0.sum().cpu().item()
-        #args.ista_cnt_bins[3] += mask1.sum().cpu().item()
-        return x
         
     def ratio_sparsity(x,bin_indices,x_split):
         order = 1
         if order == 1:
-            x[bin_indices == 0] -= args.lbd * args.current_lr * 400
+            x[bin_indices == 0] -= args.lbd * args.current_lr * 200
             #x[bin_indices == 3] -= args.lbd * args.current_lr * (-10)
         else:
             grad = -2 * x + 2 * x_split + args.t
@@ -648,29 +616,11 @@ def log_quantization(model):
             x -= args.lbd * grad * args.current_lr
         return x
         
-    def get_bin_distribution(x,bin_indices):
-        if args.log_scale:
-            x = torch.clamp(torch.abs(x), min=args.eps) * torch.sign(x)
-            distance = torch.log10(args.bins[bin_indices]/torch.abs(x))
-        else:
-            distance = args.bins[bin_indices]-torch.abs(x)
-        abs_err = torch.abs(distance)
-        args.weight_err += abs_err.sum()
-        for i in range(len(args.bins)):
-            if torch.sum(bin_indices==i)>0:
-                args.ista_err_bins[i] += abs_err[bin_indices==i].sum().cpu().item()
-                args.ista_cnt_bins[i] += torch.numel(abs_err[bin_indices==i])
-        
-    args.weight_err = torch.tensor([0.0]).cuda(0)
-    args.bias_err = torch.tensor([0.0]).cuda(0)
-    
-    args.ista_err_bins = [0 for _ in range(len(args.bins))]
-    args.ista_cnt_bins = [0 for _ in range(len(args.bins))]
-    
     bn_modules = model.get_sparse_layers()
     
     target_indices = [3]
     assigned_binindices,remain,x_split = assign_to_indices(bn_modules,target_indices,num_bins = len(args.bins),default_index=0)
+    args.mask_list = remain
     #sf_split,sparse_coef,N = quntile_sparse(bn_modules,0.75)
     #sf_split,sparse_coef,N = mean_sparse(bn_modules)
         
@@ -678,13 +628,8 @@ def log_quantization(model):
     for bn_module in bn_modules:
         with torch.no_grad():
             ch_len = len(bn_module.weight.data)
-            #get_bin_distribution(bn_module.weight.data, assigned_binindices[ch_start:ch_start+ch_len])
-            #args.bias_err += torch.abs(bn_module.bias.data).sum()
-            if args.log_scale:
-                bn_module.weight.data = log_sparsity(bn_module.weight.data, assigned_binindices[ch_start:ch_start+ch_len])
-            else:
-                bn_module.weight.data = ratio_sparsity(bn_module.weight.data, assigned_binindices[ch_start:ch_start+ch_len],x_split)
-                #bn_module.weight.data = mean_sparsity(bn_module.weight.data, sf_split, sparse_coef=sparse_coef,N=N)
+            bn_module.weight.data = ratio_sparsity(bn_module.weight.data, assigned_binindices[ch_start:ch_start+ch_len],x_split)
+            #bn_module.weight.data = mean_sparsity(bn_module.weight.data, sf_split, sparse_coef=sparse_coef,N=N)
             ch_start += ch_len
     
     
@@ -808,18 +753,10 @@ def train(epoch):
                          LossType.LOG_QUANTIZATION}:
             clamp_bn(model, upper_bound=args.clamp)
         global_step += 1
-        if args.loss not in {LossType.LOG_QUANTIZATION}:
-            train_iter.set_description(
-                'Step: {} Train Epoch: {} [{}/{} ({:.1f}%)]. Loss: {:.6f}'.format(
-                global_step, epoch, batch_idx * len(data), len(train_loader.dataset),
-                                    100. * batch_idx / len(train_loader), avg_loss / len(train_loader)))
-        else:
-            weight_err = args.weight_err.cpu().item()
-            bias_err = args.bias_err.cpu().item()
-            train_iter.set_description(
-                'Step: {} Train Epoch: {} [{}/{} ({:.1f}%)]. Loss: {:.6f}. W-Err: {:.4f}. B-Err: {:.4f}'.format(
-                global_step, epoch, batch_idx * len(data), len(train_loader.dataset),
-                                    100. * batch_idx / len(train_loader), avg_loss / len(train_loader), weight_err, bias_err))
+        train_iter.set_description(
+            'Step: {} Train Epoch: {} [{}/{} ({:.1f}%)]. Loss: {:.6f}'.format(
+            global_step, epoch, batch_idx * len(data), len(train_loader.dataset),
+                                100. * batch_idx / len(train_loader), avg_loss / len(train_loader)))
 
     history_score[epoch][0] = avg_loss / len(train_loader)
     history_score[epoch][1] = float(train_acc) / float(total_data)
@@ -910,6 +847,8 @@ for epoch in range(args.start_epoch, args.epochs):
         'state_dict': model.state_dict(),
         'best_prec1': prec1,
         'optimizer': optimizer.state_dict(),
+        'mask_list': args.mask_list,
+        'stage': args.stage,
     }, is_best, filepath=args.save,
         backup_path=args.backup_path,
         backup=epoch % args.backup_freq == 0,
@@ -923,11 +862,6 @@ for epoch in range(args.start_epoch, args.epochs):
     # flops
     # peek the remaining flops
     prune_while_training(model, arch=args.arch,prune_mode="default",num_classes=num_classes)
-    
-    # show log quantization result
-    if args.loss in {LossType.LOG_QUANTIZATION}:
-        print('Weight err:', " ".join(format(x, ".3f") for x in args.ista_err_bins), 'Bias err:', args.bias_err)
-        print('BinCnt:', " ".join(format(x, "05d") for x in args.ista_cnt_bins), args.bins.tolist(), args.amp_factors.tolist())
 
 if args.loss == LossType.POLARIZATION and args.target_flops and (
         flops_grad / baseline_flops) > args.target_flops and args.gate:
