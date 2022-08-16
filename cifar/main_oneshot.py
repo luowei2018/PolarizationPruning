@@ -730,6 +730,7 @@ def prune_while_training(model: nn.Module, arch: str, prune_mode: str, num_class
             saved_prec1s += [prec1]
             saved_flops += [flop]
             saved_thresh += [thresh]
+            print(thresh)
         for ratio in target_ratios:
             saved_model,thresh = prune_resnet(sparse_model=model, pruning_strategy='fixed', prune_type='ns', l1_norm_ratio=ratio,
                                              sanity_check=False, prune_mode=prune_mode, num_classes=num_classes)
