@@ -242,7 +242,6 @@ def prune_conv_layer(conv_layer: Union[nn.Conv2d, nn.Linear],
         else:
             raise ValueError(f"unsupported conv layer type: {conv_layer}")
 
-        return np.ones(conv_layer.weight.size(0), dtype=bool),np.ones(conv_layer.weight.size(1), dtype=bool)
         # prune the output channel of the conv layer
         if prune_output_mode == "prune":
             if prune_on == 'factor':
@@ -273,6 +272,7 @@ def prune_conv_layer(conv_layer: Union[nn.Conv2d, nn.Linear],
         else:
             raise ValueError(f"invalid prune_output_mode: {prune_output_mode}")
             
+        return np.ones(conv_layer.weight.size(0), dtype=bool),np.ones(conv_layer.weight.size(1), dtype=bool)
         if fake_prune:
             idx_block: np.ndarray = np.squeeze(np.argwhere(np.asarray(1-out_channel_mask)))
 
