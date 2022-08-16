@@ -275,7 +275,7 @@ def prune_conv_layer(conv_layer: Union[nn.Conv2d, nn.Linear],
         if fake_prune:
             idx_block: np.ndarray = np.squeeze(np.argwhere(np.asarray(1-out_channel_mask)))
 
-        if not np.any(out_channel_mask) and not fake_prune:
+        if not np.any(out_channel_mask):
             # there is no channel left
             exit(0)
             return out_channel_mask, in_channel_mask
