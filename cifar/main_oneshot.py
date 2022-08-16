@@ -598,7 +598,7 @@ def log_quantization(model):
     def ratio_sparsity(x,bin_indices,x_split):
         order = 1
         if order == 1:
-            x[bin_indices == 0] -= args.lbd * args.current_lr * 200
+            x[bin_indices == 0] -= args.lbd * args.current_lr * 100
             #x[bin_indices == 3] -= args.lbd * args.current_lr * (-10)
         else:
             grad = -2 * x + 2 * x_split + args.t
