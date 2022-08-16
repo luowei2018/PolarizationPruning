@@ -632,7 +632,7 @@ def log_quantization(model):
         if order == 1:
             lmask = bin_indices == 0
             rmask = bin_indices == 3
-            x[lmask] -= args.lbd * args.current_lr * 1000
+            x[lmask] -= args.lbd * args.current_lr * 100
             x[rmask] -= args.lbd * args.current_lr * (-10)
             #args.ista_err_bins[0] += x[lmask].sum().cpu().item()
             #args.ista_err_bins[3] += (1-x[rmask]).sum().cpu().item()
