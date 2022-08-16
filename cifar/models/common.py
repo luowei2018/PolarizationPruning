@@ -241,7 +241,7 @@ def prune_conv_layer(conv_layer: Union[nn.Conv2d, nn.Linear],
                 conv_weight = conv_weight[:, idx_in.tolist()]
         else:
             raise ValueError(f"unsupported conv layer type: {conv_layer}")
-
+        print(prune_output_mode,prune_mode,prune_on)
         # prune the output channel of the conv layer
         if prune_output_mode == "prune":
             if prune_on == 'factor':
