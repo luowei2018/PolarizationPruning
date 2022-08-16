@@ -738,7 +738,6 @@ def prune_while_training(model: nn.Module, arch: str, prune_mode: str, num_class
             saved_prec1s += [prec1]
             saved_flops += [flop]
             saved_thresh += [thresh]
-            print(thresh)
     elif arch == 'vgg16_linear':
         from vggprune_gate import prune_vgg
         from models import vgg16_linear
@@ -762,7 +761,7 @@ def prune_while_training(model: nn.Module, arch: str, prune_mode: str, num_class
     #inplace_precs += [test(get_pruned_model(model,[2,3]))]
     #inplace_precs += [test(get_pruned_model(model,[3]))]
     inplace_precs += [test(prune_by_thresh(model,left=1e-6))]
-    #inplace_precs += [test(prune_by_thresh(model,left=1e-4))]
+    inplace_precs += [test(prune_by_thresh(model,left=1e-2))]
     
     print_str = ''
     for flop,prec1,thresh in zip(saved_flops,saved_prec1s,saved_thresh):
