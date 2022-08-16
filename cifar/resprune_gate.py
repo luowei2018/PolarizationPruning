@@ -92,9 +92,9 @@ def prune_resnet(num_classes: int, sparse_model: torch.nn.Module, pruning_strate
     elif prune_type == 'ns':
         # find the threshold
         sparse_layers = pruned_model.get_sparse_layers()
-        sparse_weight_concat = np.concatenate([l.weight.data.clone().view(-1).cpu().numpy() for l in sparse_layers])
-        sparse_weight_concat = np.abs(sparse_weight_concat)
-        sparse_weight_concat = np.sort(sparse_weight_concat)
+        sparse_weight_concat = torch.cat([l.weight.data.clone().view(-1).cpu() for l in sparse_layers])
+        sparse_weight_concat = torch.abs(sparse_weight_concat)
+        sparse_weight_concat,_ = torch.sort(sparse_weight_concat)
         print(len(sparse_weight_concat))
         print(sparse_weight_concat)
         thre_index = int(len(sparse_weight_concat) * l1_norm_ratio)
