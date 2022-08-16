@@ -232,6 +232,7 @@ class BasicBlock(BuildingBlock):
         if not np.any(in_channel_mask) or not np.any(conv1_input_channel_mask):
             # prune the entire block
             self.is_empty_block = True
+            assert 0
             return
 
         if self.use_input_mask:
