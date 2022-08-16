@@ -295,7 +295,6 @@ def prune_conv_layer(conv_layer: Union[nn.Conv2d, nn.Linear],
         else:
             raise ValueError(f"unsupported conv layer type: {conv_layer}")
 
-        return np.ones(conv_layer.weight.size(0), dtype=bool),np.ones(conv_layer.weight.size(1), dtype=bool)
         # change the property of the conv layer
         if isinstance(conv_layer, nn.Conv2d):
             conv_layer.out_channels = len(idx_out)
@@ -311,6 +310,7 @@ def prune_conv_layer(conv_layer: Union[nn.Conv2d, nn.Linear],
             conv_layer.groups = conv_layer.in_channels
             pass
 
+        return np.ones(conv_layer.weight.size(0), dtype=bool),np.ones(conv_layer.weight.size(1), dtype=bool)
         # prune the bn layer
         if bn_layer is not None:
             if fake_prune:
