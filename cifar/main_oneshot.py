@@ -765,7 +765,7 @@ def prune_while_training(model: nn.Module, arch: str, prune_mode: str, num_class
     
     print_str = ''
     for flop,prec1,thresh in zip(saved_flops,saved_prec1s,saved_thresh):
-        print_str += f"[{prec1:.4f}({flop / baseline_flops:.4f}), {thresh:.3f}]\t"
+        print_str += f"[{prec1:.4f}({flop / baseline_flops:.4f}), {thresh:.10f}]\t"
         
     for prec1 in inplace_precs:
         print_str += f"{prec1:.4f}\t"
