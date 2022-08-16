@@ -594,12 +594,12 @@ def prune_by_thresh(model,left=0,right=100):
     return pruned_model
         
 def log_quantization(model):
-        
+    # modify gradient based on stage+mask_list
     def ratio_sparsity(x,bin_indices,x_split):
         order = 1
         if order == 1:
             x[bin_indices == 0] -= args.lbd * args.current_lr * 100
-            #x[bin_indices == 3] -= args.lbd * args.current_lr * (-10)
+            x[bin_indices == 3] -= args.lbd * args.current_lr * (-80) #80,40,20
         else:
             grad = -2 * x + 2 * x_split + args.t
             x -= args.lbd * grad
