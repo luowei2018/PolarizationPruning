@@ -231,8 +231,7 @@ class BasicBlock(BuildingBlock):
                                                                      prune_on=prune_on, )
         if not np.any(in_channel_mask) or not np.any(conv1_input_channel_mask):
             # prune the entire block
-            self.is_empty_block = True
-            assert 0
+            #self.is_empty_block = True
             return
 
         if self.use_input_mask:
@@ -260,7 +259,7 @@ class BasicBlock(BuildingBlock):
                                                prune_on=prune_on, )
         if not np.any(out_channel_mask):
             # prune the entire block
-            self.is_empty_block = True
+            #self.is_empty_block = True
             return
 
         # do padding allowing adding with residual connection
