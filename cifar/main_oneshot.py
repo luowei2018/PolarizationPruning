@@ -633,7 +633,7 @@ def log_quantization(model):
             lmask = bin_indices == 0
             rmask = bin_indices == 3
             x[lmask] -= args.lbd * args.current_lr * 1
-            x[rmask] -= args.lbd * args.current_lr * (-1)
+            x[rmask] -= args.lbd * args.current_lr * (-10)
         else:
             grad = -2 * x + 2 * x_split + args.t
             x -= args.lbd * grad
