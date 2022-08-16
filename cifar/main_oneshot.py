@@ -738,6 +738,7 @@ def prune_while_training(model: nn.Module, arch: str, prune_mode: str, num_class
             saved_prec1s += [prec1]
             saved_flops += [flop]
             saved_thresh += [thresh]
+            print(prec1,thresh)
     elif arch == 'vgg16_linear':
         from vggprune_gate import prune_vgg
         from models import vgg16_linear
