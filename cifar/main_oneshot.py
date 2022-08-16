@@ -634,6 +634,8 @@ def log_quantization(model):
             rmask = bin_indices == 3
             x[lmask] -= args.lbd * args.current_lr * 1
             x[rmask] -= args.lbd * args.current_lr * (-10)
+            args.ista_err_bins[0] += x[lmask].sum().cpu().item()
+            args.ista_err_bins[3] += x[rmask].sum().cpu().item()
         else:
             grad = -2 * x + 2 * x_split + args.t
             x -= args.lbd * grad
@@ -680,7 +682,7 @@ def log_quantization(model):
     for bn_module in bn_modules:
         with torch.no_grad():
             ch_len = len(bn_module.weight.data)
-            get_bin_distribution(bn_module.weight.data, assigned_binindices[ch_start:ch_start+ch_len])
+            #get_bin_distribution(bn_module.weight.data, assigned_binindices[ch_start:ch_start+ch_len])
             args.bias_err += torch.abs(bn_module.bias.data).sum()
             if args.log_scale:
                 bn_module.weight.data = log_sparsity(bn_module.weight.data, assigned_binindices[ch_start:ch_start+ch_len])
