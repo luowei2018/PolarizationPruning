@@ -153,8 +153,8 @@ if args.target_flops and args.loss != LossType.POLARIZATION:
 if args.target_flops and not args.gate:
     raise ValueError(f"Conflict option: --target-flops only available at --gate mode")
 
-print(args)
-print(f"Current git hash: {common.get_git_id()}")
+#print(args)
+#print(f"Current git hash: {common.get_git_id()}")
 
 # reproducibility
 torch.manual_seed(args.seed)
@@ -251,8 +251,8 @@ else:  # initialize model for retraining with configs
     else:
         raise NotImplementedError(f"Do not support {args.arch} for retrain.")
 
-training_flops = compute_conv_flops(model, cuda=True)
-print(f"Training model. FLOPs: {training_flops:,}")
+#training_flops = compute_conv_flops(model, cuda=True)
+#print(f"Training model. FLOPs: {training_flops:,}")
 
 
 def compute_flops_weight(cuda=False):
