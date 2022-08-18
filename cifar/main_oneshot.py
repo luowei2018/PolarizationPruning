@@ -599,7 +599,7 @@ def log_quantization(model):
         order = 1
         if order == 1:
             x[bin_indices == 0] -= args.lbd * args.current_lr * 400
-            x[bin_indices == 3] -= args.lbd * args.current_lr * (-160) #80,40,20
+            x[bin_indices == 3] -= args.lbd * args.current_lr * (-320) #80,40,20
         else:
             grad = -2 * x + 2 * x_split + args.t
             x -= args.lbd * grad
