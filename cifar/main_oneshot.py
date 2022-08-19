@@ -599,7 +599,7 @@ def log_quantization(model):
         order = 1
         if order == 1:
             x[bin_indices == 0] -= args.lbd * args.current_lr * 400
-            x[bin_indices == 3] -= args.lbd * args.current_lr * (-320) #80,40,20
+            #x[bin_indices == 3] -= args.lbd * args.current_lr * (-320) #80,40,20
         else:
             grad = -2 * x + 2 * x_split + args.t
             x -= args.lbd * grad
@@ -631,6 +631,11 @@ def log_quantization(model):
             bn_module.weight.data = ratio_sparsity(bn_module.weight.data, assigned_binindices[ch_start:ch_start+ch_len],x_split)
             #bn_module.weight.data = mean_sparsity(bn_module.weight.data, sf_split, sparse_coef=sparse_coef,N=N)
             ch_start += ch_len
+            
+def get_initial_mask(model):
+    bn_modules = model.get_sparse_layers()
+    _,remain,_ = assign_to_indices(bn_modules,[3],num_bins = len(args.bins),default_index=0)
+    return remain == 0
     
     
 def factor_visualization(iter, model, prec):
@@ -827,6 +832,20 @@ if args.evaluate:
     prune_while_training(model, arch=args.arch,
                        prune_mode="default",
                        num_classes=num_classes)
+    mask = get_initial_mask(model)
+    save_checkpoint({
+        'epoch': 0,
+        'state_dict': model.state_dict(),
+        'best_prec1': prec1,
+        'optimizer': optimizer.state_dict(),
+        'mask_list': [mask],
+        'stage': 0,
+    }, False, filepath=args.save+'stage0/',
+        backup_path=args.backup_path,
+        backup=False,
+        epoch=0,
+        max_backup=args.max_backup
+    )
     exit(0)
 
 for epoch in range(args.start_epoch, args.epochs):
