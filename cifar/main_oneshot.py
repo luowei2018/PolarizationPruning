@@ -833,6 +833,7 @@ if args.evaluate:
                        prune_mode="default",
                        num_classes=num_classes)
     mask = get_initial_mask(model)
+    os.makedirs(args.save+'stage0/')
     save_checkpoint({
         'epoch': 0,
         'state_dict': model.state_dict(),
