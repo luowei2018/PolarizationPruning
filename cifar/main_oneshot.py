@@ -571,10 +571,7 @@ def assign_to_indices(bn_modules):
     # do not sort masked channels
     for mask in args.mask_list[:args.current_stage]:
         if mask is not None:
-            print(mask.tolist())
-            shrink[mask] = 0
-            print(shrink.tolist())
-            exit(0)
+            shrink[mask==1] = 0
     print(args.current_stage,sum([x is None for x in args.mask_list]),shrink.sum())
     not_assigned = shrink.nonzero()
     remain_factors = all_scale_factors[not_assigned] 
@@ -595,7 +592,7 @@ def log_quantization(model):
         for freeze_mask in args.mask_list[:args.current_stage]:
             if freeze_mask is None:continue
             with torch.no_grad():
-                freeze_mask = freeze_mask[ch_start:ch_start+ch_len]
+                freeze_mask = freeze_mask[ch_start:ch_start+ch_len] == 1
                 if isinstance(conv, nn.Conv2d):
                     conv.weight.grad.data[freeze_mask, :, :, :] = 0
                 else:
