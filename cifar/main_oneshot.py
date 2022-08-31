@@ -605,9 +605,9 @@ def log_quantization(model):
     sum_list = []
     for m in args.mask_list[:args.current_stage]:
         if m is not None:
-            sum_list += m.sum()
+            sum_list += int(m.sum())
         else:
-            sum_list += 0
+            sum_list += [0]
     mask_sum = args.mask_list[0]
     for i in range(1,args.current_stage+1):
         mask_sum += args.mask_list[i]
