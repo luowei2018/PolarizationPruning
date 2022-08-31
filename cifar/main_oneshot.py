@@ -579,6 +579,7 @@ def assign_to_indices(bn_modules):
     selected = not_assigned[ch_indices[-ch_per_bin:]]
     shrink[selected] = 0
     targeted[selected] = 1
+    print(len(selected),targeted.sum(),shrink.sum())
     
     return shrink,targeted
         
@@ -602,9 +603,8 @@ def log_quantization(model):
     shrink,targeted = assign_to_indices(bn_modules)
     # update mask of current stage
     args.mask_list[args.current_stage] = targeted 
-    print('sum',targeted.sum(0))
     sum_list = []
-    for m in args.mask_list[:args.current_stage]:
+    for m in args.mask_list:
         if m is not None:
             sum_list += [int(m.sum())]
         else:
