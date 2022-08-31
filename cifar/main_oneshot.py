@@ -586,16 +586,17 @@ def assign_to_indices(bn_modules):
 def log_quantization(model):
     bn_modules,convs = model.get_sparse_layers_and_convs()
     ch_start = 0
-    for freeze_mask in args.mask_list[:args.current_stage]:
-        if freeze_mask is None:continue
+    for conv in convs:
         ch_len = conv.weight.grad.data.size(0)
-        with torch.no_grad():
-            freeze_mask = freeze_mask[ch_start:ch_start+ch_len]
-            if isinstance(conv, nn.Conv2d):
-                conv.weight.grad.data[freeze_mask, :, :, :] = 0
-            else:
-                conv.weight.grad.data[freeze_mask, :] = 0
-            ch_start += ch_len
+        for freeze_mask in args.mask_list[:args.current_stage]:
+            if freeze_mask is None:continue
+            with torch.no_grad():
+                freeze_mask = freeze_mask[ch_start:ch_start+ch_len]
+                if isinstance(conv, nn.Conv2d):
+                    conv.weight.grad.data[freeze_mask, :, :, :] = 0
+                else:
+                    conv.weight.grad.data[freeze_mask, :] = 0
+        ch_start += ch_len
     if args.current_stage == args.stages - 1:
         return
         
