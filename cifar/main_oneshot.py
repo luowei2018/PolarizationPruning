@@ -565,23 +565,24 @@ def assign_to_indices(bn_modules):
     # total channels
     total_channels = len(all_scale_factors)
     ch_per_bin = total_channels//args.stages
-    remain = torch.ones(total_channels).long().cuda()
+    shrink = torch.ones(total_channels).long().cuda()
     targeted = torch.zeros(total_channels).long().cuda()
     
     # do not sort masked channels
     for mask in args.mask_list[:args.current_stage]:
         if mask is not None:
-            remain[mask] = 0
-    not_assigned = remain.nonzero()
+            shrink[mask] = 0
+    print(shrink.sum())
+    not_assigned = shrink.nonzero()
     remain_factors = all_scale_factors[not_assigned] 
     tmp,ch_indices = remain_factors.sort(dim=0)
     # keep the most important and remaining bin
     selected = not_assigned[ch_indices[-ch_per_bin:]]
-    remain[selected] = 0
+    shrink[selected] = 0
     targeted[selected] = 1
-    print(remain.sum(),len(args.mask_list[:args.current_stage]),targeted.sum())
+    print(shrink.sum(),targeted.sum())
     
-    return remain,targeted
+    return shrink,targeted
         
 def log_quantization(model):
     bn_modules,convs = model.get_sparse_layers_and_convs()
@@ -600,7 +601,7 @@ def log_quantization(model):
     if args.current_stage == args.stages - 1:
         return
         
-    remain,targeted = assign_to_indices(bn_modules)
+    shrink,targeted = assign_to_indices(bn_modules)
     # update mask of current stage
     args.mask_list[args.current_stage] = targeted # need fix
         
@@ -608,7 +609,7 @@ def log_quantization(model):
     for bn_module in bn_modules:
         with torch.no_grad():
             ch_len = len(bn_module.weight.data)
-            shrink_mask = remain[ch_start:ch_start+ch_len] == 1
+            shrink_mask = shrink[ch_start:ch_start+ch_len] == 1
             bn_module.weight.data[shrink_mask] -= args.lbd * args.current_lr * 400
             ch_start += ch_len
     
@@ -813,7 +814,7 @@ for args.current_stage in range(args.start_stage, args.stages):
             break
 
         args.current_lr = adjust_learning_rate(optimizer, epoch, args.gammas, args.decay_epoch)
-        print("Start epoch {}/{} with learning rate {}...".format(epoch, args.epochs, args.current_lr))
+        print("Start epoch {}/{} stage {}/{} with learning rate {}...".format(epoch, args.epochs, args.current_stage, args.stages, args.current_lr))
 
         train(epoch) # train with regularization
 
