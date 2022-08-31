@@ -616,16 +616,13 @@ def log_quantization(model):
         args.mask_list.append(targeted.clone().detach())
     else:
         args.mask_list[-1] = targeted.clone().detach()
-    mask_sum = args.mask_list[0]
-    for i in range(1,args.current_stage+1):
-        mask_sum += args.mask_list[i]
     sum_list = []
     for m in args.mask_list:
         if m is not None:
             sum_list += [int(m.sum())]
         else:
             sum_list += [0]
-    print('after:',args.current_stage,sum_list,mask_sum.sum())
+    print('after:',args.current_stage,sum_list)
     if args.current_stage == 1:
         print(args.mask_list[0].tolist())
         print(args.mask_list[1].tolist())
