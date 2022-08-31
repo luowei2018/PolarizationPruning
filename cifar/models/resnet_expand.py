@@ -475,6 +475,19 @@ class ResNetExpand(nn.Module):
                     sparse_layers.append(m.bn2)
 
         return sparse_layers
+        
+    def get_sparse_layers_and_convs(self):
+        sparse_layers = []
+        sparse_convs = []
+        for m in self.modules():
+            if isinstance(m, BasicBlock):
+                m: BasicBlock
+                sparse_layers.append(m.bn1)
+                sparse_layers.append(m.bn2)
+                sparse_convs.append(m.conv1)
+                sparse_convs.append(m.conv2)
+                
+        return sparse_layers,sparse_convs
 
     def config(self) -> List[int]:
         # a flatten config list

@@ -113,6 +113,10 @@ parser.add_argument('--bias-decay', action='store_true',
                     help='Apply bias decay on BatchNorm layers')
 parser.add_argument('--log-scale', action='store_true',
                     help='use log scale')
+parser.add_argument('--stages', type=int, default=4, 
+                    help='number of stages to train (default: 4, single round of training)')
+parser.add_argument('--start-stage', default=0, type=int
+                    help='manual stage number (useful on restarts)')
 
 args = parser.parse_args()
 args.cuda = not args.no_cuda and torch.cuda.is_available()
@@ -345,7 +349,7 @@ if args.debug:
 
             print(f"{name} remains {one_num}")
 
-args.mask_list = None
+args.mask_list = [None for _ in range(args.stages)]
 args.stage = 0
 if args.resume:
     if os.path.isfile(args.resume):
@@ -366,7 +370,7 @@ if args.resume:
         #optimizer.load_state_dict(checkpoint['optimizer'])
         if hasattr(checkpoint,'mask_list'):
             args.mask_list = checkpoint['mask_list']
-            args.stage = checkpoint['stage']
+            args.start_stage = checkpoint['stage']
 
         print("=> loaded checkpoint '{}' (epoch {}) Prec1: {:f}"
               .format(args.resume, checkpoint['epoch'], best_prec1))
@@ -500,63 +504,6 @@ def bn_sparsity(model, loss_type, sparsity, t, alpha,
             return sparsity_loss
     else:
         raise ValueError()
-     
-if args.bin_mode ==2:
-    args.bins = torch.pow(10.,torch.tensor([-6,-4,-2,0])).cuda(0)# -0.5 also good
-    #args.bins = torch.tensor([1e-6,0,0,0.15]).cuda(0)
-elif args.bin_mode == 1:
-    args.bins = torch.pow(10.,torch.tensor([-5,-4,-3,-2,-1,0])).cuda(0)
-else:
-    print("Bin mode not supported")
-    exit(1)
-
-
-args.eps = 1e-10
-        
-# assign bin indices to scale factors
-# num_bins: number of total bins
-# target_indices: indices of bins that need to be assigned
-# default_index: those not assigned to target indices will be assigned the default index 
-# num_bins and target_indices can be adjust to get any ratio
-def assign_to_indices(bn_modules,target_indices,num_bins,default_index=0):
-                
-    all_scale_factors = torch.tensor([]).cuda()
-    for bn_module in bn_modules:
-        all_scale_factors = torch.cat((all_scale_factors,torch.abs(bn_module.weight.data)))
-    all_scale_factors = torch.clamp(all_scale_factors, min=args.eps)    
-    
-    # total channels
-    total_channels = len(all_scale_factors)
-    ch_per_bin = total_channels//num_bins
-    assigned_binindices = torch.zeros(total_channels).long().cuda()
-    assigned_binindices[:] = default_index
-    remain = torch.ones(total_channels).long().cuda()
-    # assign according to absolute distance
-    tmp,ch_indices = all_scale_factors.sort(dim=0)
-    x_split = tmp[target_indices[-1]*ch_per_bin]
-    for bin_idx in target_indices:
-        selected = ch_indices[bin_idx*ch_per_bin:(bin_idx+1)*ch_per_bin]
-        assigned_binindices[selected] = bin_idx
-        remain[selected] = 0
-            
-    return assigned_binindices,remain,x_split
-    
-def mean_sparse(bn_modules):
-    all_scale_factors = torch.tensor([]).cuda()
-    for bn_module in bn_modules:
-        all_scale_factors = torch.cat((all_scale_factors,(bn_module.weight.data)))
-    mean = all_scale_factors.mean()
-    sparse_coef = ((all_scale_factors>mean).sum() - (all_scale_factors<=mean).sum())/all_scale_factors.numel()
-    return mean,sparse_coef,all_scale_factors.numel()
-    
-def quntile_sparse(bn_modules,ratio):
-    all_scale_factors = torch.tensor([]).cuda()
-    for bn_module in bn_modules:
-        all_scale_factors = torch.cat((all_scale_factors,(bn_module.weight.data)))
-    tmp,indices = all_scale_factors.sort(dim=0)
-    idx = int(all_scale_factors.numel()*ratio)
-    sparse_coef = 1-ratio-ratio
-    return all_scale_factors[indices[idx]],sparse_coef,all_scale_factors.numel()
         
 def prune_by_mask(model,target_indices):
     import copy
@@ -564,7 +511,7 @@ def prune_by_mask(model,target_indices):
         
     bn_modules = pruned_model.get_sparse_layers()
     
-    assigned_binindices,remain,_ = assign_to_indices(bn_modules,target_indices,num_bins=len(args.bins))
+    remain = assign_to_indices(bn_modules)
         
     ch_start = 0
     for bn_module in bn_modules:
@@ -592,51 +539,77 @@ def prune_by_thresh(model,left=0,right=100):
             bn_module.weight.data[inactive] = 0
             ch_start += ch_len
     return pruned_model
+    
+def mean_sparsity(x,sf_split,sparse_coef=None,N=None):
+    order = 1
+    if order == 1:
+        grad = (args.t + sparse_coef - torch.sign(x-sf_split))
+        x -= args.lbd * args.current_lr * grad
+    else:
+        grad = args.t - 2.*(N-1)*(N-1)/N/N*x + 2.*(N-1)/N*(sf_split*N-x)/N + 2./N * (sf_split*N-x-sf_split*(N-1))
+        x -= args.lbd * grad * args.current_lr
+    return x
+        
+args.eps = 1e-10
+        
+# assign bin indices to scale factors
+# num_bins: number of total bins
+# target_indices: indices of bins that need to be assigned
+# default_index: those not assigned to target indices will be assigned the default index 
+# num_bins and target_indices can be adjust to get any ratio
+def assign_to_indices(bn_modules):
+    all_scale_factors = torch.tensor([]).cuda()
+    for bn_module in bn_modules:
+        all_scale_factors = torch.cat((all_scale_factors,torch.abs(bn_module.weight.data)))
+    
+    # total channels
+    total_channels = len(all_scale_factors)
+    ch_per_bin = total_channels//args.stages
+    remain = torch.ones(total_channels).long().cuda()
+    targeted = torch.zeros(total_channels).long().cuda()
+    
+    # do not sort masked channels
+    for mask in args.mask_list[:args.current_stage]:
+        if mask is not None:
+            remain[mask] = 0
+    not_assigned = remain.nonzero()
+    remain_factors = all_scale_factors[not_assigned] 
+    tmp,ch_indices = remain_factors.sort(dim=0)
+    # keep the most important and remaining bin
+    selected = not_assigned[ch_indices[-ch_per_bin:]]
+    remain[selected] = 0
+    targeted[selected] = 1
+    print(remain.sum(),len(args.mask_list[:args.current_stage]),targeted.sum())
+    
+    return remain,targeted
         
 def log_quantization(model):
-    # modify gradient based on stage+mask_list
-    def ratio_sparsity(x,bin_indices,x_split):
-        order = 1
-        if order == 1:
-            x[bin_indices == 0] -= args.lbd * args.current_lr * 400
-            #x[bin_indices == 3] -= args.lbd * args.current_lr * (-320) #80,40,20
-        else:
-            grad = -2 * x + 2 * x_split + args.t
-            x -= args.lbd * grad
+    bn_modules,convs = model.get_sparse_layers_and_convs()
+    ch_start = 0
+    for freeze_mask in args.mask_list[:args.current_stage]:
+        if freeze_mask is None:continue
+        ch_len = conv.weight.grad.data.size(0)
+        with torch.no_grad():
+            freeze_mask = freeze_mask[ch_start:ch_start+ch_len]
+            if isinstance(conv, nn.Conv2d):
+                conv.weight.grad.data[freeze_mask, :, :, :] = 0
+            else:
+                conv.weight.grad.data[freeze_mask, :] = 0
+            ch_start += ch_len
+    if args.current_stage == args.stages - 1:
+        return
         
-        return x
-        
-    def mean_sparsity(x,sf_split,sparse_coef=None,N=None):
-        order = 1
-        if order == 1:
-            grad = (args.t + sparse_coef - torch.sign(x-sf_split))
-            x -= args.lbd * args.current_lr * grad
-        else:
-            grad = args.t - 2.*(N-1)*(N-1)/N/N*x + 2.*(N-1)/N*(sf_split*N-x)/N + 2./N * (sf_split*N-x-sf_split*(N-1))
-            x -= args.lbd * grad * args.current_lr
-        return x
-        
-    bn_modules = model.get_sparse_layers()
-    
-    target_indices = [3]
-    assigned_binindices,remain,x_split = assign_to_indices(bn_modules,target_indices,num_bins = len(args.bins),default_index=0)
-    args.mask_list = remain
-    #sf_split,sparse_coef,N = quntile_sparse(bn_modules,0.75)
-    #sf_split,sparse_coef,N = mean_sparse(bn_modules)
+    remain,targeted = assign_to_indices(bn_modules)
+    # update mask of current stage
+    args.mask_list[args.current_stage] = targeted # need fix
         
     ch_start = 0
-    for bn_module in bn_modules:
+    for bn_module,conv in bn_modules:
         with torch.no_grad():
             ch_len = len(bn_module.weight.data)
-            bn_module.weight.data = ratio_sparsity(bn_module.weight.data, assigned_binindices[ch_start:ch_start+ch_len],x_split)
-            #bn_module.weight.data = mean_sparsity(bn_module.weight.data, sf_split, sparse_coef=sparse_coef,N=N)
+            shrink_mask = remain[ch_start:ch_start+ch_len] == 1
+            bn_module.weight.data = bn_module.weight.data[shrink_mask] -= args.lbd * args.current_lr * 400
             ch_start += ch_len
-            
-def get_initial_mask(model):
-    bn_modules = model.get_sparse_layers()
-    _,remain,_ = assign_to_indices(bn_modules,[3],num_bins = len(args.bins),default_index=0)
-    return remain == 0
-    
     
 def factor_visualization(iter, model, prec):
     scale_factors = torch.tensor([]).cuda()
@@ -646,7 +619,7 @@ def factor_visualization(iter, model, prec):
         scale_factors = torch.cat((scale_factors,(bn_module.weight.data.view(-1))))
         biases = torch.cat((biases,(bn_module.bias.data.view(-1))))
     # plot figure
-    save_dir = args.save + 'factor/'
+    save_dir = args.save + 'factor/' + str(args.current_stage) + '/'
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
     fig, axs = plt.subplots(ncols=4, figsize=(20,4))
@@ -747,11 +720,11 @@ def train(epoch):
                                         weight_max=args.weight_max, weight_min=args.weight_min)
             loss += sparsity_loss
             avg_sparsity_loss += sparsity_loss.data.item()
-        if args.loss in {LossType.LOG_QUANTIZATION}:
-            log_quantization(model)
         loss.backward()
         if args.loss in {LossType.L1_SPARSITY_REGULARIZATION}:
             updateBN()
+        if args.loss in {LossType.LOG_QUANTIZATION}:
+            log_quantization(model)
         optimizer.step()
         if args.loss in {LossType.POLARIZATION,
                          LossType.L2_POLARIZATION,
@@ -832,56 +805,41 @@ if args.evaluate:
     prune_while_training(model, arch=args.arch,
                        prune_mode="default",
                        num_classes=num_classes)
-    mask = get_initial_mask(model)
-    os.makedirs(args.save+'stage0/')
-    save_checkpoint({
-        'epoch': 0,
-        'state_dict': model.state_dict(),
-        'best_prec1': prec1,
-        'optimizer': optimizer.state_dict(),
-        'mask_list': [mask],
-        'stage': 0,
-    }, False, filepath=args.save+'stage0/',
-        backup_path=args.backup_path,
-        backup=False,
-        epoch=0,
-        max_backup=args.max_backup
-    )
-    exit(0)
 
-for epoch in range(args.start_epoch, args.epochs):
-    if args.max_epoch is not None and epoch >= args.max_epoch:
-        break
+for args.current_stage in range(args.start_stage, args.stages):
+    for epoch in range(args.start_epoch, 1):
+        if args.max_epoch is not None and epoch >= args.max_epoch:
+            break
 
-    args.current_lr = adjust_learning_rate(optimizer, epoch, args.gammas, args.decay_epoch)
-    print("Start epoch {}/{} with learning rate {}...".format(epoch, args.epochs, args.current_lr))
+        args.current_lr = adjust_learning_rate(optimizer, epoch, args.gammas, args.decay_epoch)
+        print("Start epoch {}/{} with learning rate {}...".format(epoch, args.epochs, args.current_lr))
 
-    train(epoch) # train with regularization
+        train(epoch) # train with regularization
 
-    prec1 = test(model)
-    print(f"All Prec1: {prec1}")
-    is_best = prec1 > best_prec1
-    best_prec1 = max(prec1, best_prec1)
-    save_checkpoint({
-        'epoch': epoch + 1,
-        'state_dict': model.state_dict(),
-        'best_prec1': prec1,
-        'optimizer': optimizer.state_dict(),
-        'mask_list': args.mask_list,
-        'stage': args.stage,
-    }, is_best, filepath=args.save,
-        backup_path=args.backup_path,
-        backup=epoch % args.backup_freq == 0,
-        epoch=epoch,
-        max_backup=args.max_backup
-    )
-    
-    # visualize scale factors
-    factor_visualization(epoch, model, prec1)
+        prec1 = test(model)
+        print(f"All Prec1: {prec1}")
+        is_best = prec1 > best_prec1
+        best_prec1 = max(prec1, best_prec1)
+        save_checkpoint({
+            'epoch': epoch + 1,
+            'state_dict': model.state_dict(),
+            'best_prec1': prec1,
+            'optimizer': optimizer.state_dict(),
+            'mask_list': args.mask_list,
+            'stage': args.current_stage,
+        }, is_best, filepath=args.save,
+            backup_path=args.backup_path,
+            backup=epoch % args.backup_freq == 0,
+            epoch=epoch,
+            max_backup=args.max_backup
+        )
+        
+        # visualize scale factors
+        factor_visualization(epoch, model, prec1)
 
-    # flops
-    # peek the remaining flops
-    prune_while_training(model, arch=args.arch,prune_mode="default",num_classes=num_classes)
+        # flops
+        # peek the remaining flops
+        prune_while_training(model, arch=args.arch,prune_mode="default",num_classes=num_classes)
 
 if args.loss == LossType.POLARIZATION and args.target_flops and (
         flops_grad / baseline_flops) > args.target_flops and args.gate:
@@ -891,5 +849,3 @@ history_score[-1][0] = best_prec1
 np.savetxt(os.path.join(args.save, 'record.txt'), history_score, fmt='%10.5f', delimiter=',')
 
 writer.close()
-
-print("Best accuracy: " + str(best_prec1))
