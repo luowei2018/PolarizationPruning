@@ -579,7 +579,7 @@ def assign_to_indices(bn_modules):
     selected = not_assigned[ch_indices[-ch_per_bin:]]
     shrink[selected] = 0
     targeted[selected] = 1
-    print(len(selected),targeted.sum(),shrink.sum())
+    print('-------------',len(selected),targeted.sum(),shrink.sum(),'-------------')
     
     return shrink,targeted
         
