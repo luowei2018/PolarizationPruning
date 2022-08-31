@@ -604,7 +604,7 @@ def log_quantization(model):
     args.mask_list[args.current_stage] = targeted # need fix
         
     ch_start = 0
-    for bn_module,conv in bn_modules:
+    for bn_module in bn_modules:
         with torch.no_grad():
             ch_len = len(bn_module.weight.data)
             shrink_mask = remain[ch_start:ch_start+ch_len] == 1
