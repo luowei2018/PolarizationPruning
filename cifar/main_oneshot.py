@@ -596,12 +596,10 @@ def log_quantization(model):
             if freeze_mask is None:continue
             with torch.no_grad():
                 freeze_mask = freeze_mask[ch_start:ch_start+ch_len] == 1
-                print(conv.weight.grad.data.sum())
                 if isinstance(conv, nn.Conv2d):
                     conv.weight.grad.data[freeze_mask, :, :, :] = 0
                 else:
                     conv.weight.grad.data[freeze_mask, :] = 0
-                print(conv.weight.grad.data.sum())
         ch_start += ch_len
     if args.current_stage == args.stages - 1:
         return
@@ -813,7 +811,7 @@ if args.evaluate:
                        num_classes=num_classes)
 
 for args.current_stage in range(args.start_stage, args.stages):
-    for epoch in range(args.start_epoch, 1):
+    for epoch in range(args.start_epoch, args.epochs):
         if args.max_epoch is not None and epoch >= args.max_epoch:
             break
 
