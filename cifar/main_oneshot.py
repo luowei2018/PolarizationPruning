@@ -571,7 +571,9 @@ def assign_to_indices(bn_modules):
     # do not sort masked channels
     for mask in args.mask_list[:args.current_stage]:
         if mask is not None:
+            print(mask)
             shrink[mask] = 0
+            print(shrink)
     print(args.current_stage,sum([x is None for x in args.mask_list]),shrink.sum())
     not_assigned = shrink.nonzero()
     remain_factors = all_scale_factors[not_assigned] 
