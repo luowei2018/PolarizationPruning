@@ -610,6 +610,8 @@ def log_quantization(model):
         else:
             sum_list += [0]
     print('before:',args.current_stage,sum_list)
+    if args.current_stage == 1:
+        print(args.mask_list)
     if len(args.mask_list) < args.current_stage+1:
         args.mask_list.append(targeted.clone().detach())
     else:
@@ -624,6 +626,9 @@ def log_quantization(model):
         else:
             sum_list += [0]
     print('after:',args.current_stage,sum_list,mask_sum.sum())
+    if args.current_stage == 1:
+        print(args.mask_list)
+        exit(0)
         
     ch_start = 0
     for bn_module in bn_modules:
