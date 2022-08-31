@@ -349,7 +349,7 @@ if args.debug:
 
             print(f"{name} remains {one_num}")
 
-args.mask_list = [None,None,None,None]
+args.mask_list = []
 args.stage = 0
 if args.resume:
     if os.path.isfile(args.resume):
@@ -580,7 +580,7 @@ def assign_to_indices(bn_modules):
     selected = not_assigned[ch_indices[-ch_per_bin:]]
     shrink[selected] = 0
     targeted[selected] = 1
-    print('-------------',len(selected),'target:',targeted.sum(),'shrink:',shrink.sum(),'-------------')
+    print('-------------',len(selected),'target:',targeted.sum(),'shrink:',shrink.sum(),len(args.mask_list),'-------------')
     
     return shrink,targeted
         
@@ -603,7 +603,10 @@ def log_quantization(model):
         
     shrink,targeted = assign_to_indices(bn_modules)
     # update mask of current stage
-    args.mask_list[args.current_stage] = targeted.clone().detach()
+    if len(args.mask_list) < args.current_stage+1:
+        args.mask_list.append(targeted.clone().detach())
+    else:
+        args.mask_list[args.current_stage] = targeted.clone().detach()
     sum_list = []
     for m in args.mask_list:
         if m is not None:
