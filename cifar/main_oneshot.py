@@ -349,7 +349,7 @@ if args.debug:
 
             print(f"{name} remains {one_num}")
 
-args.mask_list = [None for _ in range(args.stages)]
+args.mask_list = [None] * args.stages
 args.stage = 0
 if args.resume:
     if os.path.isfile(args.resume):
@@ -580,7 +580,7 @@ def assign_to_indices(bn_modules):
     selected = not_assigned[ch_indices[-ch_per_bin:]]
     shrink[selected] = 0
     targeted[selected] = 1
-    print('-------------',len(selected),targeted.sum(),shrink.sum(),'-------------')
+    print('-------------',len(selected),'target:',targeted.sum(),'shrink:',shrink.sum(),'-------------')
     
     return shrink,targeted
         
