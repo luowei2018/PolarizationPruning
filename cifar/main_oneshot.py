@@ -572,7 +572,7 @@ def assign_to_indices(bn_modules):
     for mask in args.mask_list[:args.current_stage]:
         if mask is not None:
             shrink[mask] = 0
-    print(shrink.sum())
+    print(args.current_stage,sum([x is None for x in args.mask_list]),shrink.sum())
     not_assigned = shrink.nonzero()
     remain_factors = all_scale_factors[not_assigned] 
     tmp,ch_indices = remain_factors.sort(dim=0)
