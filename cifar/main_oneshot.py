@@ -572,7 +572,6 @@ def assign_to_indices(bn_modules):
     for mask in args.mask_list[:args.current_stage]:
         if mask is not None:
             shrink[mask==1] = 0
-            print(shrink.sum())
     not_assigned = shrink.nonzero()
     remain_factors = all_scale_factors[not_assigned] 
     tmp,ch_indices = remain_factors.sort(dim=0)
@@ -602,13 +601,6 @@ def log_quantization(model):
         return
         
     shrink,targeted = assign_to_indices(bn_modules)
-    sum_list = []
-    for m in args.mask_list:
-        if m is not None:
-            sum_list += [int(m.sum())]
-        else:
-            sum_list += [0]
-    print('before:',args.current_stage,sum_list)
     # update mask of current stage
     if len(args.mask_list) < args.current_stage+1:
         args.mask_list.append(targeted.clone().detach())
@@ -620,7 +612,10 @@ def log_quantization(model):
             sum_list += [int(m.sum())]
         else:
             sum_list += [0]
-    print('after:',args.current_stage,sum_list)
+    mask_sum = args.mask_list[0]
+    for i in range(1,args.current_stage+1):
+        mask_sum += args.mask_list[i]
+    print(args.current_stage,sum_list,mask_sum.sum())
         
     ch_start = 0
     for bn_module in bn_modules:
