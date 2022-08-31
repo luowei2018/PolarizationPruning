@@ -611,7 +611,7 @@ def log_quantization(model):
             sum_list += [0]
     print('before:',args.current_stage,sum_list)
     if args.current_stage == 1:
-        print(args.mask_list)
+        print(args.mask_list[0].tolist())
     if len(args.mask_list) < args.current_stage+1:
         args.mask_list.append(targeted.clone().detach())
     else:
@@ -627,7 +627,8 @@ def log_quantization(model):
             sum_list += [0]
     print('after:',args.current_stage,sum_list,mask_sum.sum())
     if args.current_stage == 1:
-        print(args.mask_list)
+        print(args.mask_list[0].tolist())
+        print(args.mask_list[1].tolist())
         exit(0)
         
     ch_start = 0
