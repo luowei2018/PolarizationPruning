@@ -349,7 +349,7 @@ if args.debug:
 
             print(f"{name} remains {one_num}")
 
-args.mask_list = [None] * args.stages
+args.mask_list = [None,None,None,None]
 args.stage = 0
 if args.resume:
     if os.path.isfile(args.resume):
