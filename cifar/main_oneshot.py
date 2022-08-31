@@ -572,7 +572,6 @@ def assign_to_indices(bn_modules):
     for mask in args.mask_list[:args.current_stage]:
         if mask is not None:
             shrink[mask==1] = 0
-    print(args.current_stage,sum([x is None for x in args.mask_list]),shrink.sum())
     not_assigned = shrink.nonzero()
     remain_factors = all_scale_factors[not_assigned] 
     tmp,ch_indices = remain_factors.sort(dim=0)
@@ -580,7 +579,6 @@ def assign_to_indices(bn_modules):
     selected = not_assigned[ch_indices[-ch_per_bin:]]
     shrink[selected] = 0
     targeted[selected] = 1
-    print(shrink.sum(),targeted.sum())
     
     return shrink,targeted
         
@@ -607,7 +605,7 @@ def log_quantization(model):
     mask_sum = args.mask_list[0]
     for i in range(1,args.current_stage+1):
         mask_sum += args.mask_list[i]
-    print(sum([m.sum() for m in args.mask_list[:args.current_stage]]),mask_sum)
+    print(sum([m.sum() for m in args.mask_list[:args.current_stage]]),mask_sum.sum())
         
     ch_start = 0
     for bn_module in bn_modules:
