@@ -602,16 +602,6 @@ def log_quantization(model):
         
     shrink,targeted = assign_to_indices(bn_modules)
     # update mask of current stage
-    
-    sum_list = []
-    for m in args.mask_list:
-        if m is not None:
-            sum_list += [int(m.sum())]
-        else:
-            sum_list += [0]
-    print('before:',args.current_stage,sum_list)
-    if args.current_stage == 1:
-        print(args.mask_list[0].tolist())
     if len(args.mask_list) < args.current_stage+1:
         args.mask_list.append(targeted.clone().detach())
     else:
@@ -623,10 +613,6 @@ def log_quantization(model):
         else:
             sum_list += [0]
     print('after:',args.current_stage,sum_list)
-    if args.current_stage == 1:
-        print(args.mask_list[0].tolist())
-        print(args.mask_list[1].tolist())
-        exit(0)
         
     ch_start = 0
     for bn_module in bn_modules:
