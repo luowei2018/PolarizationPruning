@@ -572,6 +572,7 @@ def prune_by_mask(model,mask_list):
     
     tokeep = None
     for freeze_mask in mask_list:
+        assert freeze_mask is not None
         if tokeep is None:
             tokeep = freeze_mask.clone().detach()
         else:
