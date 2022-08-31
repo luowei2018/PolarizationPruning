@@ -609,7 +609,7 @@ def log_quantization(model):
             sum_list += [int(m.sum())]
         else:
             sum_list += [0]
-    print('before:',args.current_stage,sum_list,mask_sum.sum())
+    print('before:',args.current_stage,sum_list)
     if len(args.mask_list) < args.current_stage+1:
         args.mask_list.append(targeted.clone().detach())
     else:
