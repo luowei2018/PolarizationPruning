@@ -608,7 +608,7 @@ def log_quantization(model):
         with torch.no_grad():
             ch_len = len(bn_module.weight.data)
             shrink_mask = remain[ch_start:ch_start+ch_len] == 1
-            bn_module.weight.data = bn_module.weight.data[shrink_mask] -= args.lbd * args.current_lr * 400
+            bn_module.weight.data[shrink_mask] -= args.lbd * args.current_lr * 400
             ch_start += ch_len
     
 def factor_visualization(iter, model, prec):
