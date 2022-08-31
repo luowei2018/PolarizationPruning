@@ -504,24 +504,6 @@ def bn_sparsity(model, loss_type, sparsity, t, alpha,
             return sparsity_loss
     else:
         raise ValueError()
-        
-def prune_by_mask(model,target_indices):
-    import copy
-    pruned_model = copy.deepcopy(model)
-        
-    bn_modules = pruned_model.get_sparse_layers()
-    
-    remain = assign_to_indices(bn_modules)
-        
-    ch_start = 0
-    for bn_module in bn_modules:
-        with torch.no_grad():
-            ch_len = len(bn_module.weight.data)
-            inactive = remain[ch_start:ch_start+ch_len]==1
-            bn_module.weight.data[inactive] = 0
-            bn_module.bias.data[inactive] = 0
-            ch_start += ch_len
-    return pruned_model
     
 def prune_by_thresh(model,left=0,right=100):
     import copy
@@ -579,9 +561,32 @@ def assign_to_indices(bn_modules):
     selected = not_assigned[ch_indices[-ch_per_bin:]]
     shrink[selected] = 0
     targeted[selected] = 1
-    print('-------------',len(selected),'target:',targeted.sum(),'shrink:',shrink.sum(),len(args.mask_list),'-------------')
     
     return shrink,targeted
+        
+def prune_by_mask(model,mask_list):
+    import copy
+    pruned_model = copy.deepcopy(model)
+        
+    bn_modules = pruned_model.get_sparse_layers()
+    
+    tokeep = None
+    for freeze_mask in mask_list:
+        if tokeep is None:
+            tokeep = freeze_mask.clone().detach()
+        else:
+            tokeep += freeze_mask.clone().detach()
+    print(tokeep.sum())
+        
+    ch_start = 0
+    for bn_module in bn_modules:
+        with torch.no_grad():
+            ch_len = len(bn_module.weight.data)
+            inactive = tokeep[ch_start:ch_start+ch_len]==0
+            bn_module.weight.data[inactive] = 0
+            #bn_module.bias.data[inactive] = 0
+            ch_start += ch_len
+    return pruned_model
         
 def log_quantization(model):
     bn_modules,convs = model.get_sparse_layers_and_convs()
@@ -606,13 +611,6 @@ def log_quantization(model):
         args.mask_list.append(targeted.clone().detach())
     else:
         args.mask_list[-1] = targeted.clone().detach()
-    sum_list = []
-    for m in args.mask_list:
-        if m is not None:
-            sum_list += [int(m.sum())]
-        else:
-            sum_list += [0]
-    print('after:',args.current_stage,sum_list)
         
     ch_start = 0
     for bn_module in bn_modules:
@@ -645,7 +643,7 @@ def factor_visualization(iter, model, prec):
         
 
 def prune_while_training(model: nn.Module, arch: str, prune_mode: str, num_classes: int):
-    target_ratios = [.25,.5,.75]#[0.1 + 0.1*x for x in range(9)]
+    target_ratios = []#.25,.5,.75]#[0.1 + 0.1*x for x in range(9)]
     saved_flops = []
     saved_prec1s = []
     saved_thresh = []
@@ -687,8 +685,8 @@ def prune_while_training(model: nn.Module, arch: str, prune_mode: str, num_class
     baseline_flops = compute_conv_flops(model, cuda=True)
         
     inplace_precs = []
-    #inplace_precs += [test(prune_by_thresh(model,left=1e-6))]
-    #inplace_precs += [test(prune_by_thresh(model,left=1e-2))]
+    for i in range(args.stages-1):
+        inplace_precs += [test(prune_by_mask(model,args.mask_list[:i+1]))]
     
     print_str = ''
     for flop,prec1,thresh in zip(saved_flops,saved_prec1s,saved_thresh):
@@ -803,11 +801,7 @@ def save_checkpoint(state, is_best, filepath, backup: bool, backup_path: str, ep
 
 best_prec1 = 0.
 global_step = 0
-
-writer = SummaryWriter(logdir=args.log)
-
-if args.flops_weighted:
-    writer.add_text("train/conv_flops_weight", flops_weight_string, global_step=0)
+prec1_list = []
 
 if args.evaluate:
     prec1 = test(model)
@@ -846,17 +840,10 @@ for args.current_stage in range(args.start_stage, args.stages):
         )
         
         # visualize scale factors
-        factor_visualization(epoch, model, prec1)
+        #factor_visualization(epoch, model, prec1)
 
         # flops
-        # peek the remaining flops
         prune_while_training(model, arch=args.arch,prune_mode="default",num_classes=num_classes)
-
-if args.loss == LossType.POLARIZATION and args.target_flops and (
-        flops_grad / baseline_flops) > args.target_flops and args.gate:
-    print("WARNING: the FLOPs does not achieve the target FLOPs at the end of training.")
-print("Best accuracy: " + str(best_prec1))
-history_score[-1][0] = best_prec1
-np.savetxt(os.path.join(args.save, 'record.txt'), history_score, fmt='%10.5f', delimiter=',')
-
-writer.close()
+    print("Best accuracy: " + str(best_prec1))
+    prec1_list += [prec1]
+print(prec1_list)
