@@ -115,7 +115,7 @@ parser.add_argument('--log-scale', action='store_true',
                     help='use log scale')
 parser.add_argument('--stages', type=int, default=4, 
                     help='number of stages to train (default: 4, single round of training)')
-parser.add_argument('--start-stage', default=0, type=int
+parser.add_argument('--start-stage', default=0, type=int,
                     help='manual stage number (useful on restarts)')
 
 args = parser.parse_args()
