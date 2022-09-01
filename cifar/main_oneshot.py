@@ -586,8 +586,7 @@ def prune_by_mask(model,mask_list):
             bn_module.weight.data[inactive] = 0
             bn_module.bias.data[inactive] = 0
             ch_start += ch_len
-    for name, param in new.named_parameters(): 
-        print(name, param.data)
+    #for name, param in model.named_parameters(): print(name, param.data)
     return pruned_model
    
 def freeze_weights(model,old_model):
@@ -638,6 +637,7 @@ def compare_models(old,new):
             assert torch.equal(bn1.weight.data, bn2.weight.data)
             assert torch.equal(bn1.bias.data, bn2.bias.data)
         ch_start += ch_len
+    print(test(old),test(new))
         
 def log_quantization(model):
     if args.current_stage == args.stages - 1:
