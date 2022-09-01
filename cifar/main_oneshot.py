@@ -593,14 +593,10 @@ def log_quantization(model):
     ch_start = 0
     for conv,bn in zip(convs,bn_modules):
         ch_len = conv.weight.grad.data.size(0)
-        freeze_mask = torch.ones(ch_len).long().cuda()
-        freeze_mask[:ch_len//2] = 0
-        test_list = [freeze_mask]
-        for freeze_mask in test_list:#args.mask_list[:args.current_stage]:
+        for freeze_mask in args.mask_list[:args.current_stage]:
             if freeze_mask is None:continue
             with torch.no_grad():
-                #freeze_mask = freeze_mask[ch_start:ch_start+ch_len] == 1
-                freeze_mask = freeze_mask == 0
+                freeze_mask = freeze_mask[ch_start:ch_start+ch_len] == 1
                 bn.weight.grad.data[freeze_mask] = 0
                 if hasattr(bn, 'bias') and bn.bias is not None:
                     bn.bias.grad.data[freeze_mask] = 0
@@ -630,18 +626,18 @@ def log_quantization(model):
             bn_module.weight.data[shrink_mask] -= args.lbd * args.current_lr * 400
             ch_start += ch_len
             
-def print_model(model):
-    bn_modules,convs = model.get_sparse_layers_and_convs()
+def compare_models(old,new):
+    bns1,convs1 = old.get_sparse_layers_and_convs()
+    bns2,convs2 = new.get_sparse_layers_and_convs()
     ch_start = 0
-    for conv,bn in zip(convs,bn_modules):
-        ch_len = conv.weight.data.size(0)
-        #print('conv:',conv.weight.data)
-        #if hasattr(conv.weight,'grad') and conv.weight.grad is not None:print(conv.weight.grad.data)
-        print('bn:',bn.weight.data)
-        if hasattr(bn.weight,'grad') and bn.weight.grad is not None:
-            print(bn.weight.grad.data)
-        ch_start += ch_len
-        break
+    for conv1,bn1,conv2,bn2 in zip(convs1,bns1,convs2,bns2):
+        ch_len = conv1.weight.grad.data.size(0)
+        for freeze_mask in args.mask_list[:args.current_stage]:
+            if freeze_mask is None:continue
+            freeze_mask = freeze_mask[ch_start:ch_start+ch_len] == 1
+            assert conv1.weight.data[freeze_mask, :, :, :] == conv2.weight.data[freeze_mask, :, :, :]
+            assert bn1.weight.data[freeze_mask, :, :, :] == bn2.weight.data[freeze_mask, :, :, :]
+            assert bn1.bias.data[freeze_mask, :, :, :] == bn2.bias.data[freeze_mask, :, :, :]
     
 def factor_visualization(iter, model, prec):
     scale_factors = torch.tensor([]).cuda()
@@ -731,6 +727,7 @@ def train(epoch):
     total_data = 0
     train_iter = tqdm(train_loader)
     for batch_idx, (data, target) in enumerate(train_iter):
+        old_model = model.clone().detach()
         if args.cuda:
             data, target = data.cuda(), target.cuda()
         optimizer.zero_grad()
@@ -756,13 +753,9 @@ def train(epoch):
         loss.backward()
         if args.loss in {LossType.L1_SPARSITY_REGULARIZATION}:
             updateBN()
-        print_model(model)
         if args.loss in {LossType.LOG_QUANTIZATION}:
             log_quantization(model)
-        print_model(model)
         optimizer.step()
-        print_model(model)
-        exit(0)
         if args.loss in {LossType.POLARIZATION,
                          LossType.L2_POLARIZATION,
                          LossType.LOG_QUANTIZATION}:
@@ -772,6 +765,8 @@ def train(epoch):
             'Step: {} Train Epoch: {} [{}/{} ({:.1f}%)]. Loss: {:.6f}'.format(
             global_step, epoch, batch_idx * len(data), len(train_loader.dataset),
                                 100. * batch_idx / len(train_loader), avg_loss / len(train_loader)))
+        compare_models(model,old_model)
+        break
 
     history_score[epoch][0] = avg_loss / len(train_loader)
     history_score[epoch][1] = float(train_acc) / float(total_data)
