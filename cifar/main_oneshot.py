@@ -629,11 +629,12 @@ def print_model(model):
     bn_modules,convs = model.get_sparse_layers_and_convs()
     ch_start = 0
     for conv,bn in zip(convs,bn_modules):
-        freeze_mask = freeze_mask[ch_start:ch_start+ch_len] == 1
+        for freeze_mask in args.mask_list[:args.current_stage]:
+            freeze_mask = freeze_mask[ch_start:ch_start+ch_len] == 1
+            print('fm:',freeze_mask)
         print(conv.weight.data)
         print(bn.weight.data)
         print(bn.bias.data)
-        print(freeze_mask)
         ch_start += ch_len
         break
     
@@ -750,12 +751,12 @@ def train(epoch):
         loss.backward()
         if args.loss in {LossType.L1_SPARSITY_REGULARIZATION}:
             updateBN()
-        if args.current_stage==1: print_model(model)
+        print_model(model)
         if args.loss in {LossType.LOG_QUANTIZATION}:
             log_quantization(model)
-        if args.current_stage==1: print_model(model)
+        print_model(model)
         optimizer.step()
-        if args.current_stage==1: print_model(model)
+        print_model(model)
         if args.loss in {LossType.POLARIZATION,
                          LossType.L2_POLARIZATION,
                          LossType.LOG_QUANTIZATION}:
