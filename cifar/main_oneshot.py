@@ -577,15 +577,16 @@ def prune_by_mask(model,mask_list):
             tokeep = freeze_mask.clone().detach()
         else:
             tokeep += freeze_mask.clone().detach()
-    print('keep:',tokeep.sum())
         
     ch_start = 0
+    print('-----------------------')
     for bn_module in bn_modules:
         with torch.no_grad():
             ch_len = len(bn_module.weight.data)
             inactive = tokeep[ch_start:ch_start+ch_len]==0
             bn_module.weight.data[inactive] = 0
             bn_module.bias.data[inactive] = 0
+            print(bn_module.weight.data)
             ch_start += ch_len
     return pruned_model
         
