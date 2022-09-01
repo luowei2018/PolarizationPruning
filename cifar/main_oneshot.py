@@ -576,6 +576,7 @@ def prune_by_mask(model,mask_list):
             tokeep = freeze_mask.clone().detach()
         else:
             tokeep += freeze_mask.clone().detach()
+    print('keep:',tokeep.sum())
         
     ch_start = 0
     for bn_module in bn_modules:
@@ -684,7 +685,7 @@ def prune_while_training(model: nn.Module, arch: str, prune_mode: str, num_class
     baseline_flops = compute_conv_flops(model, cuda=True)
         
     inplace_precs = []
-    for i in range(args.stages):
+    for i in range(max(3,len(args.mask_list))):
         inplace_precs += [test(prune_by_mask(model,args.mask_list[:i+1]))]
     
     print_str = ''
@@ -811,7 +812,7 @@ if args.evaluate:
                        num_classes=num_classes)
 
 for args.current_stage in range(args.start_stage, args.stages):
-    for epoch in range(args.start_epoch, args.epochs):
+    for epoch in range(args.start_epoch, 2):
         if args.max_epoch is not None and epoch >= args.max_epoch:
             break
 
