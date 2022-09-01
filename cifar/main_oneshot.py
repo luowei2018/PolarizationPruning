@@ -617,7 +617,6 @@ def freeze_weights(model,old_model):
     model.bn1.bias.data = old_model.bn1.bias.data.clone().detach()
     model.linear.weight.data = old_model.linear.weight.data.clone().detach()
     model.linear.bias.data = old_model.linear.bias.data.clone().detach()
-    compare_models(old_model,model)
             
 def compare_models(old,new):
     print('-----------Model Checking-------------')
@@ -638,10 +637,6 @@ def compare_models(old,new):
             assert torch.equal(bn1.weight.data, bn2.weight.data)
             assert torch.equal(bn1.bias.data, bn2.bias.data)
         ch_start += ch_len
-        
-    for (name1, param1), (name2, param2) in zip(old.named_parameters(),new.named_parameters()):
-        if not torch.equal(param1.data,param2.data):
-            print('Not equal:',name1)
         
 def log_quantization(model):
     if args.current_stage == args.stages - 1:
@@ -791,7 +786,7 @@ def train(epoch):
             'Step: {} Train Epoch: {} [{}/{} ({:.1f}%)]. Loss: {:.6f}'.format(
             global_step, epoch, batch_idx * len(data), len(train_loader.dataset),
                                 100. * batch_idx / len(train_loader), avg_loss / len(train_loader)))
-        exit(0)
+        
 
     history_score[epoch][0] = avg_loss / len(train_loader)
     history_score[epoch][1] = float(train_acc) / float(total_data)
