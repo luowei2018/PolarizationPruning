@@ -617,7 +617,6 @@ def log_quantization(model):
         args.mask_list.append(targeted.clone().detach())
     else:
         args.mask_list[-1] = targeted.clone().detach()
-    return
         
     ch_start = 0
     for bn_module in bn_modules:
@@ -706,6 +705,8 @@ def prune_while_training(model: nn.Module, arch: str, prune_mode: str, num_class
     baseline_flops = compute_conv_flops(model, cuda=True)
         
     inplace_precs = []
+    for m in args.mask_list:
+        print(m.tolist())
     for i in range(min(3,len(args.mask_list))):
         inplace_precs += [test(prune_by_mask(model,args.mask_list[:i+1]))]
     
