@@ -640,7 +640,7 @@ def log_quantization(model):
             
 def compare_models(old,new):
     print('-----------Model Checking-------------')
-    #for name, param in new.named_parameters(): print(name, param.size())
+    for name, param in new.named_parameters(): print(name, param.size())
     #exit(0)
     bns1,convs1 = old.get_sparse_layers_and_convs()
     bns2,convs2 = new.get_sparse_layers_and_convs()
@@ -659,7 +659,9 @@ def compare_models(old,new):
         ch_start += ch_len
         
     for (name1, param1), (name2, param2) in zip(old.named_parameters(),new.named_parameters()):
-        assert torch.equal(param1.data,param2.data),name1 + name2
+        if not torch.equal(param1.data,param2.data):
+            print(name1)
+    exit(0)
     
 def factor_visualization(iter, model, prec):
     scale_factors = torch.tensor([]).cuda()
