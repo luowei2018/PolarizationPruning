@@ -579,14 +579,12 @@ def prune_by_mask(model,mask_list):
             tokeep += freeze_mask.clone().detach()
         
     ch_start = 0
-    print('------------PRUNE-----------',len(mask_list))
     for bn_module in bn_modules:
         with torch.no_grad():
             ch_len = len(bn_module.weight.data)
             inactive = tokeep[ch_start:ch_start+ch_len]==0
             bn_module.weight.data[inactive] = 0
             bn_module.bias.data[inactive] = 0
-            print(bn_module.weight.data.tolist())
             ch_start += ch_len
     return pruned_model
         
@@ -620,12 +618,10 @@ def log_quantization(model):
         args.mask_list[-1] = targeted.clone().detach()
         
     ch_start = 0
-    print('------------SHRINK------------')
     for bn_module in bn_modules:
         with torch.no_grad():
             ch_len = len(bn_module.weight.data)
             shrink_mask = shrink[ch_start:ch_start+ch_len] == 1
-            print(shrink_mask.data.tolist())
             bn_module.weight.data[shrink_mask] -= args.lbd * args.current_lr * 400
             ch_start += ch_len
             
