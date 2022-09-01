@@ -782,7 +782,6 @@ def train(epoch):
             'Step: {} Train Epoch: {} [{}/{} ({:.1f}%)]. Loss: {:.6f}'.format(
             global_step, epoch, batch_idx * len(data), len(train_loader.dataset),
                                 100. * batch_idx / len(train_loader), avg_loss / len(train_loader)))
-        break
 
     history_score[epoch][0] = avg_loss / len(train_loader)
     history_score[epoch][1] = float(train_acc) / float(total_data)
@@ -879,7 +878,7 @@ for args.current_stage in range(args.start_stage, args.stages):
         )
         
         # visualize scale factors
-        #factor_visualization(epoch, model, prec1)
+        factor_visualization(epoch, model, prec1)
 
         # flops
         prune_while_training(model, arch=args.arch,prune_mode="default",num_classes=num_classes)
