@@ -633,18 +633,17 @@ def compare_models(old,new):
     bns1,convs1 = old.get_sparse_layers_and_convs()
     bns2,convs2 = new.get_sparse_layers_and_convs()
     ch_start = 0
-    for freeze_mask in args.mask_list[:args.current_stage]:
-        print('?????????????',freeze_mask.sum())
     for conv1,bn1,conv2,bn2 in zip(convs1,bns1,convs2,bns2):
         ch_len = conv1.weight.grad.data.size(0)
         for freeze_mask in args.mask_list[:args.current_stage]:
             if freeze_mask is None:continue
             freeze_mask = freeze_mask[ch_start:ch_start+ch_len] == 1
-            #assert torch.equal(conv1.weight.data[freeze_mask, :, :, :], conv2.weight.data[freeze_mask, :, :, :])
-            #assert torch.equal(bn1.weight.data[freeze_mask], bn2.weight.data[freeze_mask])
-            #assert torch.equal(bn1.bias.data[freeze_mask], bn2.bias.data[freeze_mask])
             print('comp1:',bn1.weight.data[freeze_mask])
             print('comp2:',bn2.weight.data[freeze_mask])
+            assert torch.equal(conv1.weight.data[freeze_mask, :, :, :], conv2.weight.data[freeze_mask, :, :, :])
+            assert torch.equal(bn1.weight.data[freeze_mask], bn2.weight.data[freeze_mask])
+            assert torch.equal(bn1.bias.data[freeze_mask], bn2.bias.data[freeze_mask])
+        ch_start += ch_len
     
 def factor_visualization(iter, model, prec):
     scale_factors = torch.tensor([]).cuda()
