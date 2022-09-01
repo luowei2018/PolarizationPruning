@@ -620,6 +620,7 @@ def log_quantization(model):
         args.mask_list.append(targeted.clone().detach())
     else:
         args.mask_list[-1] = targeted.clone().detach()
+    return
         
     ch_start = 0
     for bn_module in bn_modules:
@@ -752,7 +753,6 @@ def train(epoch):
                                         weight_max=args.weight_max, weight_min=args.weight_min)
             loss += sparsity_loss
             avg_sparsity_loss += sparsity_loss.data.item()
-        print_model(model)
         loss.backward()
         if args.loss in {LossType.L1_SPARSITY_REGULARIZATION}:
             updateBN()
