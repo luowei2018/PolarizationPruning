@@ -636,9 +636,9 @@ def compare_models(old,new):
         for freeze_mask in args.mask_list[:args.current_stage]:
             if freeze_mask is None:continue
             freeze_mask = freeze_mask[ch_start:ch_start+ch_len] == 1
-            assert conv1.weight.data[freeze_mask, :, :, :] == conv2.weight.data[freeze_mask, :, :, :]
-            assert bn1.weight.data[freeze_mask, :, :, :] == bn2.weight.data[freeze_mask, :, :, :]
-            assert bn1.bias.data[freeze_mask, :, :, :] == bn2.bias.data[freeze_mask, :, :, :]
+            assert torch.equal(conv1.weight.data[freeze_mask, :, :, :], conv2.weight.data[freeze_mask, :, :, :])
+            assert torch.equal(bn1.weight.data[freeze_mask], bn2.weight.data[freeze_mask])
+            assert torch.equal(bn1.bias.data[freeze_mask], bn2.bias.data[freeze_mask])
     
 def factor_visualization(iter, model, prec):
     scale_factors = torch.tensor([]).cuda()
@@ -705,7 +705,6 @@ def prune_while_training(model: nn.Module, arch: str, prune_mode: str, num_class
     baseline_flops = compute_conv_flops(model, cuda=True)
         
     inplace_precs = []
-    print(args.mask_list)
     for i in range(min(3,len(args.mask_list))):
         inplace_precs += [test(prune_by_mask(model,args.mask_list[:i+1]))]
     
