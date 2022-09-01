@@ -637,6 +637,9 @@ def print_model(model):
         print('conv:',conv.weight.data)
         if hasattr(conv.weight,'grad') and conv.weight.grad is not None:
             print(conv.weight.grad.data)
+        print('bn:',bn.weight.data)
+        if hasattr(bn.weight,'grad') and bn.weight.grad is not None:
+            print(bn.weight.grad.data)
         ch_start += ch_len
         break
     
