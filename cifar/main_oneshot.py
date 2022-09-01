@@ -631,7 +631,7 @@ def compare_models(old,new):
     bns2,convs2 = new.get_sparse_layers_and_convs()
     ch_start = 0
     for conv1,bn1,conv2,bn2 in zip(convs1,bns1,convs2,bns2):
-        ch_len = conv1.weight.grad.data.size(0)
+        ch_len = conv1.weight.data.size(0)
         for freeze_mask in args.mask_list[:args.current_stage]:
             if freeze_mask is None:continue
             freeze_mask = freeze_mask[ch_start:ch_start+ch_len] == 1
