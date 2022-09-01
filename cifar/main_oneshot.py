@@ -738,6 +738,7 @@ def prune_while_training(model: nn.Module, arch: str, prune_mode: str, num_class
 
 def train(epoch):
     model.train()
+    print('test1:',test(model))
     global history_score, global_step
     avg_loss = 0.
     avg_sparsity_loss = 0.
@@ -771,15 +772,11 @@ def train(epoch):
         loss.backward()
         if args.loss in {LossType.L1_SPARSITY_REGULARIZATION}:
             updateBN()
-        print('test1:',test(model))
         if args.loss in {LossType.LOG_QUANTIZATION}:
             log_quantization(model)
-        print('test2:',test(model))
         optimizer.step()
-        print('test3:',test(model))
         if args.loss in {LossType.LOG_QUANTIZATION}:
             freeze_weights(model,old_model)
-        print('test4:',test(model))
         compare_models(model,old_model)
         if args.loss in {LossType.POLARIZATION,
                          LossType.L2_POLARIZATION,
@@ -791,6 +788,7 @@ def train(epoch):
             global_step, epoch, batch_idx * len(data), len(train_loader.dataset),
                                 100. * batch_idx / len(train_loader), avg_loss / len(train_loader)))
         break
+    print('test2:',test(model))
 
     history_score[epoch][0] = avg_loss / len(train_loader)
     history_score[epoch][1] = float(train_acc) / float(total_data)
