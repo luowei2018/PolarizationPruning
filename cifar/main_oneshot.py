@@ -587,29 +587,33 @@ def prune_by_mask(model,mask_list):
             bn_module.bias.data[inactive] = 0
             ch_start += ch_len
     return pruned_model
-        
-def log_quantization(model):
-    bn_modules,convs = model.get_sparse_layers_and_convs()
+   
+def freeze_weights(model,old_model):
+    bns1,convs1 = model.get_sparse_layers_and_convs()
+    bns2,convs2 = old_model.get_sparse_layers_and_convs()
     ch_start = 0
-    for conv,bn in zip(convs,bn_modules):
-        ch_len = conv.weight.grad.data.size(0)
+    for conv1,bn1,conv2,bn2 in zip(convs1,bns1,convs2,bns2):
+        ch_len = conv1.weight.data.size(0)
         for freeze_mask in args.mask_list[:args.current_stage]:
             if freeze_mask is None:continue
             with torch.no_grad():
                 freeze_mask = freeze_mask[ch_start:ch_start+ch_len] == 1
-                bn.weight.grad[:]=0#[freeze_mask] = 0
+                bn1.weight.data[freeze_mask] = bn2.weight.data[freeze_mask].clone().detach()
                 if hasattr(bn, 'bias') and bn.bias is not None:
-                    bn.bias.grad[:]=0#[freeze_mask] = 0
+                    bn1.bias.data[freeze_mask] = bn2.bias.data[freeze_mask].clone().detach()
                 if isinstance(conv, nn.Conv2d):
-                    conv.weight.grad[:]=0#[freeze_mask, :, :, :] = 0
+                    conv1.weight.data[freeze_mask, :, :, :] = conv2.weight.data[freeze_mask, :, :, :].clone().detach()
                 else:
-                    conv.weight.grad[:]=0#[freeze_mask, :] = 0
+                    conv1.weight.data[freeze_mask, :] = conv2.weight.data[freeze_mask, :].clone().detach()
                 if hasattr(conv, 'bias') and conv.bias is not None:
-                    conv.bias.grad=None
+                    conv1.bias.data[freeze_mask] = conv2.bias.data[freeze_mask].clone().detach()
         ch_start += ch_len
+        
+def log_quantization(model):
     if args.current_stage == args.stages - 1:
         return
         
+    bn_modules = model.get_sparse_layers()
     shrink,targeted = assign_to_indices(bn_modules)
     # update mask of current stage
     if len(args.mask_list) < args.current_stage+1:
@@ -758,9 +762,10 @@ def train(epoch):
         if args.loss in {LossType.L1_SPARSITY_REGULARIZATION}:
             updateBN()
         if args.loss in {LossType.LOG_QUANTIZATION}:
-            log_quantization(model)
-        compare_models(model,old_model)
+            log_quantization(model,old_model)
         optimizer.step()
+        if args.loss in {LossType.LOG_QUANTIZATION}:
+            freeze_weights(model,old_model)
         compare_models(model,old_model)
         if args.loss in {LossType.POLARIZATION,
                          LossType.L2_POLARIZATION,
