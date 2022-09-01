@@ -598,8 +598,8 @@ def freeze_weights(model,old_model):
             if freeze_mask is None:continue
             with torch.no_grad():
                 freeze_mask = freeze_mask[ch_start:ch_start+ch_len] == 1
-                bn1.weight.data[freeze_mask] = bn2.weight.data[freeze_mask].clone().detach()
-                #bn1.weight.data = bn2.weight.data.clone().detach()
+                #bn1.weight.data[freeze_mask] = bn2.weight.data[freeze_mask].clone().detach()
+                bn1.weight.data = bn2.weight.data.clone().detach()
                 if hasattr(bn1, 'bias') and bn1.bias is not None:
                     #bn1.bias.data[freeze_mask] = bn2.bias.data[freeze_mask].clone().detach()
                     bn1.bias.data = bn2.bias.data.clone().detach()
@@ -611,6 +611,7 @@ def freeze_weights(model,old_model):
                 if hasattr(conv1, 'bias') and conv1.bias is not None:
                     conv1.bias.data[freeze_mask] = conv2.bias.data[freeze_mask].clone().detach()
         ch_start += ch_len
+    print(model.conv1.weight.data,old_model.conv1.weight.data)
     
     model.conv1.weight.data = old_model.conv1.weight.data.clone().detach()
     model.bn1.weight.data = old_model.bn1.weight.data.clone().detach()
