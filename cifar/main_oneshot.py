@@ -600,7 +600,8 @@ def log_quantization(model):
             if freeze_mask is None:continue
             with torch.no_grad():
                 #freeze_mask = freeze_mask[ch_start:ch_start+ch_len] == 1
-                bn.weight.grad.data[freeze_mask==0] = 0
+                freeze_mask = freeze_mask == 0
+                bn.weight.grad.data[freeze_mask] = 0
                 if hasattr(bn, 'bias') and bn.bias is not None:
                     bn.bias.grad.data[freeze_mask] = 0
                 if isinstance(conv, nn.Conv2d):
