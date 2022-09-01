@@ -634,9 +634,8 @@ def print_model(model):
     ch_start = 0
     for conv,bn in zip(convs,bn_modules):
         ch_len = conv.weight.data.size(0)
-        print('conv:',conv.weight.data)
-        if hasattr(conv.weight,'grad') and conv.weight.grad is not None:
-            print(conv.weight.grad.data)
+        #print('conv:',conv.weight.data)
+        #if hasattr(conv.weight,'grad') and conv.weight.grad is not None:print(conv.weight.grad.data)
         print('bn:',bn.weight.data)
         if hasattr(bn.weight,'grad') and bn.weight.grad is not None:
             print(bn.weight.grad.data)
@@ -730,7 +729,6 @@ def train(epoch):
     train_acc = 0.
     total_data = 0
     train_iter = tqdm(train_loader)
-    print_model(model)
     for batch_idx, (data, target) in enumerate(train_iter):
         if args.cuda:
             data, target = data.cuda(), target.cuda()
@@ -754,6 +752,7 @@ def train(epoch):
                                         weight_max=args.weight_max, weight_min=args.weight_min)
             loss += sparsity_loss
             avg_sparsity_loss += sparsity_loss.data.item()
+        print_model(model)
         loss.backward()
         if args.loss in {LossType.L1_SPARSITY_REGULARIZATION}:
             updateBN()
