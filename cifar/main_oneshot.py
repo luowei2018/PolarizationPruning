@@ -598,10 +598,13 @@ def log_quantization(model):
             with torch.no_grad():
                 freeze_mask = freeze_mask[ch_start:ch_start+ch_len] == 1
                 bn.weight.grad.data[freeze_mask] = 0
+                bn.bias.grad.data[freeze_mask] = 0
                 if isinstance(conv, nn.Conv2d):
                     conv.weight.grad.data[freeze_mask, :, :, :] = 0
+                    conv.bias.grad.data[freeze_mask, :, :, :] = 0
                 else:
                     conv.weight.grad.data[freeze_mask, :] = 0
+                    conv.bias.grad.data[freeze_mask, :] = 0
         ch_start += ch_len
     if args.current_stage == args.stages - 1:
         return
@@ -686,6 +689,7 @@ def prune_while_training(model: nn.Module, arch: str, prune_mode: str, num_class
     baseline_flops = compute_conv_flops(model, cuda=True)
         
     inplace_precs = []
+    print(args.mask_list)
     for i in range(min(3,len(args.mask_list))):
         inplace_precs += [test(prune_by_mask(model,args.mask_list[:i+1]))]
     
