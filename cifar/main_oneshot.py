@@ -778,6 +778,7 @@ def train(epoch):
         if args.loss in {LossType.LOG_QUANTIZATION}:
             log_quantization(model)
         optimizer.step()
+        compare_models(model,old_model)
         if args.loss in {LossType.LOG_QUANTIZATION}:
             freeze_weights(model,old_model)
         compare_models(model,old_model)
