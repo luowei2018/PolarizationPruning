@@ -612,11 +612,11 @@ def freeze_weights(model,old_model):
                     conv1.bias.data[freeze_mask] = conv2.bias.data[freeze_mask].clone().detach()
         ch_start += ch_len
     
-    model.conv1.weight.data = old_model.conv1.weight.data.clone().detach()
-    model.bn1.weight.data = old_model.bn1.weight.data.clone().detach()
-    model.bn1.bias.data = old_model.bn1.bias.data.clone().detach()
-    model.linear.weight.data = old_model.linear.weight.data.clone().detach()
-    model.linear.bias.data = old_model.linear.bias.data.clone().detach()
+    #model.conv1.weight.data = old_model.conv1.weight.data.clone().detach()
+    #model.bn1.weight.data = old_model.bn1.weight.data.clone().detach()
+    #model.bn1.bias.data = old_model.bn1.bias.data.clone().detach()
+    #model.linear.weight.data = old_model.linear.weight.data.clone().detach()
+    #model.linear.bias.data = old_model.linear.bias.data.clone().detach()
     compare_models(old_model,model)
             
 def compare_models(old,new):
