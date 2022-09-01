@@ -639,10 +639,6 @@ def compare_models(old,new):
         for freeze_mask in args.mask_list[:args.current_stage]:
             if freeze_mask is None:continue
             freeze_mask = freeze_mask[ch_start:ch_start+ch_len] == 1
-            print(freeze_mask.tolist())
-            print('comp1:',bn1.weight.data.tolist())
-            print('comp2:',bn2.weight.data.tolist())
-            print('grad1:',bn1.weight.grad,bn1.weight._grad)
             assert torch.equal(conv1.weight.data[freeze_mask, :, :, :], conv2.weight.data[freeze_mask, :, :, :])
             assert torch.equal(bn1.weight.data[freeze_mask], bn2.weight.data[freeze_mask])
             assert torch.equal(bn1.bias.data[freeze_mask], bn2.bias.data[freeze_mask])
@@ -762,7 +758,7 @@ def train(epoch):
         if args.loss in {LossType.L1_SPARSITY_REGULARIZATION}:
             updateBN()
         if args.loss in {LossType.LOG_QUANTIZATION}:
-            log_quantization(model,old_model)
+            log_quantization(model)
         optimizer.step()
         if args.loss in {LossType.LOG_QUANTIZATION}:
             freeze_weights(model,old_model)
