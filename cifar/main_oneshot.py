@@ -657,6 +657,10 @@ def compare_models(old,new):
             assert torch.equal(bn1.weight.data, bn2.weight.data)
             assert torch.equal(bn1.bias.data, bn2.bias.data)
         ch_start += ch_len
+        
+    for (name1, param1), (name2, param2) in zip(old.named_parameters(),new.named_parameters()):
+        param2.data = param1.data.clone().detach()
+        assert torch.equal(param1.data,param2.data)
     
 def factor_visualization(iter, model, prec):
     scale_factors = torch.tensor([]).cuda()
