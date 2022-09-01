@@ -616,7 +616,7 @@ def log_quantization(model):
         args.mask_list.append(targeted.clone().detach())
     else:
         args.mask_list[-1] = targeted.clone().detach()
-    return
+    
     ch_start = 0
     for bn_module in bn_modules:
         with torch.no_grad():
@@ -754,9 +754,12 @@ def train(epoch):
         loss.backward()
         if args.loss in {LossType.L1_SPARSITY_REGULARIZATION}:
             updateBN()
+        compare_models(model,old_model)
         if args.loss in {LossType.LOG_QUANTIZATION}:
             log_quantization(model)
+        compare_models(model,old_model)
         optimizer.step()
+        compare_models(model,old_model)
         if args.loss in {LossType.POLARIZATION,
                          LossType.L2_POLARIZATION,
                          LossType.LOG_QUANTIZATION}:
@@ -766,7 +769,6 @@ def train(epoch):
             'Step: {} Train Epoch: {} [{}/{} ({:.1f}%)]. Loss: {:.6f}'.format(
             global_step, epoch, batch_idx * len(data), len(train_loader.dataset),
                                 100. * batch_idx / len(train_loader), avg_loss / len(train_loader)))
-        compare_models(model,old_model)
         break
 
     history_score[epoch][0] = avg_loss / len(train_loader)
