@@ -594,29 +594,29 @@ def freeze_weights(model,old_model):
     ch_start = 0
     for conv1,bn1,conv2,bn2 in zip(convs1,bns1,convs2,bns2):
         ch_len = conv1.weight.data.size(0)
+        bn1.weight.data = bn2.weight.data.clone().detach()
+        bn1.bias.data = bn2.bias.data.clone().detach()
+        conv1.weight.data = conv2.weight.data.clone().detach()
         for freeze_mask in args.mask_list[:args.current_stage]:
             if freeze_mask is None:continue
             with torch.no_grad():
                 freeze_mask = freeze_mask[ch_start:ch_start+ch_len] == 1
-                #bn1.weight.data[freeze_mask] = bn2.weight.data[freeze_mask].clone().detach()
-                bn1.weight.data = bn2.weight.data.clone().detach()
+                bn1.weight.data[freeze_mask] = bn2.weight.data[freeze_mask].clone().detach()
                 if hasattr(bn1, 'bias') and bn1.bias is not None:
-                    #bn1.bias.data[freeze_mask] = bn2.bias.data[freeze_mask].clone().detach()
-                    bn1.bias.data = bn2.bias.data.clone().detach()
+                    bn1.bias.data[freeze_mask] = bn2.bias.data[freeze_mask].clone().detach()
                 if isinstance(conv1, nn.Conv2d):
-                    #conv1.weight.data[freeze_mask, :, :, :] = conv2.weight.data[freeze_mask, :, :, :].clone().detach()
-                    conv1.weight.data = conv2.weight.data.clone().detach()
+                    conv1.weight.data[freeze_mask, :, :, :] = conv2.weight.data[freeze_mask, :, :, :].clone().detach()
                 else:
                     conv1.weight.data[freeze_mask, :] = conv2.weight.data[freeze_mask, :].clone().detach()
                 if hasattr(conv1, 'bias') and conv1.bias is not None:
                     conv1.bias.data[freeze_mask] = conv2.bias.data[freeze_mask].clone().detach()
         ch_start += ch_len
     
-    #model.conv1.weight.data = old_model.conv1.weight.data.clone().detach()
-    #model.bn1.weight.data = old_model.bn1.weight.data.clone().detach()
-    #model.bn1.bias.data = old_model.bn1.bias.data.clone().detach()
-    #model.linear.weight.data = old_model.linear.weight.data.clone().detach()
-    #model.linear.bias.data = old_model.linear.bias.data.clone().detach()
+    model.conv1.weight.data = old_model.conv1.weight.data.clone().detach()
+    model.bn1.weight.data = old_model.bn1.weight.data.clone().detach()
+    model.bn1.bias.data = old_model.bn1.bias.data.clone().detach()
+    model.linear.weight.data = old_model.linear.weight.data.clone().detach()
+    model.linear.bias.data = old_model.linear.bias.data.clone().detach()
     compare_models(old_model,model)
             
 def compare_models(old,new):
