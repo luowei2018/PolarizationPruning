@@ -637,7 +637,7 @@ def compare_models(old,new):
             freeze_mask = freeze_mask[ch_start:ch_start+ch_len] == 1
             print('comp1:',bn1.weight.data[freeze_mask])
             print('comp2:',bn2.weight.data[freeze_mask])
-            print('grad2:',bn2.weight.grad.data[freeze_mask])
+            print('grad1:',bn2.weight.grad.data[freeze_mask])
             assert torch.equal(conv1.weight.data[freeze_mask, :, :, :], conv2.weight.data[freeze_mask, :, :, :])
             assert torch.equal(bn1.weight.data[freeze_mask], bn2.weight.data[freeze_mask])
             assert torch.equal(bn1.bias.data[freeze_mask], bn2.bias.data[freeze_mask])
