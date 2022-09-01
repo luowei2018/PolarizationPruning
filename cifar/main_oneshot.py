@@ -730,6 +730,7 @@ def train(epoch):
     train_acc = 0.
     total_data = 0
     train_iter = tqdm(train_loader)
+    print_model(model)
     for batch_idx, (data, target) in enumerate(train_iter):
         if args.cuda:
             data, target = data.cuda(), target.cuda()
