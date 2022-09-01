@@ -659,7 +659,7 @@ def compare_models(old,new):
         ch_start += ch_len
         
     for (name1, param1), (name2, param2) in zip(old.named_parameters(),new.named_parameters()):
-        assert torch.equal(param1.data,param2.data)
+        assert torch.equal(param1.data,param2.data),name1 + name2
     
 def factor_visualization(iter, model, prec):
     scale_factors = torch.tensor([]).cuda()
