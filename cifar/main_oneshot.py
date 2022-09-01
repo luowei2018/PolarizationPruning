@@ -637,7 +637,6 @@ def compare_models(old,new):
             assert torch.equal(bn1.weight.data, bn2.weight.data)
             assert torch.equal(bn1.bias.data, bn2.bias.data)
         ch_start += ch_len
-    print(test(old),test(new))
         
 def log_quantization(model):
     if args.current_stage == args.stages - 1:
@@ -772,11 +771,15 @@ def train(epoch):
         loss.backward()
         if args.loss in {LossType.L1_SPARSITY_REGULARIZATION}:
             updateBN()
+        print('test1:',test(model))
         if args.loss in {LossType.LOG_QUANTIZATION}:
             log_quantization(model)
+        print('test2:',test(model))
         optimizer.step()
+        print('test3:',test(model))
         if args.loss in {LossType.LOG_QUANTIZATION}:
             freeze_weights(model,old_model)
+        print('test4:',test(model))
         compare_models(model,old_model)
         if args.loss in {LossType.POLARIZATION,
                          LossType.L2_POLARIZATION,
