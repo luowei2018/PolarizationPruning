@@ -890,7 +890,7 @@ for args.current_stage in range(args.start_stage, args.stages):
         #factor_visualization(epoch, model, prec1)
 
         # flops
-        prune_while_training(model, arch=args.arch,prune_mode="default",num_classes=num_classes)
+        #prune_while_training(model, arch=args.arch,prune_mode="default",num_classes=num_classes)
     print("Best accuracy: " + str(best_prec1))
     prec1_list += [prec1]
 print(prec1_list)
