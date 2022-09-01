@@ -593,9 +593,10 @@ def log_quantization(model):
     ch_start = 0
     for conv,bn in zip(convs,bn_modules):
         ch_len = conv.weight.grad.data.size(0)
-        for freeze_mask in args.mask_list[:args.current_stage]:
-            freeze_mask = torch.ones(ch_len).long().cuda()
-            freeze_mask[:ch_len//2] = 0
+        freeze_mask = torch.ones(ch_len).long().cuda()
+        freeze_mask[:ch_len//2] = 0
+        test_list = [freeze_mask]
+        for freeze_mask in test_list:#args.mask_list[:args.current_stage]:
             if freeze_mask is None:continue
             with torch.no_grad():
                 freeze_mask = freeze_mask[ch_start:ch_start+ch_len] == 1
