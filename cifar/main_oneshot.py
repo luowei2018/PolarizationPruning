@@ -591,12 +591,13 @@ def prune_by_mask(model,mask_list):
 def log_quantization(model):
     bn_modules,convs = model.get_sparse_layers_and_convs()
     ch_start = 0
-    for conv in convs:
+    for conv,bn in zip(convs,bn_modules):
         ch_len = conv.weight.grad.data.size(0)
         for freeze_mask in args.mask_list[:args.current_stage]:
             if freeze_mask is None:continue
             with torch.no_grad():
                 freeze_mask = freeze_mask[ch_start:ch_start+ch_len] == 1
+                bn.weight.grad.data[freeze_mask] = 0
                 if isinstance(conv, nn.Conv2d):
                     conv.weight.grad.data[freeze_mask, :, :, :] = 0
                 else:
@@ -685,7 +686,7 @@ def prune_while_training(model: nn.Module, arch: str, prune_mode: str, num_class
     baseline_flops = compute_conv_flops(model, cuda=True)
         
     inplace_precs = []
-    for i in range(max(3,len(args.mask_list))):
+    for i in range(min(3,len(args.mask_list))):
         inplace_precs += [test(prune_by_mask(model,args.mask_list[:i+1]))]
     
     print_str = ''
@@ -812,7 +813,7 @@ if args.evaluate:
                        num_classes=num_classes)
 
 for args.current_stage in range(args.start_stage, args.stages):
-    for epoch in range(args.start_epoch, 2):
+    for epoch in range(args.start_epoch, 1):
         if args.max_epoch is not None and epoch >= args.max_epoch:
             break
 
