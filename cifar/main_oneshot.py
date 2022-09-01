@@ -23,6 +23,7 @@ from models.resnet_expand import BasicBlock
 import seaborn as sns
 import matplotlib.pyplot as plt
 from tqdm import tqdm
+import copy
 
 # Training settings
 parser = argparse.ArgumentParser(description='PyTorch CIFAR training with Polarization')
@@ -727,7 +728,7 @@ def train(epoch):
     total_data = 0
     train_iter = tqdm(train_loader)
     for batch_idx, (data, target) in enumerate(train_iter):
-        old_model = model.clone().detach()
+        old_model = copy.deepcopy(model)
         if args.cuda:
             data, target = data.cuda(), target.cuda()
         optimizer.zero_grad()
