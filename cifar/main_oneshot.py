@@ -616,7 +616,7 @@ def log_quantization(model):
         args.mask_list.append(targeted.clone().detach())
     else:
         args.mask_list[-1] = targeted.clone().detach()
-        
+    return
     ch_start = 0
     for bn_module in bn_modules:
         with torch.no_grad():
