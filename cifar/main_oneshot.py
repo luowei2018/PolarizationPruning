@@ -660,7 +660,7 @@ def compare_models(old,new):
         
     for (name1, param1), (name2, param2) in zip(old.named_parameters(),new.named_parameters()):
         if not torch.equal(param1.data,param2.data):
-            print(name1)
+            print('Not equal:',name1)
     exit(0)
     
 def factor_visualization(iter, model, prec):
