@@ -624,6 +624,18 @@ def log_quantization(model):
             shrink_mask = shrink[ch_start:ch_start+ch_len] == 1
             bn_module.weight.data[shrink_mask] -= args.lbd * args.current_lr * 400
             ch_start += ch_len
+            
+def print_model(model):
+    bn_modules,convs = model.get_sparse_layers_and_convs()
+    ch_start = 0
+    for conv,bn in zip(convs,bn_modules):
+        freeze_mask = freeze_mask[ch_start:ch_start+ch_len] == 1
+        print(conv.weight.data)
+        print(bn.weight.data)
+        print(bn.bias.data)
+        print(freeze_mask)
+        ch_start += ch_len
+        break
     
 def factor_visualization(iter, model, prec):
     scale_factors = torch.tensor([]).cuda()
@@ -738,9 +750,12 @@ def train(epoch):
         loss.backward()
         if args.loss in {LossType.L1_SPARSITY_REGULARIZATION}:
             updateBN()
+        if args.current_stage==1: print_model(model)
         if args.loss in {LossType.LOG_QUANTIZATION}:
             log_quantization(model)
+        if args.current_stage==1: print_model(model)
         optimizer.step()
+        if args.current_stage==1: print_model(model)
         if args.loss in {LossType.POLARIZATION,
                          LossType.L2_POLARIZATION,
                          LossType.LOG_QUANTIZATION}:
@@ -750,6 +765,7 @@ def train(epoch):
             'Step: {} Train Epoch: {} [{}/{} ({:.1f}%)]. Loss: {:.6f}'.format(
             global_step, epoch, batch_idx * len(data), len(train_loader.dataset),
                                 100. * batch_idx / len(train_loader), avg_loss / len(train_loader)))
+        break
 
     history_score[epoch][0] = avg_loss / len(train_loader)
     history_score[epoch][1] = float(train_acc) / float(total_data)
