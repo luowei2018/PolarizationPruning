@@ -633,9 +633,12 @@ def print_model(model):
         for freeze_mask in args.mask_list[:args.current_stage]:
             freeze_mask = freeze_mask[ch_start:ch_start+ch_len] == 1
             print('fm:',freeze_mask)
-        print(conv.weight.data)
-        print(bn.weight.data)
+        print('conv:',conv.weight.data)
+        print(conv.weight.grad.data)
+        print('bn:',bn.weight.data)
+        print(bn.weight.grad.data)
         print(bn.bias.data)
+        print(bn.bias.grad.data)
         ch_start += ch_len
         break
     
@@ -752,7 +755,6 @@ def train(epoch):
         loss.backward()
         if args.loss in {LossType.L1_SPARSITY_REGULARIZATION}:
             updateBN()
-        print_model(model)
         if args.loss in {LossType.LOG_QUANTIZATION}:
             log_quantization(model)
         print_model(model)
