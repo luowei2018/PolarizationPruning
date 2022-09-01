@@ -626,6 +626,7 @@ def log_quantization(model):
             ch_start += ch_len
             
 def compare_models(old,new):
+    print('-----------Model Checking-------------')
     bns1,convs1 = old.get_sparse_layers_and_convs()
     bns2,convs2 = new.get_sparse_layers_and_convs()
     ch_start = 0
