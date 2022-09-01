@@ -579,12 +579,14 @@ def prune_by_mask(model,mask_list):
             tokeep += freeze_mask.clone().detach()
         
     ch_start = 0
+    print('-----------------PRUNE-----------------')
     for bn_module in bn_modules:
         with torch.no_grad():
             ch_len = len(bn_module.weight.data)
             inactive = tokeep[ch_start:ch_start+ch_len]==0
             bn_module.weight.data[inactive] = 0
             bn_module.bias.data[inactive] = 0
+            print(bn_module.weight.data.tolist())
             ch_start += ch_len
     return pruned_model
    
@@ -761,8 +763,7 @@ def train(epoch):
             log_quantization(model)
         optimizer.step()
         if args.loss in {LossType.LOG_QUANTIZATION}:
-            pass
-            #freeze_weights(model,old_model)
+            freeze_weights(model,old_model)
         compare_models(model,old_model)
         if args.loss in {LossType.POLARIZATION,
                          LossType.L2_POLARIZATION,
