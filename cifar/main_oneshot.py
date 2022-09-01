@@ -772,15 +772,11 @@ def train(epoch):
         loss.backward()
         if args.loss in {LossType.L1_SPARSITY_REGULARIZATION}:
             updateBN()
-        print('test1:',test(model))
         if args.loss in {LossType.LOG_QUANTIZATION}:
             log_quantization(model)
-        print('test2:',test(model))
         optimizer.step()
-        print('test3:',test(model))
         if args.loss in {LossType.LOG_QUANTIZATION}:
             freeze_weights(model,old_model)
-        print('test4:',test(model))
         compare_models(model,old_model)
         if args.loss in {LossType.POLARIZATION,
                          LossType.L2_POLARIZATION,
@@ -892,7 +888,7 @@ for args.current_stage in range(args.start_stage, args.stages):
         #factor_visualization(epoch, model, prec1)
 
         # flops
-        #prune_while_training(model, arch=args.arch,prune_mode="default",num_classes=num_classes)
+        prune_while_training(model, arch=args.arch,prune_mode="default",num_classes=num_classes)
     print("Best accuracy: " + str(best_prec1))
     prec1_list += [prec1]
 print(prec1_list)
