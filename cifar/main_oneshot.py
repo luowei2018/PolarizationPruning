@@ -619,7 +619,6 @@ def freeze_weights(model,old_model):
     model.linear.bias.data = old_model.linear.bias.data.clone().detach()
             
 def compare_models(old,new):
-    print('-----------Model Checking-------------')
     #for name, param in new.named_parameters(): print(name, param.size())
     #exit(0)
     bns1,convs1 = old.get_sparse_layers_and_convs()
