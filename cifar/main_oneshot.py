@@ -635,11 +635,8 @@ def print_model(model):
     for conv,bn in zip(convs,bn_modules):
         ch_len = conv.weight.data.size(0)
         print('conv:',conv.weight.data)
-        print(conv.weight.grad.data)
-        print('bn:',bn.weight.data)
-        print(bn.weight.grad.data)
-        print(bn.bias.data)
-        print(bn.bias.grad.data)
+        if hasattr(conv.weight,'grad') and conv.weight.grad is not None:
+            print(conv.weight.grad.data)
         ch_start += ch_len
         break
     
