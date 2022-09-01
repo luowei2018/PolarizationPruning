@@ -704,7 +704,8 @@ def prune_while_training(model: nn.Module, arch: str, prune_mode: str, num_class
 
     baseline_flops = compute_conv_flops(model, cuda=True)
         
-    print(args.mask_list)
+    for xx in args.mask_list:
+        print(xx.tolist())
     inplace_precs = []
     for i in range(min(3,len(args.mask_list))):
         inplace_precs += [test(prune_by_mask(model,args.mask_list[:i+1]))]
