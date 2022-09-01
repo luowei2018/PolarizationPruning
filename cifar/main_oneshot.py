@@ -637,9 +637,8 @@ def log_quantization(model):
             
 def compare_models(old,new):
     print('-----------Model Checking-------------')
-    for name, param in new.named_parameters():
-        print(name, param.size())
-    exit(0)
+    #for name, param in new.named_parameters(): print(name, param.size())
+    #exit(0)
     bns1,convs1 = old.get_sparse_layers_and_convs()
     bns2,convs2 = new.get_sparse_layers_and_convs()
     ch_start = 0
