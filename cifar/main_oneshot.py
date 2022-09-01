@@ -754,9 +754,9 @@ def train(epoch):
             avg_sparsity_loss += sparsity_loss.data.item()
         print_model(model)
         loss.backward()
-        print_model(model)
         if args.loss in {LossType.L1_SPARSITY_REGULARIZATION}:
             updateBN()
+        print_model(model)
         if args.loss in {LossType.LOG_QUANTIZATION}:
             log_quantization(model)
         print_model(model)
