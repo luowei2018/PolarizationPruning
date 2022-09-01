@@ -629,6 +629,7 @@ def print_model(model):
     bn_modules,convs = model.get_sparse_layers_and_convs()
     ch_start = 0
     for conv,bn in zip(convs,bn_modules):
+        ch_len = conv.weight.data.size(0)
         for freeze_mask in args.mask_list[:args.current_stage]:
             freeze_mask = freeze_mask[ch_start:ch_start+ch_len] == 1
             print('fm:',freeze_mask)
