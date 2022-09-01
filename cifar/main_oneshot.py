@@ -610,6 +610,12 @@ def freeze_weights(model,old_model):
                 if hasattr(conv1, 'bias') and conv1.bias is not None:
                     conv1.bias.data[freeze_mask] = conv2.bias.data[freeze_mask].clone().detach()
         ch_start += ch_len
+    
+    model.conv1.weight.data = old_model.conv1.weight.data.clone().detach()
+    model.bn1.weight.data = old_model.bn1.weight.data.clone().detach()
+    model.bn1.bias.data = old_model.bn1.bias.data.clone().detach()
+    model.linear.weight.data = old_model.linear.weight.data.clone().detach()
+    model.linear.bias.data = old_model.linear.bias.data.clone().detach()
         
 def log_quantization(model):
     if args.current_stage == args.stages - 1:
@@ -633,9 +639,6 @@ def log_quantization(model):
             
 def compare_models(old,new):
     print('-----------Model Checking-------------')
-    for m in new.modules():
-        print(m)
-    exit(0)
     bns1,convs1 = old.get_sparse_layers_and_convs()
     bns2,convs2 = new.get_sparse_layers_and_convs()
     ch_start = 0
