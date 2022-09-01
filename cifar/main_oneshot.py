@@ -597,13 +597,13 @@ def log_quantization(model):
             if freeze_mask is None:continue
             with torch.no_grad():
                 freeze_mask = freeze_mask[ch_start:ch_start+ch_len] == 1
-                bn.weight.grad=0#[freeze_mask] = 0
+                bn.weight.grad[:]=0#[freeze_mask] = 0
                 if hasattr(bn, 'bias') and bn.bias is not None:
-                    bn.bias.grad=0#[freeze_mask] = 0
+                    bn.bias.grad[:]=0#[freeze_mask] = 0
                 if isinstance(conv, nn.Conv2d):
-                    conv.weight.grad=0#[freeze_mask, :, :, :] = 0
+                    conv.weight.grad[:]=0#[freeze_mask, :, :, :] = 0
                 else:
-                    conv.weight.grad=0#[freeze_mask, :] = 0
+                    conv.weight.grad[:]=0#[freeze_mask, :] = 0
                 if hasattr(conv, 'bias') and conv.bias is not None:
                     conv.bias.grad=None
         ch_start += ch_len
@@ -638,7 +638,7 @@ def compare_models(old,new):
             print(freeze_mask.tolist())
             print('comp1:',bn1.weight.data.tolist())
             print('comp2:',bn2.weight.data.tolist())
-            print('grad1:',bn1.weight.grad)
+            print('grad1:',bn1.weight.grad,bn1.weight._grad)
             assert torch.equal(conv1.weight.data[freeze_mask, :, :, :], conv2.weight.data[freeze_mask, :, :, :])
             assert torch.equal(bn1.weight.data[freeze_mask], bn2.weight.data[freeze_mask])
             assert torch.equal(bn1.bias.data[freeze_mask], bn2.bias.data[freeze_mask])
