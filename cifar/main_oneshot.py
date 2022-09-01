@@ -611,7 +611,7 @@ def log_quantization(model):
         return
         
     shrink,targeted = assign_to_indices(bn_modules)
-    print('test:',shrink.sum(),targeted.sum())
+    print('test:',shrink.sum(),targeted.sum(),(shrink+targeted).sum())
     # update mask of current stage
     if len(args.mask_list) < args.current_stage+1:
         args.mask_list.append(targeted.clone().detach())
