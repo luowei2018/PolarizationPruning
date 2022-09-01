@@ -609,7 +609,7 @@ def freeze_weights(model,old_model):
                     conv1.bias.data[freeze_mask] = conv2.bias.data[freeze_mask].clone().detach()
         ch_start += ch_len
         
-    for name1, param1, name2, param2 in zip(*old_model.named_parameters(),*model.named_parameters()):
+    for name1, param1, name2, param2 in zip(old_model.named_parameters(),model.named_parameters()):
         param2.data = param1.data.clone().detach()
     
     model.conv1.weight.data = old_model.conv1.weight.data.clone().detach()
