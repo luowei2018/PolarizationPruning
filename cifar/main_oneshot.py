@@ -598,11 +598,14 @@ def freeze_weights(model,old_model):
             if freeze_mask is None:continue
             with torch.no_grad():
                 freeze_mask = freeze_mask[ch_start:ch_start+ch_len] == 1
-                bn1.weight.data[freeze_mask] = bn2.weight.data[freeze_mask].clone().detach()
+                #bn1.weight.data[freeze_mask] = bn2.weight.data[freeze_mask].clone().detach()
+                bn1.weight.data = bn2.weight.data.clone().detach()
                 if hasattr(bn1, 'bias') and bn1.bias is not None:
-                    bn1.bias.data[freeze_mask] = bn2.bias.data[freeze_mask].clone().detach()
+                    #bn1.bias.data[freeze_mask] = bn2.bias.data[freeze_mask].clone().detach()
+                    bn1.bias.data = bn2.bias.data.clone().detach()
                 if isinstance(conv1, nn.Conv2d):
-                    conv1.weight.data[freeze_mask, :, :, :] = conv2.weight.data[freeze_mask, :, :, :].clone().detach()
+                    #conv1.weight.data[freeze_mask, :, :, :] = conv2.weight.data[freeze_mask, :, :, :].clone().detach()
+                    conv1.weight.data = conv2.weight.data.clone().detach()
                 else:
                     conv1.weight.data[freeze_mask, :] = conv2.weight.data[freeze_mask, :].clone().detach()
                 if hasattr(conv1, 'bias') and conv1.bias is not None:
@@ -626,7 +629,7 @@ def log_quantization(model):
         args.mask_list.append(targeted.clone().detach())
     else:
         args.mask_list[-1] = targeted.clone().detach()
-    return
+    
     ch_start = 0
     for bn_module in bn_modules:
         with torch.no_grad():
@@ -647,9 +650,12 @@ def compare_models(old,new):
         for freeze_mask in args.mask_list[:args.current_stage]:
             if freeze_mask is None:continue
             freeze_mask = freeze_mask[ch_start:ch_start+ch_len] == 1
-            assert torch.equal(conv1.weight.data[freeze_mask, :, :, :], conv2.weight.data[freeze_mask, :, :, :])
-            assert torch.equal(bn1.weight.data[freeze_mask], bn2.weight.data[freeze_mask])
-            assert torch.equal(bn1.bias.data[freeze_mask], bn2.bias.data[freeze_mask])
+            #assert torch.equal(conv1.weight.data[freeze_mask, :, :, :], conv2.weight.data[freeze_mask, :, :, :])
+            #assert torch.equal(bn1.weight.data[freeze_mask], bn2.weight.data[freeze_mask])
+            #assert torch.equal(bn1.bias.data[freeze_mask], bn2.bias.data[freeze_mask])
+            assert torch.equal(conv1.weight.data, conv2.weight.data)
+            assert torch.equal(bn1.weight.data, bn2.weight.data)
+            assert torch.equal(bn1.bias.data, bn2.bias.data)
         ch_start += ch_len
     
 def factor_visualization(iter, model, prec):
@@ -767,7 +773,7 @@ def train(epoch):
             updateBN()
         if args.loss in {LossType.LOG_QUANTIZATION}:
             log_quantization(model)
-        #optimizer.step()
+        optimizer.step()
         if args.loss in {LossType.LOG_QUANTIZATION}:
             freeze_weights(model,old_model)
         compare_models(model,old_model)
