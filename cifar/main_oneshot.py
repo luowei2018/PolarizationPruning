@@ -577,7 +577,7 @@ def prune_by_mask(model,mask_list):
             tokeep = freeze_mask.clone().detach()
         else:
             tokeep += freeze_mask.clone().detach()
-    print('keep:',tokeep.sum())
+    print('keep:',tokeep)
         
     ch_start = 0
     for bn_module in bn_modules:
