@@ -763,6 +763,7 @@ def train(epoch):
         if args.loss in {LossType.LOG_QUANTIZATION}:
             freeze_weights(model,old_model)
         compare_models(model,old_model)
+        model = old_model
         if args.loss in {LossType.POLARIZATION,
                          LossType.L2_POLARIZATION,
                          LossType.LOG_QUANTIZATION}:
