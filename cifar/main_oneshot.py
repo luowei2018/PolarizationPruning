@@ -584,7 +584,7 @@ def prune_by_mask(model,mask_list):
             ch_len = len(bn_module.weight.data)
             inactive = tokeep[ch_start:ch_start+ch_len]==0
             bn_module.weight.data[inactive] = 0
-            #bn_module.bias.data[inactive] = 0
+            bn_module.bias.data[inactive] = 0
             ch_start += ch_len
     #for name, param in model.named_parameters(): print(name, param.data)
     return pruned_model
@@ -610,11 +610,12 @@ def freeze_weights(model,old_model):
                     conv1.bias.data[freeze_mask] = conv2.bias.data[freeze_mask].clone().detach()
         ch_start += ch_len
     
-    model.conv1.weight.data = old_model.conv1.weight.data.clone().detach()
-    model.bn1.weight.data = old_model.bn1.weight.data.clone().detach()
-    model.bn1.bias.data = old_model.bn1.bias.data.clone().detach()
-    model.linear.weight.data = old_model.linear.weight.data.clone().detach()
-    model.linear.bias.data = old_model.linear.bias.data.clone().detach()
+    if args.current_stage >= 1:
+        model.conv1.weight.data = old_model.conv1.weight.data.clone().detach()
+        model.bn1.weight.data = old_model.bn1.weight.data.clone().detach()
+        model.bn1.bias.data = old_model.bn1.bias.data.clone().detach()
+        model.linear.weight.data = old_model.linear.weight.data.clone().detach()
+        model.linear.bias.data = old_model.linear.bias.data.clone().detach()
             
 def compare_models(old,new):
     #for name, param in new.named_parameters(): print(name, param.size())
