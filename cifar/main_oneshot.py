@@ -584,7 +584,7 @@ def prune_by_mask(model,mask_list):
             ch_len = len(bn_module.weight.data)
             inactive = tokeep[ch_start:ch_start+ch_len]==0
             bn_module.weight.data[inactive] = 0
-            #bn_module.bias.data[inactive] = 0
+            bn_module.bias.data[inactive] = 0
             ch_start += ch_len
     #for name, param in model.named_parameters(): print(name, param.data)
     return pruned_model
@@ -860,7 +860,7 @@ if args.evaluate:
 
 for args.current_stage in range(args.start_stage, args.stages):
     # init non-freezing weights
-    if False and args.loss in {LossType.LOG_QUANTIZATION} and args.current_stage >= 1:
+    if args.loss in {LossType.LOG_QUANTIZATION} and args.current_stage >= 1:
         old_model = copy.deepcopy(model)
         model._initialize_weights(1.0)
         recover_weights(model,old_model)
