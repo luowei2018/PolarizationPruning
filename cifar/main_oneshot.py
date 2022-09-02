@@ -590,6 +590,7 @@ def prune_by_mask(model,mask_list):
     return pruned_model
    
 def freeze_weights(model,old_model):
+    return
     bns1,convs1 = model.get_sparse_layers_and_convs()
     bns2,convs2 = old_model.get_sparse_layers_and_convs()
     ch_start = 0
@@ -637,6 +638,7 @@ def compare_models(old,new):
         ch_start += ch_len
         
 def log_quantization(model):
+    return
     if args.current_stage == args.stages - 1:
         return
         
