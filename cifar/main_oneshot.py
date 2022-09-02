@@ -299,7 +299,8 @@ if args.fix_gate:
 
 # build optim
 bias_decay_params = []
-if args.bias_decay != 0:
+# deprecated
+if False:
     for module_name, sub_module in model.named_modules():
         if isinstance(sub_module, nn.BatchNorm1d) or \
                 isinstance(sub_module, nn.BatchNorm2d):  
@@ -661,6 +662,8 @@ def log_quantization(model):
             ch_len = len(bn_module.weight.data)
             shrink_mask = shrink[ch_start:ch_start+ch_len] == 1
             bn_module.weight.data[shrink_mask] -= args.lbd * args.current_lr * 400
+            if args.weight_decay!=0:
+                bn_module.bias.data[shrink_mask] *= 1 - args.current_lr * args.weight_decay
             ch_start += ch_len
     
 def factor_visualization(iter, model, prec):
