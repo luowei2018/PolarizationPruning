@@ -365,7 +365,7 @@ if args.resume:
             if args.cuda:
                 model.cuda()
 
-        args.start_epoch = checkpoint['epoch']
+        args.start_epoch = 0#checkpoint['epoch']
         best_prec1 = checkpoint['best_prec1']
         model.load_state_dict(checkpoint['state_dict'])
         #optimizer.load_state_dict(checkpoint['optimizer'])
@@ -859,7 +859,7 @@ if args.evaluate:
 
 for args.current_stage in range(args.start_stage, args.stages):
     # init non-freezing weights
-    if False and args.loss in {LossType.LOG_QUANTIZATION} and args.current_stage >= 1:
+    if args.loss in {LossType.LOG_QUANTIZATION} and args.current_stage >= 1:
         old_model = copy.deepcopy(model)
         model._initialize_weights(1.0)
         recover_weights(model,old_model)
