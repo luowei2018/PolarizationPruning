@@ -110,7 +110,7 @@ parser.add_argument('--bin_mode', default=2, type=int,
                     help='Setup location of bins.')
 parser.add_argument('-e', '--evaluate', dest='evaluate', action='store_true',
                     help='evaluate model on validation set')
-parser.add_argument('--bias-decay', action='store_true',
+parser.add_argument('--bias-decay', type=int, default=0,
                     help='Apply bias decay on BatchNorm layers')
 parser.add_argument('--log-scale', action='store_true',
                     help='use log scale')
@@ -299,7 +299,7 @@ if args.fix_gate:
 
 # build optim
 bias_decay_params = []
-if args.bias_decay:
+if args.bias_decay != 0:
     for module_name, sub_module in model.named_modules():
         if isinstance(sub_module, nn.BatchNorm1d) or \
                 isinstance(sub_module, nn.BatchNorm2d):  
@@ -331,7 +331,7 @@ for param_name, model_p in model.named_parameters():
         wd_params.append(model_p)
         #print(f"Weight decay param: parameter name {param_name}")
 
-optimizer = torch.optim.SGD([{'params': list(bias_decay_params), 'weight_decay': args.weight_decay*1000},
+optimizer = torch.optim.SGD([{'params': list(bias_decay_params), 'weight_decay': args.weight_decay*args.bias_decay},
                              {'params': list(no_wd_params), 'weight_decay': 0.},
                              {'params': list(wd_params), 'weight_decay': args.weight_decay}],
                             args.lr,
