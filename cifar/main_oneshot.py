@@ -616,6 +616,8 @@ def freeze_weights(model,old_model):
         model.conv1.weight.data = old_model.conv1.weight.data.clone().detach()
         model.bn1.weight.data = old_model.bn1.weight.data.clone().detach()
         model.bn1.bias.data = old_model.bn1.bias.data.clone().detach()
+        model.bn1.running_mean.data = old_model.bn1.running_mean.data.clone().detach()
+        model.bn1.running_var.data = old_model.bn1.running_var.data.clone().detach()
         model.linear.weight.data = old_model.linear.weight.data.clone().detach()
         model.linear.bias.data = old_model.linear.bias.data.clone().detach()
             
@@ -779,7 +781,6 @@ def train(epoch):
         optimizer.step()
         if args.loss in {LossType.LOG_QUANTIZATION}:
             freeze_weights(model,old_model)
-            compare_models(model,old_model)
         if args.loss in {LossType.POLARIZATION,
                          LossType.L2_POLARIZATION,
                          LossType.LOG_QUANTIZATION}:
