@@ -595,8 +595,8 @@ def freeze_weights(model,old_model):
     ch_start = 0
     for conv1,bn1,conv2,bn2 in zip(convs1,bns1,convs2,bns2):
         ch_len = conv1.weight.data.size(0)
-        #bn1.running_mean.data = bn2.running_mean.data.clone().detach()
-        #bn1.running_var.data = bn2.running_var.data.clone().detach()
+        bn1.running_mean.data = bn2.running_mean.data.clone().detach()
+        bn1.running_var.data = bn2.running_var.data.clone().detach()
         for freeze_mask in args.mask_list[:args.current_stage]:
             if freeze_mask is None:continue
             with torch.no_grad():
@@ -740,7 +740,7 @@ def prune_while_training(model: nn.Module, arch: str, prune_mode: str, num_class
 
 def train(epoch):
     print(test(model))
-    #model.train()
+    model.train()
     global history_score, global_step
     avg_loss = 0.
     avg_sparsity_loss = 0.
