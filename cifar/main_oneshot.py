@@ -600,6 +600,8 @@ def freeze_weights(model,old_model):
             with torch.no_grad():
                 freeze_mask = freeze_mask[ch_start:ch_start+ch_len] == 1
                 bn1.weight.data[freeze_mask] = bn2.weight.data[freeze_mask].clone().detach()
+                bn1.running_mean.data = bn1.running_mean.data[freeze_mask].clone().detach()
+                bn1.running_var.data = bn2.running_var.data[freeze_mask].clone().detach()
                 if hasattr(bn1, 'bias') and bn1.bias is not None:
                     bn1.bias.data[freeze_mask] = bn2.bias.data[freeze_mask].clone().detach()
                 if isinstance(conv1, nn.Conv2d):
@@ -783,6 +785,7 @@ def train(epoch):
             'Step: {} Train Epoch: {} [{}/{} ({:.1f}%)]. Loss: {:.6f}'.format(
             global_step, epoch, batch_idx * len(data), len(train_loader.dataset),
                                 100. * batch_idx / len(train_loader), avg_loss / len(train_loader)))
+        break
 
     history_score[epoch][0] = avg_loss / len(train_loader)
     history_score[epoch][1] = float(train_acc) / float(total_data)
@@ -851,7 +854,7 @@ if args.evaluate:
                        num_classes=num_classes)
 
 for args.current_stage in range(args.start_stage, args.stages):
-    for epoch in range(args.start_epoch, args.epochs):
+    for epoch in range(args.start_epoch, 1):#args.epochs):
         if args.max_epoch is not None and epoch >= args.max_epoch:
             break
 
