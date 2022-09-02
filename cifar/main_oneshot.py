@@ -790,7 +790,6 @@ def train(epoch):
             'Step: {} Train Epoch: {} [{}/{} ({:.1f}%)]. Loss: {:.6f}'.format(
             global_step, epoch, batch_idx * len(data), len(train_loader.dataset),
                                 100. * batch_idx / len(train_loader), avg_loss / len(train_loader)))
-        break
 
     history_score[epoch][0] = avg_loss / len(train_loader)
     history_score[epoch][1] = float(train_acc) / float(total_data)
@@ -860,11 +859,11 @@ if args.evaluate:
 
 for args.current_stage in range(args.start_stage, args.stages):
     # init non-freezing weights
-    if args.loss in {LossType.LOG_QUANTIZATION} and args.current_stage >= 1:
+    if False and args.loss in {LossType.LOG_QUANTIZATION} and args.current_stage >= 1:
         old_model = copy.deepcopy(model)
         model._initialize_weights(1.0)
         recover_weights(model,old_model)
-    for epoch in range(args.start_epoch, 2):#args.epochs):
+    for epoch in range(args.start_epoch, args.epochs):
         if args.max_epoch is not None and epoch >= args.max_epoch:
             break
 
