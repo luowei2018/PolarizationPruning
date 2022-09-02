@@ -729,8 +729,8 @@ def prune_while_training(model: nn.Module, arch: str, prune_mode: str, num_class
         
     inplace_precs = []
     for i in range(min(3,len(args.mask_list))):
-        inplace_precs += [test(prune_by_mask(model,args.mask_list[:i+1]),zero_bias=True)]
-        inplace_precs += [test(prune_by_mask(model,args.mask_list[:i+1]),zero_bias=False)]
+        inplace_precs += [test(prune_by_mask(model,args.mask_list[:i+1],zero_bias=True))]
+        inplace_precs += [test(prune_by_mask(model,args.mask_list[:i+1],zero_bias=False))]
     
     print_str = ''
     for flop,prec1,thresh in zip(saved_flops,saved_prec1s,saved_thresh):
