@@ -565,7 +565,7 @@ def assign_to_indices(bn_modules):
     
     return shrink,targeted
         
-def prune_by_mask(model,mask_list):
+def prune_by_mask(model,mask_list,zero_bias=True):
     import copy
     pruned_model = copy.deepcopy(model)
         
@@ -584,7 +584,8 @@ def prune_by_mask(model,mask_list):
             ch_len = len(bn_module.weight.data)
             inactive = tokeep[ch_start:ch_start+ch_len]==0
             bn_module.weight.data[inactive] = 0
-            bn_module.bias.data[inactive] = 0
+            if zero_bias:
+                bn_module.bias.data[inactive] = 0
             ch_start += ch_len
     #for name, param in model.named_parameters(): print(name, param.data)
     return pruned_model
@@ -728,7 +729,8 @@ def prune_while_training(model: nn.Module, arch: str, prune_mode: str, num_class
         
     inplace_precs = []
     for i in range(min(3,len(args.mask_list))):
-        inplace_precs += [test(prune_by_mask(model,args.mask_list[:i+1]))]
+        inplace_precs += [test(prune_by_mask(model,args.mask_list[:i+1]),zero_bias=True)]
+        inplace_precs += [test(prune_by_mask(model,args.mask_list[:i+1]),zero_bias=False)]
     
     print_str = ''
     for flop,prec1,thresh in zip(saved_flops,saved_prec1s,saved_thresh):
