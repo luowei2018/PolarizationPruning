@@ -739,6 +739,7 @@ def prune_while_training(model: nn.Module, arch: str, prune_mode: str, num_class
 
 
 def train(epoch):
+    print(test(model))
     model.train()
     global history_score, global_step
     avg_loss = 0.
