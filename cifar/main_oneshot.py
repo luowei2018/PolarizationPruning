@@ -589,7 +589,7 @@ def prune_by_mask(model,mask_list):
     #for name, param in model.named_parameters(): print(name, param.data)
     return pruned_model
    
-def freeze_weights(model,old_model):
+def recover_weights(model,old_model):
     bns1,convs1 = model.get_sparse_layers_and_convs()
     bns2,convs2 = old_model.get_sparse_layers_and_convs()
     ch_start = 0
@@ -780,7 +780,7 @@ def train(epoch):
             log_quantization(model)
         optimizer.step()
         if args.loss in {LossType.LOG_QUANTIZATION}:
-            freeze_weights(model,old_model)
+            recover_weights(model,old_model)
         if args.loss in {LossType.POLARIZATION,
                          LossType.L2_POLARIZATION,
                          LossType.LOG_QUANTIZATION}:
@@ -790,6 +790,7 @@ def train(epoch):
             'Step: {} Train Epoch: {} [{}/{} ({:.1f}%)]. Loss: {:.6f}'.format(
             global_step, epoch, batch_idx * len(data), len(train_loader.dataset),
                                 100. * batch_idx / len(train_loader), avg_loss / len(train_loader)))
+        break
 
     history_score[epoch][0] = avg_loss / len(train_loader)
     history_score[epoch][1] = float(train_acc) / float(total_data)
@@ -862,8 +863,8 @@ for args.current_stage in range(args.start_stage, args.stages):
     if args.loss in {LossType.LOG_QUANTIZATION}:
         old_model = copy.deepcopy(model)
         model._initialize_weights(1.0)
-        freeze_weights(model,old_model)
-    for epoch in range(args.start_epoch, args.epochs):
+        recover_weights(model,old_model)
+    for epoch in range(args.start_epoch, 2):#args.epochs):
         if args.max_epoch is not None and epoch >= args.max_epoch:
             break
 
