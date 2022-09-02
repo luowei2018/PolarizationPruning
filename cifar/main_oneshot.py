@@ -850,7 +850,7 @@ if args.evaluate:
                        num_classes=num_classes)
 
 for args.current_stage in range(args.start_stage, args.stages):
-    for epoch in range(args.start_epoch, 1):
+    for epoch in range(args.start_epoch, args.epochs):
         if args.max_epoch is not None and epoch >= args.max_epoch:
             break
 
