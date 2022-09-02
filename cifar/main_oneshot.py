@@ -584,7 +584,7 @@ def prune_by_mask(model,mask_list):
             ch_len = len(bn_module.weight.data)
             inactive = tokeep[ch_start:ch_start+ch_len]==0
             bn_module.weight.data[inactive] = 0
-            bn_module.bias.data[inactive] = 0
+            #bn_module.bias.data[inactive] = 0
             ch_start += ch_len
     #for name, param in model.named_parameters(): print(name, param.data)
     return pruned_model
