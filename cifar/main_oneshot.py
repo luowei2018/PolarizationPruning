@@ -595,8 +595,6 @@ def freeze_weights(model,old_model):
     ch_start = 0
     for conv1,bn1,conv2,bn2 in zip(convs1,bns1,convs2,bns2):
         ch_len = conv1.weight.data.size(0)
-        bn1.running_mean.data = bn2.running_mean.data.clone().detach()
-        bn1.running_var.data = bn2.running_var.data.clone().detach()
         for freeze_mask in args.mask_list[:args.current_stage]:
             if freeze_mask is None:continue
             with torch.no_grad():
@@ -635,6 +633,8 @@ def compare_models(old,new):
             assert torch.equal(conv1.weight.data[freeze_mask, :, :, :], conv2.weight.data[freeze_mask, :, :, :])
             assert torch.equal(bn1.weight.data[freeze_mask], bn2.weight.data[freeze_mask])
             assert torch.equal(bn1.bias.data[freeze_mask], bn2.bias.data[freeze_mask])
+            assert torch.equal(bn1.running_mean.data[freeze_mask],bn2.running_mean.data[freeze_mask])
+            assert torch.equal(bn1.running_var.data[freeze_mask],bn2.running_var.data[freeze_mask])
             #assert torch.equal(conv1.weight.data, conv2.weight.data)
             #assert torch.equal(bn1.weight.data, bn2.weight.data)
             #assert torch.equal(bn1.bias.data, bn2.bias.data)
@@ -779,6 +779,7 @@ def train(epoch):
         optimizer.step()
         if args.loss in {LossType.LOG_QUANTIZATION}:
             freeze_weights(model,old_model)
+            compare_models(model,old_model)
         if args.loss in {LossType.POLARIZATION,
                          LossType.L2_POLARIZATION,
                          LossType.LOG_QUANTIZATION}:
