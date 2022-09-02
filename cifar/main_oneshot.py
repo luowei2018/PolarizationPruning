@@ -281,22 +281,6 @@ if args.flops_weighted:
 if args.cuda:
     model.cuda()
 
-
-def freeze_sparse_gate(model: nn.Module):
-    # do not update all SparseGate
-    for sub_module in model.modules():
-        if isinstance(sub_module, models.common.SparseGate):
-            for p in sub_module.parameters():
-                # do not update SparseGate
-                p.requires_grad = False
-
-
-if args.fix_gate:
-    if args.lbd != 0:
-        raise ValueError("The lambda must be 0 in fix-gate mode.")
-    # do not update all SparseGate
-    freeze_sparse_gate(model)
-
 # build optim
 bias_decay_params = []
 # deprecated
@@ -565,6 +549,38 @@ def assign_to_indices(bn_modules):
     targeted[selected] = 1
     
     return shrink,targeted
+    
+def sample_network(model,net_id=None,zero_bias=True,eval=False):
+    if net_id is None:
+        net_id = torch.tensor(0).random_(1,1 + args.stages)
+    all_scale_factors = torch.tensor([]).cuda()
+    for bn_module in bn_modules:
+        all_scale_factors = torch.cat((all_scale_factors,bn_module.weight.data))
+    
+    # total channels
+    total_channels = len(all_scale_factors)
+    sampled_channels = total_channels//args.stages*net_id
+    
+    _,ch_indices = total_channels.sort(dim=0)
+    
+    sampled = torch.zeros(total_channels).long().cuda()
+    sampled[ch_indices[-sampled_channels:]] = 1
+    
+    ch_start = 0
+    bn_modules = model.get_sparse_layers()
+    for bn_module in bn_modules:
+        with torch.no_grad():
+            ch_len = len(bn_module.weight.data)
+            inactive = sampled[ch_start:ch_start+ch_len]==0
+            bn_module.weight.data[inactive] = 0
+            if zero_bias:
+                bn_module.bias.data[inactive] = 0
+            ch_start += ch_len
+            
+    if not eval:
+        return 1-sampled
+    else:
+        return test(model)
         
 def prune_by_mask(model,mask_list,zero_bias=True):
     import copy
@@ -591,13 +607,13 @@ def prune_by_mask(model,mask_list,zero_bias=True):
     #for name, param in model.named_parameters(): print(name, param.data)
     return pruned_model
    
-def recover_weights(model,old_model):
+def recover_weights(model,old_model,mask_list):
     bns1,convs1 = model.get_sparse_layers_and_convs()
     bns2,convs2 = old_model.get_sparse_layers_and_convs()
     ch_start = 0
     for conv1,bn1,conv2,bn2 in zip(convs1,bns1,convs2,bns2):
         ch_len = conv1.weight.data.size(0)
-        for freeze_mask in args.mask_list[:args.current_stage]:
+        for freeze_mask in mask_list:
             if freeze_mask is None:continue
             with torch.no_grad():
                 freeze_mask = freeze_mask[ch_start:ch_start+ch_len] == 1
@@ -731,9 +747,15 @@ def prune_while_training(model: nn.Module, arch: str, prune_mode: str, num_class
     baseline_flops = compute_conv_flops(model, cuda=True)
         
     inplace_precs = []
-    for i in range(min(3,len(args.mask_list))):
-        inplace_precs += [test(prune_by_mask(model,args.mask_list[:i+1],zero_bias=True))]
-        inplace_precs += [test(prune_by_mask(model,args.mask_list[:i+1],zero_bias=False))]
+    if args.loss in {LossType.LOG_QUANTIZATION}:
+        for i in range(min(3,len(args.mask_list))):
+            inplace_precs += [test(prune_by_mask(model,args.mask_list[:i+1],zero_bias=True))]
+            inplace_precs += [test(prune_by_mask(model,args.mask_list[:i+1],zero_bias=False))]
+    
+    if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
+        for i in range(1, args.stages+1):
+            inplace_precs += [sample_network(model,net_id=i,zero_bias=True,eval=True)]
+        
     
     print_str = ''
     for flop,prec1,thresh in zip(saved_flops,saved_prec1s,saved_thresh):
@@ -744,6 +766,9 @@ def prune_while_training(model: nn.Module, arch: str, prune_mode: str, num_class
         
     print(print_str)
 
+def cross_entropy_loss_with_soft_target(pred, soft_target):
+    logsoftmax = nn.LogSoftmax()
+    return torch.mean(torch.sum(-soft_target * logsoftmax(pred), 1))
 
 def train(epoch):
     model.train()
@@ -754,15 +779,23 @@ def train(epoch):
     total_data = 0
     train_iter = tqdm(train_loader)
     for batch_idx, (data, target) in enumerate(train_iter):
-        if args.loss in {LossType.LOG_QUANTIZATION}:
+        if args.loss in {LossType.LOG_QUANTIZATION,
+                         LossType.PROGRESSIVE_SHRINKING}:
             old_model = copy.deepcopy(model)
+        if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
+            tofreeze = sample_network(model)
         if args.cuda:
             data, target = data.cuda(), target.cuda()
         optimizer.zero_grad()
         output = model(data)
         if isinstance(output, tuple):
             output, output_aux = output
-        loss = F.cross_entropy(output, target)
+        if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
+            soft_logits = args.teacher(data).detach()
+            soft_label = F.softmax(soft_logits, dim=1)
+            loss = cross_entropy_loss_with_soft_target(output, soft_label)
+        else:
+            loss = F.cross_entropy(output, target)
 
         # logging
         avg_loss += loss.data.item()
@@ -785,10 +818,13 @@ def train(epoch):
             log_quantization(model)
         optimizer.step()
         if args.loss in {LossType.LOG_QUANTIZATION}:
-            recover_weights(model,old_model)
+            recover_weights(model,old_model,args.mask_list[:args.current_stage])
+        if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
+            recover_weights(model,old_model,[tofreeze])
         if args.loss in {LossType.POLARIZATION,
                          LossType.L2_POLARIZATION,
-                         LossType.LOG_QUANTIZATION}:
+                         LossType.LOG_QUANTIZATION,
+                         LossType.PROGRESSIVE_SHRINKING}:
             clamp_bn(model, upper_bound=args.clamp)
         global_step += 1
         train_iter.set_description(
@@ -861,13 +897,16 @@ if args.evaluate:
     prune_while_training(model, arch=args.arch,
                        prune_mode="default",
                        num_classes=num_classes)
+                       
+if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
+    args.teacher = copy.deepcopy(model)
 
 for args.current_stage in range(args.start_stage, args.stages):
     # init non-freezing weights
     if args.loss in {LossType.LOG_QUANTIZATION} and args.current_stage >= 1:
         old_model = copy.deepcopy(model)
         model._initialize_weights(1.0)
-        recover_weights(model,old_model)
+        recover_weights(model,old_model,args.mask_list[:args.current_stage])
     for epoch in range(args.start_epoch, args.epochs):
         if args.max_epoch is not None and epoch >= args.max_epoch:
             break
@@ -896,7 +935,7 @@ for args.current_stage in range(args.start_stage, args.stages):
         )
         
         # visualize scale factors
-        factor_visualization(epoch, model, prec1)
+        #factor_visualization(epoch, model, prec1)
 
         # flops
         prune_while_training(model, arch=args.arch,prune_mode="default",num_classes=num_classes)
