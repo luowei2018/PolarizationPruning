@@ -860,7 +860,7 @@ if args.evaluate:
 
 for args.current_stage in range(args.start_stage, args.stages):
     # init non-freezing weights
-    if args.loss in {LossType.LOG_QUANTIZATION}:
+    if args.loss in {LossType.LOG_QUANTIZATION} and args.current_stage >= 1:
         old_model = copy.deepcopy(model)
         model._initialize_weights(1.0)
         recover_weights(model,old_model)
