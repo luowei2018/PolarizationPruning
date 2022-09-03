@@ -780,6 +780,7 @@ def train(epoch):
     total_data = 0
     train_iter = tqdm(train_loader)
     for batch_idx, (data, target) in enumerate(train_iter):
+        break
         if args.loss in {LossType.LOG_QUANTIZATION,
                          LossType.PROGRESSIVE_SHRINKING}:
             old_model = copy.deepcopy(model)
@@ -833,7 +834,6 @@ def train(epoch):
             'Step: {} Train Epoch: {} [{}/{} ({:.1f}%)]. Loss: {:.6f}'.format(
             global_step, epoch, batch_idx * len(data), len(train_loader.dataset),
                                 100. * batch_idx / len(train_loader), avg_loss / len(train_loader)))
-        break
 
     history_score[epoch][0] = avg_loss / len(train_loader)
     history_score[epoch][1] = float(train_acc) / float(total_data)
