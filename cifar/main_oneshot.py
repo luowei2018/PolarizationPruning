@@ -674,7 +674,7 @@ def log_quantization(old_model):
             ch_len = len(bn_module.weight.data)
             shrink_mask = shrink[ch_start:ch_start+ch_len] == 1
             bn_module.weight.data[shrink_mask] -= args.lbd * args.current_lr * 400
-            if args.weight_decay!=0:
+            if args.weight_decay!=1:
                 bn_module.bias.data[shrink_mask] *= 1 - args.current_lr * args.weight_decay * args.bias_decay_mult
             ch_start += ch_len
     
