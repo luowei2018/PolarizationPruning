@@ -901,7 +901,7 @@ if args.evaluate:
                        num_classes=num_classes)
                        
 if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
-    oldmodel = copy.deepcopy(model)
+    args.teacher_model = copy.deepcopy(model)
 else:
     args.stages = 1
 
