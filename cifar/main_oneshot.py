@@ -792,7 +792,7 @@ def train(epoch):
         if isinstance(output, tuple):
             output, output_aux = output
         loss = F.cross_entropy(output, target)
-        if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
+        if False and args.loss in {LossType.PROGRESSIVE_SHRINKING}:
             soft_logits = args.teacher(data)
             if isinstance(soft_logits, tuple):
                 soft_logits, _ = soft_logits
@@ -901,8 +901,7 @@ if args.evaluate:
                        num_classes=num_classes)
                        
 if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
-    pass
-    args.teacher = copy.deepcopy(model)
+    oldmodel = copy.deepcopy(model)
 else:
     args.stages = 1
 
