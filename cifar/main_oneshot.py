@@ -368,8 +368,10 @@ else:
     
 if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
     teacher_model = copy.deepcopy(model)
-else:
+    
+if not args.loss in {LossType.LOG_QUANTIZATION}:
     args.stages = 1
+    
 
 history_score = np.zeros((args.epochs, 6))
 
@@ -383,7 +385,6 @@ def bn_weights(model):
             bias.append((name, m.bias.data))
 
     return weights, bias
-    pass
 
 
 def adjust_learning_rate(optimizer, epoch, gammas, schedule):
