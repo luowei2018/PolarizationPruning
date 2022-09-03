@@ -577,7 +577,7 @@ def sample_network(old_model,net_id=None,zero_bias=True,eval=False):
             if zero_bias:
                 bn_module.bias.data[inactive] = 0
             ch_start += ch_len
-    print(net_id,weight_value_mask.sum(),weight_grad_mask.sum(),(weight_value_mask-weight_grad_mask).sum())
+    print(net_id,-channel_per_layer*net_id,-channel_per_layer*(net_id-1),weight_value_mask.sum(),weight_grad_mask.sum(),(weight_value_mask-weight_grad_mask).sum())
     if not eval:
         return weight_grad_mask
     else:
