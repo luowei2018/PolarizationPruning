@@ -899,9 +899,11 @@ if args.evaluate:
     prune_while_training(model, arch=args.arch,
                        prune_mode="default",
                        num_classes=num_classes)
-                       
+
+args.teacher_model = copy.deepcopy(model)                       
 if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
-    args.teacher_model = copy.deepcopy(model)
+    pass
+    #args.teacher_model = copy.deepcopy(model)
 else:
     args.stages = 1
 
