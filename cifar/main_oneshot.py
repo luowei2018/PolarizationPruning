@@ -749,7 +749,7 @@ def prune_while_training(model: nn.Module, arch: str, prune_mode: str, num_class
             inplace_precs += [test(prune_by_mask(model,args.mask_list[:i+1],zero_bias=False))]
     
     if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
-        for i in range(1, args.stages):
+        for i in range(1, 4):
             inplace_precs += [sample_network(model,net_id=i,zero_bias=True,eval=True)]
         
     
