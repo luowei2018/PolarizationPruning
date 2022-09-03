@@ -572,7 +572,7 @@ def sample_network(model,net_id=None,zero_bias=True,eval=False):
     
     sampled = torch.zeros(total_channels).long().cuda()
     sampled[ch_indices[-sampled_channels:]] = 1
-    print(sampled.sum())
+    print(net_id)
     
     ch_start = 0
     bn_modules = model.get_sparse_layers()
