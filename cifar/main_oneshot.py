@@ -567,6 +567,7 @@ def sample_network(model,net_id=None,zero_bias=True,eval=False):
     # total channels
     total_channels = len(all_scale_factors)
     sampled_channels = total_channels//args.stages*net_id
+    print('s',sampled_channels)
     
     _,ch_indices = all_scale_factors.sort(dim=0)
     
