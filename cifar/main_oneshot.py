@@ -780,7 +780,7 @@ def train(epoch):
     total_data = 0
     train_iter = tqdm(train_loader)
     for batch_idx, (data, target) in enumerate(train_iter):
-        break
+        return
         if args.loss in {LossType.LOG_QUANTIZATION,
                          LossType.PROGRESSIVE_SHRINKING}:
             old_model = copy.deepcopy(model)
