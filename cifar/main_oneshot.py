@@ -565,7 +565,10 @@ def sample_network(old_model,net_id=None,zero_bias=True,eval=False):
     weight_value_mask[ch_indices[-channel_per_layer*net_id:]] = 1
     if True:
         weight_grad_mask = torch.zeros(total_channels).long().cuda()
-        weight_grad_mask[ch_indices[-channel_per_layer*net_id:-channel_per_layer*(net_id-1)]] = 1
+        if net_id == 1:
+            weight_grad_mask[ch_indices[-channel_per_layer*net_id]] = 1
+        else:
+            weight_grad_mask[ch_indices[-channel_per_layer*net_id:-channel_per_layer*(net_id-1)]] = 1
     else:
         weight_grad_mask = 1-weight_value_mask
     ch_start = 0
@@ -577,7 +580,7 @@ def sample_network(old_model,net_id=None,zero_bias=True,eval=False):
             if zero_bias:
                 bn_module.bias.data[inactive] = 0
             ch_start += ch_len
-    print(net_id,len(ch_indices[-channel_per_layer*net_id:-channel_per_layer*(net_id-1)]),-channel_per_layer*net_id,-channel_per_layer*(net_id-1),weight_value_mask.sum(),weight_grad_mask.sum(),(weight_value_mask-weight_grad_mask).sum())
+    print(net_id,weight_value_mask.sum(),weight_grad_mask.sum(),(weight_value_mask-weight_grad_mask).sum())
     if not eval:
         return weight_grad_mask
     else:
