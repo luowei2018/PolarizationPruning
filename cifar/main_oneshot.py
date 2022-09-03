@@ -922,7 +922,7 @@ for args.current_stage in range(args.start_stage, args.stages):
         args.current_lr = adjust_learning_rate(optimizer, epoch, args.gammas, args.decay_epoch)
         print("Start epoch {}/{} stage {}/{} with learning rate {}...".format(epoch, args.epochs, args.current_stage, args.stages, args.current_lr))
 
-        train(epoch) # train with regularization
+        #train(epoch) # train with regularization
 
         prec1 = test(model)
         print(f"All Prec1: {prec1}")
