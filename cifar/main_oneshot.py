@@ -577,7 +577,7 @@ def sample_network(old_model,net_id=None,zero_bias=True,eval=False):
             if zero_bias:
                 bn_module.bias.data[inactive] = 0
             ch_start += ch_len
-    print(weight_value_mask.sum(),weight_grad_mask.sum(),(weight_value_mask-weight_grad_mask).sum())
+    print(net_id,weight_value_mask.sum(),weight_grad_mask.sum(),(weight_value_mask-weight_grad_mask).sum())
     if not eval:
         return weight_grad_mask
     else:
@@ -754,7 +754,7 @@ def prune_while_training(model: nn.Module, arch: str, prune_mode: str, num_class
             inplace_precs += [test(prune_by_mask(model,args.mask_list[:i+1],zero_bias=False))]
     
     if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
-        for i in range(1, 4):
+        for i in range(1, 5):
             inplace_precs += [sample_network(model,net_id=i,zero_bias=True,eval=True)]
         
     
