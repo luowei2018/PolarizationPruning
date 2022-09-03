@@ -790,7 +790,7 @@ def train(epoch):
                          LossType.PROGRESSIVE_SHRINKING}:
             old_model = copy.deepcopy(model)
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
-            tofreeze = sample_network(model)
+            tofreeze = sample_network(model,net_id=batch_idx%4+1)
         if args.cuda:
             data, target = data.cuda(), target.cuda()
         optimizer.zero_grad()
