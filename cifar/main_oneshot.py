@@ -556,11 +556,12 @@ def assign_to_indices(bn_modules):
     
     return shrink,targeted
     
-def sample_network(model,net_id=None,zero_bias=True,eval=False):
+def sample_network(modelx,net_id=None,zero_bias=True,eval=False):
     if net_id is None:
         net_id = torch.tensor(0).random_(1,1 + args.stages)
     all_scale_factors = torch.tensor([]).cuda()
-    bn_modules = model.get_sparse_layers()
+    sampled_network = copy.deepcopy(modelx)
+    bn_modules = sampled_network.get_sparse_layers()
     for bn_module in bn_modules:
         all_scale_factors = torch.cat((all_scale_factors,bn_module.weight.data))
     
@@ -572,7 +573,6 @@ def sample_network(model,net_id=None,zero_bias=True,eval=False):
     
     sampled = torch.zeros(total_channels).long().cuda()
     sampled[ch_indices[-sampled_channels:]] = 1
-    print(net_id)
     
     ch_start = 0
     bn_modules = model.get_sparse_layers()
@@ -586,9 +586,9 @@ def sample_network(model,net_id=None,zero_bias=True,eval=False):
             ch_start += ch_len
             
     if not eval:
-        return 1-sampled
+        return 1-sampled,sampled_network
     else:
-        return test(model)
+        return test(sampled_network)
         
 def prune_by_mask(model,mask_list,zero_bias=True):
     import copy
@@ -615,7 +615,7 @@ def prune_by_mask(model,mask_list,zero_bias=True):
     #for name, param in model.named_parameters(): print(name, param.data)
     return pruned_model
    
-def recover_weights(model,old_model,mask_list):
+def recover_weights(new_model,old_model,mask_list):
     bns1,convs1 = model.get_sparse_layers_and_convs()
     bns2,convs2 = old_model.get_sparse_layers_and_convs()
     ch_start = 0
@@ -639,13 +639,13 @@ def recover_weights(model,old_model,mask_list):
         ch_start += ch_len
     
     if args.current_stage >= 1:
-        model.conv1.weight.data = old_model.conv1.weight.data.clone().detach()
-        model.bn1.weight.data = old_model.bn1.weight.data.clone().detach()
-        model.bn1.bias.data = old_model.bn1.bias.data.clone().detach()
-        model.bn1.running_mean.data = old_model.bn1.running_mean.data.clone().detach()
-        model.bn1.running_var.data = old_model.bn1.running_var.data.clone().detach()
-        model.linear.weight.data = old_model.linear.weight.data.clone().detach()
-        model.linear.bias.data = old_model.linear.bias.data.clone().detach()
+        new_model.conv1.weight.data = old_model.conv1.weight.data.clone().detach()
+        new_model.bn1.weight.data = old_model.bn1.weight.data.clone().detach()
+        new_model.bn1.bias.data = old_model.bn1.bias.data.clone().detach()
+        new_model.bn1.running_mean.data = old_model.bn1.running_mean.data.clone().detach()
+        new_model.bn1.running_var.data = old_model.bn1.running_var.data.clone().detach()
+        new_model.linear.weight.data = old_model.linear.weight.data.clone().detach()
+        new_model.linear.bias.data = old_model.linear.bias.data.clone().detach()
             
 def compare_models(old,new):
     #for name, param in new.named_parameters(): print(name, param.size())
@@ -791,7 +791,7 @@ def train(epoch):
                          LossType.PROGRESSIVE_SHRINKING}:
             old_model = copy.deepcopy(model)
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
-            tofreeze = sample_network(model)
+            tofreeze,model = sample_network(model)
         if args.cuda:
             data, target = data.cuda(), target.cuda()
         optimizer.zero_grad()
