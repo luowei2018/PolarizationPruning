@@ -578,7 +578,6 @@ def sample_network(old_model,net_id=None,zero_bias=True,eval=False):
     sampled[ch_indices[-sampled_channels:]] = 1
     print('1',net_id,sampled.sum(),test(copied_model))
     ch_start = 0
-    bn_modules = model.get_sparse_layers()
     for bn_module in bn_modules:
         with torch.no_grad():
             ch_len = len(bn_module.weight.data)
