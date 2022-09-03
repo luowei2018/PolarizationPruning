@@ -110,7 +110,7 @@ parser.add_argument('--bin_mode', default=2, type=int,
                     help='Setup location of bins.')
 parser.add_argument('-e', '--evaluate', dest='evaluate', action='store_true',
                     help='evaluate model on validation set')
-parser.add_argument('--bias-decay', type=int, default=0,
+parser.add_argument('--bias-decay-mult', type=int, default=1,
                     help='Apply bias decay on BatchNorm layers')
 parser.add_argument('--log-scale', action='store_true',
                     help='use log scale')
@@ -282,17 +282,6 @@ if args.cuda:
     model.cuda()
 
 # build optim
-bias_decay_params = []
-# deprecated
-if False:
-    for module_name, sub_module in model.named_modules():
-        if isinstance(sub_module, nn.BatchNorm1d) or \
-                isinstance(sub_module, nn.BatchNorm2d):  
-            for param_name, param in sub_module.named_parameters():
-                if 'bias' in param_name:
-                    bias_decay_params.append(param)
-    print(f"Apply bias decay")
-
 if args.bn_wd:
     no_wd_type = [models.common.SparseGate]
 else:
@@ -304,20 +293,18 @@ for module_name, sub_module in model.named_modules():
     for t in no_wd_type:
         if isinstance(sub_module, t):
             for param_name, param in sub_module.named_parameters():
-                if not isinstance(sub_module, models.common.SparseGate) and args.bias_decay and 'bias' in param_name: continue
+                if not isinstance(sub_module, models.common.SparseGate): continue
                 no_wd_params.append(param)
                 #print(f"No weight decay param: module {module_name} param {param_name}")
 
 no_wd_params_set = set(no_wd_params)  # apply weight decay on the rest of parameters
-bias_decay_params_set = set(bias_decay_params)
 wd_params = []
 for param_name, model_p in model.named_parameters():
-    if model_p not in no_wd_params_set and model_p not in bias_decay_params_set:
+    if model_p not in no_wd_params_set:
         wd_params.append(model_p)
         #print(f"Weight decay param: parameter name {param_name}")
 
-optimizer = torch.optim.SGD([{'params': list(bias_decay_params), 'weight_decay': args.weight_decay*args.bias_decay},
-                             {'params': list(no_wd_params), 'weight_decay': 0.},
+optimizer = torch.optim.SGD([{'params': list(no_wd_params), 'weight_decay': 0.},
                              {'params': list(wd_params), 'weight_decay': args.weight_decay}],
                             args.lr,
                             momentum=args.momentum)
@@ -688,7 +675,7 @@ def log_quantization(old_model):
             shrink_mask = shrink[ch_start:ch_start+ch_len] == 1
             bn_module.weight.data[shrink_mask] -= args.lbd * args.current_lr * 400
             if args.weight_decay!=0:
-                bn_module.bias.data[shrink_mask] *= 1 - args.current_lr * args.weight_decay * args.bias_decay
+                bn_module.bias.data[shrink_mask] *= 1 - args.current_lr * args.weight_decay * args.bias_decay_mult
             ch_start += ch_len
     
 def factor_visualization(iter, model, prec):
