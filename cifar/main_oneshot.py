@@ -577,7 +577,7 @@ def sample_network(old_model,net_id=None,zero_bias=True,eval=False):
             if zero_bias:
                 bn_module.bias.data[inactive] = 0
             ch_start += ch_len
-            
+    print(weight_value_mask.sum(),weight_grad_mask.sum(),(weight_value_mask-weight_grad_mask).sum())
     if not eval:
         return weight_grad_mask
     else:
@@ -834,7 +834,7 @@ def train(epoch):
             'Step: {} Train Epoch: {} [{}/{} ({:.1f}%)]. Loss: {:.6f}'.format(
             global_step, epoch, batch_idx * len(data), len(train_loader.dataset),
                                 100. * batch_idx / len(train_loader), avg_loss / len(train_loader)))
-
+        break
     history_score[epoch][0] = avg_loss / len(train_loader)
     history_score[epoch][1] = float(train_acc) / float(total_data)
     history_score[epoch][3] = avg_sparsity_loss / len(train_loader)
