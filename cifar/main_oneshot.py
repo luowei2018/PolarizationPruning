@@ -560,6 +560,8 @@ def sample_network(old_model,net_id=None,zero_bias=True,eval=False):
     if net_id is None:
         net_id = torch.tensor(0).random_(1,1 + args.stages)
     all_scale_factors = torch.tensor([]).cuda()
+    if eval:
+        old_model = copy.deepcopy(old_model)
     bn_modules = old_model.get_sparse_layers()
     for bn_module in bn_modules:
         all_scale_factors = torch.cat((all_scale_factors,bn_module.weight.data))
