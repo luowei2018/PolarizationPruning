@@ -337,6 +337,7 @@ if args.debug:
 
 args.mask_list = []
 args.stage = 0
+
 if args.resume:
     if os.path.isfile(args.resume):
         print("=> loading checkpoint '{}'".format(args.resume))
@@ -364,6 +365,11 @@ if args.resume:
         raise ValueError("=> no checkpoint found at '{}'".format(args.resume))
 else:
     checkpoint = None
+    
+if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
+    teacher_model = copy.deepcopy(model)
+else:
+    args.stages = 1
 
 history_score = np.zeros((args.epochs, 6))
 
@@ -792,7 +798,7 @@ def train(epoch):
         if isinstance(output, tuple):
             output, output_aux = output
         loss = F.cross_entropy(output, target)
-        if False and args.loss in {LossType.PROGRESSIVE_SHRINKING}:
+        if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
             soft_logits = args.teacher(data)
             if isinstance(soft_logits, tuple):
                 soft_logits, _ = soft_logits
@@ -899,13 +905,7 @@ if args.evaluate:
     prune_while_training(model, arch=args.arch,
                        prune_mode="default",
                        num_classes=num_classes)
-
-teacher_model = copy.deepcopy(model)                       
-if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
-    pass
-    #args.teacher_model = copy.deepcopy(model)
-else:
-    args.stages = 1
+         
 
 for args.current_stage in range(args.start_stage, args.stages):
     # init non-freezing weights
@@ -920,7 +920,7 @@ for args.current_stage in range(args.start_stage, args.stages):
         args.current_lr = adjust_learning_rate(optimizer, epoch, args.gammas, args.decay_epoch)
         print("Start epoch {}/{} stage {}/{} with learning rate {}...".format(epoch, args.epochs, args.current_stage, args.stages, args.current_lr))
 
-        #train(epoch) # train with regularization
+        train(epoch) # train with regularization
 
         prec1 = test(model)
         print(f"All Prec1: {prec1}")
