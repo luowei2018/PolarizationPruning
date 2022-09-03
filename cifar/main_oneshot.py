@@ -357,9 +357,7 @@ if args.loss in {LossType.PROGRESSIVE_SHRINKING,
                  LossType.LOG_QUANTIZATION}:
     teacher_model = copy.deepcopy(model)
     
-if not args.loss in {LossType.LOG_QUANTIZATION}:
-    args.stages = 1
-    
+#if not args.loss in {LossType.LOG_QUANTIZATION}:args.stages = 1
 
 history_score = np.zeros((args.epochs, 6))
 
@@ -786,7 +784,7 @@ def train(epoch):
                          LossType.PROGRESSIVE_SHRINKING}:
             old_model = copy.deepcopy(model)
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
-            freeze_mask = sample_network(model)
+            freeze_mask = sample_network(model,net_id = args.current_stage+1)
         if args.cuda:
             data, target = data.cuda(), target.cuda()
         optimizer.zero_grad()
@@ -836,7 +834,7 @@ def train(epoch):
             'Step: {} Train Epoch: {} [{}/{} ({:.1f}%)]. Loss: {:.6f}'.format(
             global_step, epoch, batch_idx * len(data), len(train_loader.dataset),
                                 100. * batch_idx / len(train_loader), avg_loss / len(train_loader)))
-                                
+        break
     history_score[epoch][0] = avg_loss / len(train_loader)
     history_score[epoch][1] = float(train_acc) / float(total_data)
     history_score[epoch][3] = avg_sparsity_loss / len(train_loader)
@@ -910,7 +908,7 @@ for args.current_stage in range(args.start_stage, args.stages):
         old_model = copy.deepcopy(model)
         model._initialize_weights(1.0)
         recover_weights(model,old_model,args.mask_list[:args.current_stage])
-    for epoch in range(args.start_epoch, args.epochs):
+    for epoch in range(args.start_epoch, 1):#args.epochs):
         if args.max_epoch is not None and epoch >= args.max_epoch:
             break
 
