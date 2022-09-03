@@ -899,6 +899,8 @@ if args.evaluate:
                        
 if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
     args.teacher = copy.deepcopy(model)
+else:
+    args.stages = 1
 
 for args.current_stage in range(args.start_stage, args.stages):
     # init non-freezing weights
