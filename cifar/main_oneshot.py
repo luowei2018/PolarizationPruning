@@ -547,7 +547,7 @@ def assign_to_indices(bn_modules):
     
 def sample_network(old_model,net_id=None,zero_bias=True,eval=False):
     if net_id is None:
-        net_id = torch.tensor(0).random_(1,1 + args.stages)
+        net_id = torch.tensor(0).random_(1,5)
     all_scale_factors = torch.tensor([]).cuda()
     if eval:
         old_model = copy.deepcopy(old_model)
@@ -557,14 +557,13 @@ def sample_network(old_model,net_id=None,zero_bias=True,eval=False):
     
     # total channels
     total_channels = len(all_scale_factors)
-    sampled_channels = total_channels//args.stages*net_id
+    sampled_channels = total_channels//4*net_id
     
     _,ch_indices = all_scale_factors.sort(dim=0)
     
     sampled = torch.zeros(total_channels).long().cuda()
     sampled[ch_indices[-sampled_channels:]] = 1
     ch_start = 0
-    print(test(old_model),sampled_channels,sampled.sum())
     for bn_module in bn_modules:
         with torch.no_grad():
             ch_len = len(bn_module.weight.data)
@@ -573,7 +572,6 @@ def sample_network(old_model,net_id=None,zero_bias=True,eval=False):
             if zero_bias:
                 bn_module.bias.data[inactive] = 0
             ch_start += ch_len
-    print(test(old_model))
             
     if not eval:
         return 1-sampled
