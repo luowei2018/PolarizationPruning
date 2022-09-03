@@ -556,12 +556,12 @@ def assign_to_indices(bn_modules):
     
     return shrink,targeted
     
-def sample_network(modelx,net_id=None,zero_bias=True,eval=False):
+def sample_network(model,net_id=None,zero_bias=True,eval=False):
     if net_id is None:
         net_id = torch.tensor(0).random_(1,1 + args.stages)
     all_scale_factors = torch.tensor([]).cuda()
-    sampled_network = copy.deepcopy(modelx)
-    bn_modules = sampled_network.get_sparse_layers()
+    print(test(model))
+    bn_modules = model.get_sparse_layers()
     for bn_module in bn_modules:
         all_scale_factors = torch.cat((all_scale_factors,bn_module.weight.data))
     
@@ -586,9 +586,9 @@ def sample_network(modelx,net_id=None,zero_bias=True,eval=False):
             ch_start += ch_len
             
     if not eval:
-        return 1-sampled,sampled_network
+        return 1-sampled
     else:
-        return test(sampled_network)
+        return test(model)
         
 def prune_by_mask(model,mask_list,zero_bias=True):
     import copy
@@ -791,7 +791,7 @@ def train(epoch):
                          LossType.PROGRESSIVE_SHRINKING}:
             old_model = copy.deepcopy(model)
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
-            tofreeze,model = sample_network(model)
+            tofreeze = sample_network(model)
         if args.cuda:
             data, target = data.cuda(), target.cuda()
         optimizer.zero_grad()
