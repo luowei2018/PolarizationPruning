@@ -793,10 +793,10 @@ def train(epoch):
             output, output_aux = output
         loss = F.cross_entropy(output, target)
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
-            soft_logits = args.teacher(data).detach()
+            soft_logits = args.teacher(data)
             if isinstance(soft_logits, tuple):
                 soft_logits, _ = soft_logits
-            soft_label = F.softmax(soft_logits, dim=1)
+            soft_label = F.softmax(soft_logits.detach(), dim=1)
             loss = cross_entropy_loss_with_soft_target(output, soft_label)
 
         # logging
