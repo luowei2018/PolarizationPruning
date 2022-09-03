@@ -366,7 +366,8 @@ if args.resume:
 else:
     checkpoint = None
     
-if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
+if args.loss in {LossType.PROGRESSIVE_SHRINKING,
+                 LossType.LOG_QUANTIZATION}:
     teacher_model = copy.deepcopy(model)
     
 if not args.loss in {LossType.LOG_QUANTIZATION}:
@@ -799,7 +800,8 @@ def train(epoch):
         if isinstance(output, tuple):
             output, output_aux = output
         loss = F.cross_entropy(output, target)
-        if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
+        if args.loss in {LossType.PROGRESSIVE_SHRINKING,
+                         LossType.LOG_QUANTIZATION}:
             soft_logits = teacher_model(data)
             if isinstance(soft_logits, tuple):
                 soft_logits, _ = soft_logits
