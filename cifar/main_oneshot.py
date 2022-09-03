@@ -574,7 +574,6 @@ def sample_network(old_model,net_id=None,zero_bias=True,eval=False):
     
     sampled = torch.zeros(total_channels).long().cuda()
     sampled[ch_indices[-sampled_channels:]] = 1
-    print('1',net_id,sampled.sum(),test(old_model))
     ch_start = 0
     for bn_module in bn_modules:
         with torch.no_grad():
@@ -584,7 +583,6 @@ def sample_network(old_model,net_id=None,zero_bias=True,eval=False):
             if zero_bias:
                 bn_module.bias.data[inactive] = 0
             ch_start += ch_len
-    print('2',test(old_model))
             
     if not eval:
         return 1-sampled
@@ -762,7 +760,7 @@ def prune_while_training(model: nn.Module, arch: str, prune_mode: str, num_class
             inplace_precs += [test(prune_by_mask(model,args.mask_list[:i+1],zero_bias=False))]
     
     if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
-        for i in range(1, args.stages+1):
+        for i in range(1, args.stages):
             inplace_precs += [sample_network(model,net_id=i,zero_bias=True,eval=True)]
         
     
@@ -841,7 +839,6 @@ def train(epoch):
             'Step: {} Train Epoch: {} [{}/{} ({:.1f}%)]. Loss: {:.6f}'.format(
             global_step, epoch, batch_idx * len(data), len(train_loader.dataset),
                                 100. * batch_idx / len(train_loader), avg_loss / len(train_loader)))
-        break
 
     history_score[epoch][0] = avg_loss / len(train_loader)
     history_score[epoch][1] = float(train_acc) / float(total_data)
@@ -923,7 +920,7 @@ for args.current_stage in range(args.start_stage, args.stages):
         args.current_lr = adjust_learning_rate(optimizer, epoch, args.gammas, args.decay_epoch)
         print("Start epoch {}/{} stage {}/{} with learning rate {}...".format(epoch, args.epochs, args.current_stage, args.stages, args.current_lr))
 
-        #train(epoch) # train with regularization
+        train(epoch) # train with regularization
 
         prec1 = test(model)
         print(f"All Prec1: {prec1}")
