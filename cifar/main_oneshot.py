@@ -557,24 +557,29 @@ def sample_network(old_model,net_id=None,zero_bias=True,eval=False):
     
     # total channels
     total_channels = len(all_scale_factors)
-    sampled_channels = total_channels//4*net_id
+    channel_per_layer = total_channels//4
     
     _,ch_indices = all_scale_factors.sort(dim=0)
     
-    sampled = torch.zeros(total_channels).long().cuda()
-    sampled[ch_indices[-sampled_channels:]] = 1
+    weight_value_mask = torch.zeros(total_channels).long().cuda()
+    weight_value_mask[ch_indices[-channel_per_layer*net_id:]] = 1
+    if True:
+        weight_grad_mask = torch.ones(total_channels).long().cuda()
+        weight_grad_mask[ch_indices[-channel_per_layer*net_id:-channel_per_layer*(net_id-1)]] = 0
+    else:
+        weight_grad_mask = 1-weight_value_mask
     ch_start = 0
     for bn_module in bn_modules:
         with torch.no_grad():
             ch_len = len(bn_module.weight.data)
-            inactive = sampled[ch_start:ch_start+ch_len]==0
+            inactive = weight_value_mask[ch_start:ch_start+ch_len]==0
             bn_module.weight.data[inactive] = 0
             if zero_bias:
                 bn_module.bias.data[inactive] = 0
             ch_start += ch_len
             
     if not eval:
-        return 1-sampled
+        return weight_grad_mask
     else:
         return test(old_model)
         
@@ -779,7 +784,7 @@ def train(epoch):
                          LossType.PROGRESSIVE_SHRINKING}:
             old_model = copy.deepcopy(model)
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
-            tofreeze = sample_network(model,net_id=batch_idx%4+1)
+            weight_grad_mask = sample_network(model,net_id=batch_idx%4+1)
         if args.cuda:
             data, target = data.cuda(), target.cuda()
         optimizer.zero_grad()
@@ -818,7 +823,7 @@ def train(epoch):
         if args.loss in {LossType.LOG_QUANTIZATION}:
             recover_weights(model,old_model,args.mask_list[:args.current_stage])
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
-            recover_weights(model,old_model,[tofreeze])
+            recover_weights(model,old_model,[weight_grad_mask])
         if args.loss in {LossType.POLARIZATION,
                          LossType.L2_POLARIZATION,
                          LossType.LOG_QUANTIZATION,
