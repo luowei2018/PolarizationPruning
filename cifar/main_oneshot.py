@@ -564,11 +564,11 @@ def sample_network(old_model,net_id=None,zero_bias=True,eval=False):
     weight_value_mask = torch.zeros(total_channels).long().cuda()
     weight_value_mask[ch_indices[-channel_per_layer*net_id:]] = 1
     if True:
-        weight_grad_mask = torch.zeros(total_channels).long().cuda()
+        weight_grad_mask = torch.ones(total_channels).long().cuda()
         if net_id == 1:
-            weight_grad_mask[ch_indices[-channel_per_layer*net_id:]] = 1
+            weight_grad_mask[ch_indices[-channel_per_layer*net_id:]] = 0
         else:
-            weight_grad_mask[ch_indices[-channel_per_layer*net_id:-channel_per_layer*(net_id-1)]] = 1
+            weight_grad_mask[ch_indices[-channel_per_layer*net_id:-channel_per_layer*(net_id-1)]] = 0
     else:
         weight_grad_mask = 1-weight_value_mask
     ch_start = 0
