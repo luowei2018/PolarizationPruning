@@ -561,10 +561,8 @@ def sample_network(old_model,net_id=None,zero_bias=True,eval=False):
         net_id = torch.tensor(0).random_(1,1 + args.stages)
     all_scale_factors = torch.tensor([]).cuda()
     if eval:
-        copied_model = copy.deepcopy(old_model)
-        bn_modules = copied_model.get_sparse_layers()
-    else:
-        bn_modules = old_model.get_sparse_layers()
+        old_model = copy.deepcopy(old_model)
+    bn_modules = old_model.get_sparse_layers()
     for bn_module in bn_modules:
         all_scale_factors = torch.cat((all_scale_factors,bn_module.weight.data))
     
@@ -576,7 +574,7 @@ def sample_network(old_model,net_id=None,zero_bias=True,eval=False):
     
     sampled = torch.zeros(total_channels).long().cuda()
     sampled[ch_indices[-sampled_channels:]] = 1
-    print('1',net_id,sampled.sum(),test(copied_model))
+    print('1',net_id,sampled.sum(),test(old_model))
     ch_start = 0
     for bn_module in bn_modules:
         with torch.no_grad():
@@ -586,12 +584,12 @@ def sample_network(old_model,net_id=None,zero_bias=True,eval=False):
             if zero_bias:
                 bn_module.bias.data[inactive] = 0
             ch_start += ch_len
-    print('2',test(copied_model))
+    print('2',test(old_model))
             
     if not eval:
         return 1-sampled
     else:
-        return test(copied_model)
+        return test(old_model)
         
 def prune_by_mask(old_model,mask_list,zero_bias=True):
     import copy
