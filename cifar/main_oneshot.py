@@ -572,7 +572,7 @@ def sample_network(model,net_id=None,zero_bias=True,eval=False):
     
     sampled = torch.zeros(total_channels).long().cuda()
     sampled[ch_indices[-sampled_channels:]] = 1
-    print(test(model))
+    print('1',test(model))
     ch_start = 0
     bn_modules = model.get_sparse_layers()
     for bn_module in bn_modules:
@@ -583,7 +583,7 @@ def sample_network(model,net_id=None,zero_bias=True,eval=False):
             if zero_bias:
                 bn_module.bias.data[inactive] = 0
             ch_start += ch_len
-    print(test(model))
+    print('2',test(model))
             
     if not eval:
         return 1-sampled
