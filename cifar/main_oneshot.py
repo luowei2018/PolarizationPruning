@@ -786,6 +786,9 @@ def train(epoch):
                          LossType.PROGRESSIVE_SHRINKING}:
             old_model = copy.deepcopy(model)
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
+            masks = [sample_network(model,net_id=i) for i in range(1,5)]
+            print((masks[0]+masks[1]+masks[2]+masks[3]).sum()/3)
+            exit(0)
             freeze_mask = sample_network(model)
         if args.cuda:
             data, target = data.cuda(), target.cuda()
