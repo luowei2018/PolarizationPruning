@@ -780,7 +780,6 @@ def train(epoch):
     total_data = 0
     train_iter = tqdm(train_loader)
     for batch_idx, (data, target) in enumerate(train_iter):
-        return
         if args.loss in {LossType.LOG_QUANTIZATION,
                          LossType.PROGRESSIVE_SHRINKING}:
             old_model = copy.deepcopy(model)
@@ -919,7 +918,7 @@ for args.current_stage in range(args.start_stage, args.stages):
         args.current_lr = adjust_learning_rate(optimizer, epoch, args.gammas, args.decay_epoch)
         print("Start epoch {}/{} stage {}/{} with learning rate {}...".format(epoch, args.epochs, args.current_stage, args.stages, args.current_lr))
 
-        train(epoch) # train with regularization
+        #train(epoch) # train with regularization
 
         prec1 = test(model)
         print(f"All Prec1: {prec1}")
