@@ -900,7 +900,7 @@ if args.evaluate:
                        prune_mode="default",
                        num_classes=num_classes)
 
-args.teacher_model = copy.deepcopy(model)                       
+teacher_model = copy.deepcopy(model)                       
 if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
     pass
     #args.teacher_model = copy.deepcopy(model)
