@@ -556,11 +556,11 @@ def assign_to_indices(bn_modules):
     
     return shrink,targeted
     
-def sample_network(model,net_id=None,zero_bias=True,eval=False):
+def sample_network(old_model,net_id=None,zero_bias=True,eval=False):
     if net_id is None:
         net_id = torch.tensor(0).random_(1,1 + args.stages)
     all_scale_factors = torch.tensor([]).cuda()
-    bn_modules = model.get_sparse_layers()
+    bn_modules = old_model.get_sparse_layers()
     for bn_module in bn_modules:
         all_scale_factors = torch.cat((all_scale_factors,bn_module.weight.data))
     
@@ -572,7 +572,7 @@ def sample_network(model,net_id=None,zero_bias=True,eval=False):
     
     sampled = torch.zeros(total_channels).long().cuda()
     sampled[ch_indices[-sampled_channels:]] = 1
-    print('1',test(model))
+    print('1',test(old_model))
     ch_start = 0
     bn_modules = model.get_sparse_layers()
     for bn_module in bn_modules:
@@ -583,16 +583,16 @@ def sample_network(model,net_id=None,zero_bias=True,eval=False):
             if zero_bias:
                 bn_module.bias.data[inactive] = 0
             ch_start += ch_len
-    print('2',test(model))
+    print('2',test(old_model))
             
     if not eval:
         return 1-sampled
     else:
-        return test(model)
+        return test(old_model)
         
-def prune_by_mask(model,mask_list,zero_bias=True):
+def prune_by_mask(old_model,mask_list,zero_bias=True):
     import copy
-    pruned_model = copy.deepcopy(model)
+    pruned_model = copy.deepcopy(old_model)
         
     bn_modules = pruned_model.get_sparse_layers()
     
@@ -616,7 +616,7 @@ def prune_by_mask(model,mask_list,zero_bias=True):
     return pruned_model
    
 def recover_weights(new_model,old_model,mask_list):
-    bns1,convs1 = model.get_sparse_layers_and_convs()
+    bns1,convs1 = new_model.get_sparse_layers_and_convs()
     bns2,convs2 = old_model.get_sparse_layers_and_convs()
     ch_start = 0
     for conv1,bn1,conv2,bn2 in zip(convs1,bns1,convs2,bns2):
@@ -668,11 +668,11 @@ def compare_models(old,new):
             #assert torch.equal(bn1.bias.data, bn2.bias.data)
         ch_start += ch_len
         
-def log_quantization(model):
+def log_quantization(old_model):
     if args.current_stage == args.stages - 1:
         return
         
-    bn_modules = model.get_sparse_layers()
+    bn_modules = old_model.get_sparse_layers()
     shrink,targeted = assign_to_indices(bn_modules)
     # update mask of current stage
     if len(args.mask_list) < args.current_stage+1:
