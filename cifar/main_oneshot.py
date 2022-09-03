@@ -562,7 +562,7 @@ def sample_network(model,net_id=None,zero_bias=True,eval=False):
     total_channels = len(all_scale_factors)
     sampled_channels = total_channels//args.stages*net_id
     
-    _,ch_indices = total_channels.sort(dim=0)
+    _,ch_indices = all_scale_factors.sort(dim=0)
     
     sampled = torch.zeros(total_channels).long().cuda()
     sampled[ch_indices[-sampled_channels:]] = 1
