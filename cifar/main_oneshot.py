@@ -338,7 +338,7 @@ if args.resume:
             if args.cuda:
                 model.cuda()
 
-        args.start_epoch = checkpoint['epoch']
+        args.start_epoch = 0#checkpoint['epoch']
         best_prec1 = checkpoint['best_prec1']
         model.load_state_dict(checkpoint['state_dict'])
         #optimizer.load_state_dict(checkpoint['optimizer'])
@@ -786,7 +786,7 @@ def train(epoch):
                          LossType.PROGRESSIVE_SHRINKING}:
             old_model = copy.deepcopy(model)
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
-            weight_grad_mask = sample_network(model,net_id=batch_idx%4+1)
+            weight_grad_mask = sample_network(model)
         if args.cuda:
             data, target = data.cuda(), target.cuda()
         optimizer.zero_grad()
