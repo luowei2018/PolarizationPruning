@@ -545,10 +545,11 @@ def assign_to_indices(bn_modules):
     
 def sample_network(old_model,net_id=None,zero_bias=True,eval=False):
     if net_id is None:
-        net_id = torch.tensor(0).random_(1,5)
+        net_id = torch.tensor(0).random_(0,4)
     all_scale_factors = torch.tensor([]).cuda()
     if eval:
         old_model = copy.deepcopy(old_model)
+        
     bn_modules = old_model.get_sparse_layers()
     for bn_module in bn_modules:
         all_scale_factors = torch.cat((all_scale_factors,bn_module.weight.data))
@@ -560,13 +561,17 @@ def sample_network(old_model,net_id=None,zero_bias=True,eval=False):
     _,ch_indices = all_scale_factors.sort(dim=0)
     
     weight_valid_mask = torch.zeros(total_channels).long().cuda()
-    weight_valid_mask[ch_indices[-channel_per_layer*net_id:]] = 1
+    weight_valid_mask[ch_indices[channel_per_layer*(3-net_id):]] = 1
+    
+    inner_model = None
+    if net_id>0 and not eval:
+        inner_mask = torch.zeros(total_channels).long().cuda()
+        inner_mask[ch_indices[channel_per_layer*(4-net_id):]] = 1
+        inner_model = prune_by_mask(old_model,[inner_mask])
+        
     if False:
         freeze_mask = torch.ones(total_channels).long().cuda()
-        if net_id == 1:
-            freeze_mask[ch_indices[-channel_per_layer*net_id:]] = 0
-        else:
-            freeze_mask[ch_indices[-channel_per_layer*net_id:-channel_per_layer*(net_id-1)]] = 0
+        freeze_mask[ch_indices[channel_per_layer*(3-net_id):channel_per_layer*(4-net_id)]] = 0
     else:
         freeze_mask = 1-weight_valid_mask
     ch_start = 0
@@ -579,7 +584,7 @@ def sample_network(old_model,net_id=None,zero_bias=True,eval=False):
                 bn_module.bias.data[inactive] = 0
             ch_start += ch_len
     if not eval:
-        return freeze_mask
+        return freeze_mask,inner_model
     else:
         return test(old_model)
         
@@ -590,11 +595,11 @@ def prune_by_mask(old_model,mask_list,zero_bias=True):
     bn_modules = pruned_model.get_sparse_layers()
     
     tokeep = None
-    for freeze_mask in mask_list:
+    for mask in mask_list:
         if tokeep is None:
-            tokeep = freeze_mask.clone().detach()
+            tokeep = mask.clone().detach()
         else:
-            tokeep += freeze_mask.clone().detach()
+            tokeep += mask.clone().detach()
         
     ch_start = 0
     for bn_module in bn_modules:
@@ -754,7 +759,7 @@ def prune_while_training(model: nn.Module, arch: str, prune_mode: str, num_class
             inplace_precs += [test(prune_by_mask(model,args.mask_list[:i+1],zero_bias=False))]
     
     if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
-        for i in range(1, 4):
+        for i in range(0, 4):
             inplace_precs += [sample_network(model,net_id=i,zero_bias=True,eval=True)]
         
     
@@ -784,7 +789,7 @@ def train(epoch):
                          LossType.PROGRESSIVE_SHRINKING}:
             old_model = copy.deepcopy(model)
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
-            freeze_mask = sample_network(model)
+            freeze_mask,inner_model = sample_network(model)
         if args.cuda:
             data, target = data.cuda(), target.cuda()
         optimizer.zero_grad()
@@ -792,7 +797,12 @@ def train(epoch):
         if isinstance(output, tuple):
             output, output_aux = output
         loss = F.cross_entropy(output, target)
-        if args.loss in {LossType.PROGRESSIVE_SHRINKING,
+        if args.loss in {LossType.PROGRESSIVE_SHRINKING} and inner_model is not None:
+            inner_output = inner_model(data)
+            if isinstance(inner_output, tuple):
+                inner_output, _ = inner_output
+            loss -= F.cross_entropy(inner_output, target)
+        if False and args.loss in {LossType.PROGRESSIVE_SHRINKING,
                          LossType.LOG_QUANTIZATION}:
             soft_logits = teacher_model(data)
             if isinstance(soft_logits, tuple):
