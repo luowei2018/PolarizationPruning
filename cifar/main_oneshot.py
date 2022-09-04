@@ -563,7 +563,7 @@ def sample_network(old_model,net_id=None,zero_bias=True,eval=False):
     weight_valid_mask = torch.zeros(total_channels).long().cuda()
     weight_valid_mask[ch_indices[channel_per_layer*(3-net_id):]] = 1
         
-    if True:
+    if False:
         freeze_mask = torch.ones(total_channels).long().cuda()
         freeze_mask[ch_indices[channel_per_layer*(3-net_id):channel_per_layer*(4-net_id)]] = 0
     else:
@@ -578,7 +578,7 @@ def sample_network(old_model,net_id=None,zero_bias=True,eval=False):
                 bn_module.bias.data[inactive] = 0
             ch_start += ch_len
     if not eval:
-        return freeze_mask
+        return freeze_mask,net_id
     else:
         return test(old_model)
         
@@ -659,6 +659,14 @@ def compare_models(old,new):
             #assert torch.equal(bn1.weight.data, bn2.weight.data)
             #assert torch.equal(bn1.bias.data, bn2.bias.data)
         ch_start += ch_len
+        
+def scale_lr(optim,net_id,reset=False):
+    scale_factor = 1 if net_id == 1 else 0.1
+    for g in optim.param_groups:
+        if not reset:
+            g['lr'] = args.current_lr * scale_factor
+        else:
+            g['lr'] = args.current_lr
         
 def log_quantization(old_model):
     if args.current_stage == args.stages - 1:
@@ -783,7 +791,7 @@ def train(epoch):
                          LossType.PROGRESSIVE_SHRINKING}:
             old_model = copy.deepcopy(model)
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
-            freeze_mask = sample_network(model)
+            freeze_mask,net_id = sample_network(model)
         if args.cuda:
             data, target = data.cuda(), target.cuda()
         optimizer.zero_grad()
@@ -818,11 +826,14 @@ def train(epoch):
             updateBN()
         if args.loss in {LossType.LOG_QUANTIZATION}:
             log_quantization(model)
+        if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
+            scale_lr(optimizer,net_id,reset=False)
         optimizer.step()
         if args.loss in {LossType.LOG_QUANTIZATION}:
             recover_weights(model,old_model,args.mask_list[:args.current_stage])
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
             recover_weights(model,old_model,[freeze_mask])
+            scale_lr(model,net_id,reset=True)
         if args.loss in {LossType.POLARIZATION,
                          LossType.L2_POLARIZATION,
                          LossType.LOG_QUANTIZATION,
