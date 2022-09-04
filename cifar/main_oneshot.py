@@ -811,7 +811,8 @@ def train(epoch):
             loss = cross_entropy_loss_with_soft_target(output, soft_label)
 
         # logging
-        avg_loss += loss.data.item()
+        if inner_model is not None:
+            avg_loss += loss.data.item()
         pred = output.data.max(1, keepdim=True)[1]
         train_acc += pred.eq(target.data.view_as(pred)).cpu().sum()
         total_data += target.data.shape[0]
