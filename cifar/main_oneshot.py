@@ -569,7 +569,7 @@ def sample_network(old_model,net_id=None,zero_bias=True,eval=False):
         inner_mask[ch_indices[channel_per_layer*(4-net_id):]] = 1
         inner_model = prune_by_mask(old_model,[inner_mask])
         
-    if False:
+    if True:
         freeze_mask = torch.ones(total_channels).long().cuda()
         freeze_mask[ch_indices[channel_per_layer*(3-net_id):channel_per_layer*(4-net_id)]] = 0
     else:
