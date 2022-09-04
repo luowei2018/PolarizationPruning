@@ -562,12 +562,6 @@ def sample_network(old_model,net_id=None,zero_bias=True,eval=False):
     
     weight_valid_mask = torch.zeros(total_channels).long().cuda()
     weight_valid_mask[ch_indices[channel_per_layer*(3-net_id):]] = 1
-    
-    inner_model = None
-    if net_id>0 and not eval:
-        inner_mask = torch.zeros(total_channels).long().cuda()
-        inner_mask[ch_indices[channel_per_layer*(4-net_id):]] = 1
-        inner_model = prune_by_mask(old_model,[inner_mask])
         
     if True:
         freeze_mask = torch.ones(total_channels).long().cuda()
@@ -584,7 +578,7 @@ def sample_network(old_model,net_id=None,zero_bias=True,eval=False):
                 bn_module.bias.data[inactive] = 0
             ch_start += ch_len
     if not eval:
-        return freeze_mask,inner_model
+        return freeze_mask
     else:
         return test(old_model)
         
@@ -789,7 +783,7 @@ def train(epoch):
                          LossType.PROGRESSIVE_SHRINKING}:
             old_model = copy.deepcopy(model)
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
-            freeze_mask,inner_model = sample_network(model)
+            freeze_mask = sample_network(model)
         if args.cuda:
             data, target = data.cuda(), target.cuda()
         optimizer.zero_grad()
@@ -797,14 +791,6 @@ def train(epoch):
         if isinstance(output, tuple):
             output, output_aux = output
         loss = F.cross_entropy(output, target)
-        print(target)
-        print(output)
-        exit(0)
-        if args.loss in {LossType.PROGRESSIVE_SHRINKING} and inner_model is not None:
-            inner_output = inner_model(data)
-            if isinstance(inner_output, tuple):
-                inner_output, _ = inner_output
-            loss -= F.cross_entropy(inner_output, target)
         if False and args.loss in {LossType.PROGRESSIVE_SHRINKING,
                          LossType.LOG_QUANTIZATION}:
             soft_logits = teacher_model(data)
@@ -814,8 +800,7 @@ def train(epoch):
             loss = cross_entropy_loss_with_soft_target(output, soft_label)
 
         # logging
-        if inner_model is not None:
-            avg_loss += loss.data.item()
+        avg_loss += loss.data.item()
         pred = output.data.max(1, keepdim=True)[1]
         train_acc += pred.eq(target.data.view_as(pred)).cpu().sum()
         total_data += target.data.shape[0]
