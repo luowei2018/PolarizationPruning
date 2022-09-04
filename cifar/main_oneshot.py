@@ -797,6 +797,9 @@ def train(epoch):
         if isinstance(output, tuple):
             output, output_aux = output
         loss = F.cross_entropy(output, target)
+        print(target)
+        print(output)
+        exit(0)
         if args.loss in {LossType.PROGRESSIVE_SHRINKING} and inner_model is not None:
             inner_output = inner_model(data)
             if isinstance(inner_output, tuple):
