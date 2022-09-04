@@ -660,8 +660,8 @@ def compare_models(old,new):
             #assert torch.equal(bn1.bias.data, bn2.bias.data)
         ch_start += ch_len
         
-def scale_lr(optim,net_id,reset=False):
-    scale_factor = 1 if net_id == 1 else 0.1
+def scale_lr(optim,net_id,default_factor=0.1,reset=False):
+    scale_factor = 1 if net_id == 1 else default_factor
     for g in optim.param_groups:
         if not reset:
             g['lr'] = args.current_lr * scale_factor
@@ -827,7 +827,7 @@ def train(epoch):
         if args.loss in {LossType.LOG_QUANTIZATION}:
             log_quantization(model)
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
-            scale_lr(optimizer,net_id,reset=False)
+            scale_lr(optimizer,net_id,default_factor=0,reset=False)
         optimizer.step()
         if args.loss in {LossType.LOG_QUANTIZATION}:
             recover_weights(model,old_model,args.mask_list[:args.current_stage])
