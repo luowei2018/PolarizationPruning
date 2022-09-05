@@ -562,7 +562,7 @@ def sample_network(old_model,net_id=None,zero_bias=True,eval=False):
     
     weight_valid_mask = torch.zeros(total_channels).long().cuda()
     weight_valid_mask[ch_indices[channel_per_layer*(3-net_id):]] = 1
-    print(weight_valid_mask.sum())
+    print(net_id,weight_valid_mask.sum())
         
     if False:
         freeze_mask = torch.ones(total_channels).long().cuda()
@@ -792,7 +792,7 @@ def train(epoch):
                          LossType.PROGRESSIVE_SHRINKING}:
             old_model = copy.deepcopy(model)
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
-            freeze_mask,net_id = sample_network(model,net_id=3)
+            freeze_mask,net_id = sample_network(model)
         if args.cuda:
             data, target = data.cuda(), target.cuda()
         optimizer.zero_grad()
