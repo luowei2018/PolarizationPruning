@@ -607,7 +607,7 @@ def prune_by_mask(old_model,mask_list,zero_bias=True):
     #for name, param in model.named_parameters(): print(name, param.data)
     return pruned_model
    
-def recover_weights(new_model,old_model,mask_list，keep_extra=False):
+def recover_weights(new_model,old_model,mask_list,keep_extra=False):
     bns1,convs1 = new_model.get_sparse_layers_and_convs()
     bns2,convs2 = old_model.get_sparse_layers_and_convs()
     ch_start = 0
