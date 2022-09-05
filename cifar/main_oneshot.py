@@ -934,7 +934,7 @@ for args.current_stage in range(args.start_stage, args.stages):
         save_checkpoint({
             'epoch': epoch + 1,
             'state_dict': model.state_dict(),
-            'best_prec1': prec1,
+            'best_prec1': best_prec1,
             'optimizer': optimizer.state_dict(),
             'mask_list': args.mask_list,
             'stage': args.current_stage,
