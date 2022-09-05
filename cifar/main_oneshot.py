@@ -577,7 +577,6 @@ def sample_network(old_model,net_id=None,zero_bias=True,eval=False):
             if zero_bias:
                 bn_module.bias.data[inactive] = 0
             ch_start += ch_len
-    model.eval()
     if not eval:
         return freeze_mask,net_id
     else:
@@ -714,6 +713,7 @@ def factor_visualization(iter, model, prec):
         
 
 def prune_while_training(model: nn.Module, arch: str, prune_mode: str, num_classes: int):
+    model.eval()
     target_ratios = []#.25,.5,.75]#[0.1 + 0.1*x for x in range(9)]
     saved_flops = []
     saved_prec1s = []
