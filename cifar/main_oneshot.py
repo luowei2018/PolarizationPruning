@@ -910,6 +910,7 @@ if args.evaluate:
     prune_while_training(model, arch=args.arch,
                        prune_mode="default",
                        num_classes=num_classes)
+    exit(0)
          
 
 for args.current_stage in range(args.start_stage, args.stages):
