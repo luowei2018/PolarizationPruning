@@ -562,7 +562,6 @@ def sample_network(old_model,net_id=None,zero_bias=True,eval=False):
     
     weight_valid_mask = torch.zeros(total_channels).long().cuda()
     weight_valid_mask[ch_indices[channel_per_layer*(3-net_id):]] = 1
-    print(net_id,weight_valid_mask.sum())
         
     if False:
         freeze_mask = torch.ones(total_channels).long().cuda()
@@ -662,7 +661,7 @@ def compare_models(old,new):
         ch_start += ch_len
         
 def scale_lr(optim,net_id,default_factor=0.1,reset=False):
-    scale_factor = 1 if net_id == 1 else default_factor
+    scale_factor = 1 if net_id <= 2 else default_factor
     for g in optim.param_groups:
         if not reset:
             g['lr'] = args.current_lr * scale_factor
@@ -792,7 +791,7 @@ def train(epoch):
                          LossType.PROGRESSIVE_SHRINKING}:
             old_model = copy.deepcopy(model)
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
-            freeze_mask,net_id = sample_network(model)
+            freeze_mask,net_id = sample_network(model,net_id=3)
         if args.cuda:
             data, target = data.cuda(), target.cuda()
         optimizer.zero_grad()
@@ -828,7 +827,7 @@ def train(epoch):
         if args.loss in {LossType.LOG_QUANTIZATION}:
             log_quantization(model)
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
-            scale_lr(optimizer,net_id,default_factor=0,reset=False)
+            scale_lr(optimizer,net_id,default_factor=1,reset=False)
         optimizer.step()
         if args.loss in {LossType.LOG_QUANTIZATION}:
             recover_weights(model,old_model,args.mask_list[:args.current_stage])
