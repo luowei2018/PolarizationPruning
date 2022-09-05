@@ -577,7 +577,7 @@ def sample_network(old_model,net_id=None,zero_bias=True,eval=False):
             if zero_bias:
                 bn_module.bias.data[inactive] = 0
             ch_start += ch_len
-    old_model.eval()
+    model.eval()
     if not eval:
         return freeze_mask,net_id
     else:
