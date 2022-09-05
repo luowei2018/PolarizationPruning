@@ -661,7 +661,7 @@ def compare_models(old,new):
         ch_start += ch_len
         
 def scale_lr(optim,net_id,default_factor=0.1,reset=False):
-    scale_factor = 1 if net_id == 3 else default_factor
+    scale_factor = 1 if net_id == 0 else default_factor
     for g in optim.param_groups:
         if not reset:
             g['lr'] = args.current_lr * scale_factor
@@ -792,7 +792,7 @@ def train(epoch):
                          LossType.PROGRESSIVE_SHRINKING}:
             old_model = copy.deepcopy(model)
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
-            freeze_mask,net_id = sample_network(model,net_id=batch_idx%2+2)
+            freeze_mask,net_id = sample_network(model,net_id=batch_idx%4)
         if args.cuda:
             data, target = data.cuda(), target.cuda()
         optimizer.zero_grad()
