@@ -661,7 +661,7 @@ def compare_models(old,new):
         ch_start += ch_len
         
 def scale_lr(optim,net_id,default_factor=0.1,reset=False):
-    scale_factor = 1 if net_id == 2 else default_factor
+    scale_factor = 1 if net_id == 3 else default_factor
     for g in optim.param_groups:
         if not reset:
             g['lr'] = args.current_lr * scale_factor
