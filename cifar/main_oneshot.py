@@ -663,6 +663,15 @@ def compare_models(old,new,whole=False):
                 assert torch.equal(bn1.running_mean.data,bn2.running_mean.data)
                 assert torch.equal(bn1.running_var.data,bn2.running_var.data)
         ch_start += ch_len
+    if whole:
+        assert torch.equal(new.conv1.weight.data,old.conv1.weight.data)
+        assert torch.equal(new.bn1.weight.data,old.bn1.weight.data)
+        assert torch.equal(new.bn1.bias.data,old.bn1.bias.data)
+        assert torch.equal(new.bn1.running_mean.data,old.bn1.running_mean.data)
+        assert torch.equal(new.bn1.running_var.data,old.bn1.running_var.data)
+        assert torch.equal(new.linear.weight.data,old.linear.weight.data)
+        assert torch.equal(new.linear.bias.data,old.linear.bias.data)
+    
         
 def scale_lr(optim,net_id,default_factor=0.1,reset=False):
     scale_factor = 1 if net_id == 3 else default_factor
