@@ -841,6 +841,7 @@ def train(epoch):
         if args.loss in {LossType.LOG_QUANTIZATION}:
             log_quantization(model)
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
+            print(net_id)
             scale_lr(optimizer,net_id,default_factor=1,reset=False)
         optimizer.step()
         if args.loss in {LossType.LOG_QUANTIZATION}:
