@@ -607,7 +607,7 @@ def prune_by_mask(old_model,mask_list,zero_bias=True):
     #for name, param in model.named_parameters(): print(name, param.data)
     return pruned_model
    
-def recover_weights(new_model,old_model,mask_list):
+def recover_weights(new_model,old_model,mask_list，keep_extra=False):
     bns1,convs1 = new_model.get_sparse_layers_and_convs()
     bns2,convs2 = old_model.get_sparse_layers_and_convs()
     ch_start = 0
@@ -630,7 +630,7 @@ def recover_weights(new_model,old_model,mask_list):
                     conv1.bias.data[freeze_mask] = conv2.bias.data[freeze_mask].clone().detach()
         ch_start += ch_len
     
-    if args.current_stage >= 1:
+    if keep_extra:
         new_model.conv1.weight.data = old_model.conv1.weight.data.clone().detach()
         new_model.bn1.weight.data = old_model.bn1.weight.data.clone().detach()
         new_model.bn1.bias.data = old_model.bn1.bias.data.clone().detach()
@@ -805,7 +805,7 @@ def train(epoch):
                          LossType.PROGRESSIVE_SHRINKING}:
             old_model = copy.deepcopy(model)
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
-            freeze_mask,net_id = sample_network(model,net_id=batch_idx%4)
+            freeze_mask,net_id = sample_network(model)
         if args.cuda:
             data, target = data.cuda(), target.cuda()
         optimizer.zero_grad()
@@ -846,10 +846,9 @@ def train(epoch):
         if args.loss in {LossType.LOG_QUANTIZATION}:
             recover_weights(model,old_model,args.mask_list[:args.current_stage])
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
-            recover_weights(model,old_model,[freeze_mask])
+            recover_weights(model,old_model,[freeze_mask],keep_extra=(net_id!=3))
             scale_lr(optimizer,net_id,reset=True)
-            if net_id!=3:
-                compare_models(old_model,model,whole=True)
+            if net_id!=3:compare_models(old_model,model,whole=True)
         if args.loss in {LossType.POLARIZATION,
                          LossType.L2_POLARIZATION,
                          LossType.LOG_QUANTIZATION,
