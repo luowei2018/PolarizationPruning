@@ -761,7 +761,7 @@ def prune_while_training(model: nn.Module, arch: str, prune_mode: str, num_class
             inplace_precs += [test(prune_by_mask(model,args.mask_list[:i+1],zero_bias=False))]
     
     if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
-        for i in range(0, 3):
+        for i in range(0, 4):
             inplace_precs += [sample_network(model,net_id=i,zero_bias=True,eval=True)]
         
     
@@ -923,14 +923,14 @@ for args.current_stage in range(args.start_stage, args.stages):
             break
 
         args.current_lr = adjust_learning_rate(optimizer, epoch, args.gammas, args.decay_epoch)
-        print("Start epoch {}/{} stage {}/{} with learning rate {}...".format(epoch, args.epochs, args.current_stage, args.stages, args.current_lr))
+        print("Start epoch {}/{} stage {}/{} with learning rate {}...".format(epoch, args.epochs, args.current_stage, args.stages, args.current_lr),args.save)
 
         train(epoch) # train with regularization
 
-        prec1 = test(model)
-        print(f"All Prec1: {prec1}")
-        is_best = prec1 > best_prec1
-        best_prec1 = max(prec1, best_prec1)
+        #prec1 = test(model)
+        #print(f"All Prec1: {prec1}")
+        is_best = False#prec1 > best_prec1
+        best_prec1 = 0#max(prec1, best_prec1)
         save_checkpoint({
             'epoch': epoch + 1,
             'state_dict': model.state_dict(),
