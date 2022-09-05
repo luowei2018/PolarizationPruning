@@ -907,7 +907,6 @@ if args.evaluate:
     #prec1 = test(model)
     #print(f"All Prec1: {prec1}")
     #factor_visualization(0, model, prec1)
-    model.eval()
     prune_while_training(model, arch=args.arch,
                        prune_mode="default",
                        num_classes=num_classes)
