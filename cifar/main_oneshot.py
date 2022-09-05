@@ -661,7 +661,7 @@ def compare_models(old,new):
         ch_start += ch_len
         
 def scale_lr(optim,net_id,default_factor=0.1,reset=False):
-    scale_factor = 1 if net_id == 3 else default_factor
+    scale_factor = 1 if net_id == 2 else default_factor
     for g in optim.param_groups:
         if not reset:
             g['lr'] = args.current_lr * scale_factor
@@ -828,7 +828,7 @@ def train(epoch):
         if args.loss in {LossType.LOG_QUANTIZATION}:
             log_quantization(model)
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
-            scale_lr(optimizer,net_id,default_factor=.1,reset=False)
+            scale_lr(optimizer,net_id,default_factor=.05,reset=False)
         optimizer.step()
         if args.loss in {LossType.LOG_QUANTIZATION}:
             recover_weights(model,old_model,args.mask_list[:args.current_stage])
