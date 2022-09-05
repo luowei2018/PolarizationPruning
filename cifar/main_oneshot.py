@@ -661,7 +661,7 @@ def compare_models(old,new):
         ch_start += ch_len
         
 def scale_lr(optim,net_id,default_factor=0.1,reset=False):
-    scale_factor = 1 if net_id <= 2 else default_factor
+    scale_factor = 1 if net_id == 2 else default_factor
     for g in optim.param_groups:
         if not reset:
             g['lr'] = args.current_lr * scale_factor
@@ -828,7 +828,7 @@ def train(epoch):
         if args.loss in {LossType.LOG_QUANTIZATION}:
             log_quantization(model)
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
-            scale_lr(optimizer,net_id,default_factor=1,reset=False)
+            scale_lr(optimizer,net_id,default_factor=.1,reset=False)
         optimizer.step()
         if args.loss in {LossType.LOG_QUANTIZATION}:
             recover_weights(model,old_model,args.mask_list[:args.current_stage])
@@ -929,14 +929,14 @@ for args.current_stage in range(args.start_stage, args.stages):
 
         train(epoch) # train with regularization
 
-        #prec1 = test(model)
-        #print(f"All Prec1: {prec1}")
-        is_best = False#prec1 > best_prec1
-        best_prec1 = 0#max(prec1, best_prec1)
+        prec1 = test(model)
+        print(f"All Prec1: {prec1}")
+        is_best = prec1 > best_prec1
+        best_prec1 = max(prec1, best_prec1)
         save_checkpoint({
             'epoch': epoch + 1,
             'state_dict': model.state_dict(),
-            'best_prec1': best_prec1,
+            'best_prec1': prec1,
             'optimizer': optimizer.state_dict(),
             'mask_list': args.mask_list,
             'stage': args.current_stage,
