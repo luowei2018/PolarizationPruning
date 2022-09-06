@@ -614,7 +614,6 @@ def recover_weights(new_model,old_model,mask_list,keep_extra=False):
     for conv1,bn1,conv2,bn2 in zip(convs1,bns1,convs2,bns2):
         ch_len = conv1.weight.data.size(0)
         for freeze_mask in mask_list:
-            if freeze_mask is None:continue
             with torch.no_grad():
                 freeze_mask = freeze_mask[ch_start:ch_start+ch_len] == 1
                 bn1.weight.data[freeze_mask] = bn2.weight.data[freeze_mask].clone().detach()
@@ -847,7 +846,7 @@ def train(epoch):
         if args.loss in {LossType.LOG_QUANTIZATION}:
             recover_weights(model,old_model,args.mask_list[:args.current_stage])
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
-            recover_weights(model,old_model,[freeze_mask])
+            recover_weights(model,old_model,[freeze_mask],keep_extra=(net_id!=3))
             scale_lr(optimizer,net_id,reset=True)
             if net_id!=3:compare_models(old_model,model,whole=True)
         if args.loss in {LossType.POLARIZATION,
