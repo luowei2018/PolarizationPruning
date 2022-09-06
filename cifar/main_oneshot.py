@@ -829,8 +829,7 @@ def train(epoch):
             print(net_id,total_changed.sum())
         if args.loss in {LossType.POLARIZATION,
                          LossType.L2_POLARIZATION,
-                         LossType.LOG_QUANTIZATION,
-                         LossType.PROGRESSIVE_SHRINKING}:
+                         LossType.LOG_QUANTIZATION}:
             clamp_bn(model, upper_bound=args.clamp)
         global_step += 1
         train_iter.set_description(
