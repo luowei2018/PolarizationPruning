@@ -812,7 +812,7 @@ def train(epoch):
         if isinstance(output, tuple):
             output, output_aux = output
         loss = F.cross_entropy(output, target)
-        if False and args.loss in {LossType.PROGRESSIVE_SHRINKING,
+        if args.loss in {LossType.PROGRESSIVE_SHRINKING,
                          LossType.LOG_QUANTIZATION}:
             soft_logits = teacher_model(data)
             if isinstance(soft_logits, tuple):
@@ -840,7 +840,7 @@ def train(epoch):
         if args.loss in {LossType.LOG_QUANTIZATION}:
             log_quantization(model)
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
-            scale_lr(optimizer,net_id,default_factor=0.01,reset=False)
+            scale_lr(optimizer,net_id,default_factor=0.1,reset=False)
         optimizer.step()
         if args.loss in {LossType.LOG_QUANTIZATION}:
             recover_weights(model,old_model,args.mask_list[:args.current_stage])
