@@ -616,7 +616,7 @@ def recover_weights(new_model,old_model,mask_list,keep_extra=False):
         for freeze_mask in mask_list:
             with torch.no_grad():
                 freeze_mask = freeze_mask[ch_start:ch_start+ch_len] == 1
-                #if keep_extra:freeze_mask = torch.ones(ch_len).long().cuda()
+                if keep_extra:freeze_mask = torch.ones(ch_len).long().cuda()
                 bn1.weight.data[freeze_mask] = bn2.weight.data[freeze_mask].clone().detach()
                 bn1.running_mean.data[freeze_mask] = bn2.running_mean.data[freeze_mask].clone().detach()
                 bn1.running_var.data[freeze_mask] = bn2.running_var.data[freeze_mask].clone().detach()
