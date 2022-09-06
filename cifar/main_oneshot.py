@@ -823,10 +823,10 @@ def train(epoch):
         if args.loss in {LossType.LOG_QUANTIZATION}:
             recover_weights(model,old_model,args.mask_list[:args.current_stage])
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
-            total_changed = compare_models(old_model,model)
-            print(net_id,total_changed.sum())
             recover_weights(model,old_model,[freeze_mask],keep_extra=(net_id!=3))
             scale_lr(optimizer,net_id,reset=True)
+            total_changed = compare_models(old_model,model)
+            print(net_id,total_changed.sum())
         if args.loss in {LossType.POLARIZATION,
                          LossType.L2_POLARIZATION,
                          LossType.LOG_QUANTIZATION,
