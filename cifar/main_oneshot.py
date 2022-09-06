@@ -607,7 +607,7 @@ def prune_by_mask(old_model,mask_list,zero_bias=True):
     #for name, param in model.named_parameters(): print(name, param.data)
     return pruned_model
    
-def recover_weights(new_model,old_model,mask_list,keep_extra=False):
+def recover_weights(new_model,old_model,mask_list,whole=False):
     bns1,convs1 = new_model.get_sparse_layers_and_convs()
     bns2,convs2 = old_model.get_sparse_layers_and_convs()
     ch_start = 0
@@ -616,7 +616,7 @@ def recover_weights(new_model,old_model,mask_list,keep_extra=False):
         for freeze_mask in mask_list:
             with torch.no_grad():
                 freeze_mask = freeze_mask[ch_start:ch_start+ch_len] == 1
-                if keep_extra:freeze_mask = torch.ones(ch_len).long().cuda()==1
+                if whole:freeze_mask = torch.ones(ch_len).long().cuda()==1
                 bn1.weight.data[freeze_mask] = bn2.weight.data[freeze_mask].clone().detach()
                 bn1.running_mean.data[freeze_mask] = bn2.running_mean.data[freeze_mask].clone().detach()
                 bn1.running_var.data[freeze_mask] = bn2.running_var.data[freeze_mask].clone().detach()
@@ -630,7 +630,7 @@ def recover_weights(new_model,old_model,mask_list,keep_extra=False):
                     conv1.bias.data[freeze_mask] = conv2.bias.data[freeze_mask].clone().detach()
         ch_start += ch_len
     
-    if keep_extra:
+    if whole:
         new_model.conv1.weight.data = old_model.conv1.weight.data.clone().detach()
         new_model.bn1.weight.data = old_model.bn1.weight.data.clone().detach()
         new_model.bn1.bias.data = old_model.bn1.bias.data.clone().detach()
@@ -845,9 +845,9 @@ def train(epoch):
         if args.loss in {LossType.LOG_QUANTIZATION}:
             recover_weights(model,old_model,args.mask_list[:args.current_stage])
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
-            recover_weights(model,old_model,[freeze_mask],keep_extra=(net_id!=3))
+            recover_weights(model,old_model,[freeze_mask],whole=(net_id!=3))
             scale_lr(optimizer,net_id,reset=True)
-            if net_id!=3:compare_models(old_model,model,[freeze_mask],whole=True)
+            #if net_id!=3:compare_models(old_model,model,[freeze_mask],whole=True)
         if args.loss in {LossType.POLARIZATION,
                          LossType.L2_POLARIZATION,
                          LossType.LOG_QUANTIZATION}:
