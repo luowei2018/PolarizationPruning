@@ -638,7 +638,7 @@ def recover_weights(new_model,old_model,mask_list,keep_extra=False):
         new_model.linear.weight.data = old_model.linear.weight.data.clone().detach()
         new_model.linear.bias.data = old_model.linear.bias.data.clone().detach()
             
-def compare_models(old,new,whole=False):
+def compare_models(old,new,mask_list,whole=False):
     #for name, param in new.named_parameters(): print(name, param.size())
     #exit(0)
     bns1,convs1 = old.get_sparse_layers_and_convs()
@@ -646,8 +646,7 @@ def compare_models(old,new,whole=False):
     ch_start = 0
     for conv1,bn1,conv2,bn2 in zip(convs1,bns1,convs2,bns2):
         ch_len = conv1.weight.data.size(0)
-        for freeze_mask in args.mask_list[:args.current_stage]:
-            if freeze_mask is None:continue
+        for freeze_mask in mask_list:
             freeze_mask = freeze_mask[ch_start:ch_start+ch_len] == 1
             if not whole:
                 assert torch.equal(conv1.weight.data[freeze_mask, :, :, :], conv2.weight.data[freeze_mask, :, :, :])
@@ -656,7 +655,6 @@ def compare_models(old,new,whole=False):
                 assert torch.equal(bn1.running_mean.data[freeze_mask],bn2.running_mean.data[freeze_mask])
                 assert torch.equal(bn1.running_var.data[freeze_mask],bn2.running_var.data[freeze_mask])
             else:
-                print(bn1.weight.data.tolist(), bn2.weight.data.tolist())
                 assert torch.equal(conv1.weight.data, conv2.weight.data)
                 assert torch.equal(bn1.weight.data, bn2.weight.data)
                 assert torch.equal(bn1.bias.data, bn2.bias.data)
@@ -849,7 +847,7 @@ def train(epoch):
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
             #recover_weights(model,old_model,[freeze_mask],keep_extra=(net_id!=3))
             #scale_lr(optimizer,net_id,reset=True)
-            if net_id!=3:compare_models(old_model,model,whole=True)
+            if net_id!=3:compare_models(old_model,model,[freeze_mask],whole=True)
         if args.loss in {LossType.POLARIZATION,
                          LossType.L2_POLARIZATION,
                          LossType.LOG_QUANTIZATION,
