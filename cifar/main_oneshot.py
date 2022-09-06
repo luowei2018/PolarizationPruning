@@ -650,11 +650,11 @@ def compare_models(old,new,mask_list,whole=False):
             ch_len = conv1.weight.data.size(0)
             for freeze_mask in mask_list:
                 freeze_mask = freeze_mask[ch_start:ch_start+ch_len] == 1
-                    assert torch.equal(conv1.weight.data[freeze_mask, :, :, :], conv2.weight.data[freeze_mask, :, :, :])
-                    assert torch.equal(bn1.weight.data[freeze_mask], bn2.weight.data[freeze_mask])
-                    assert torch.equal(bn1.bias.data[freeze_mask], bn2.bias.data[freeze_mask])
-                    assert torch.equal(bn1.running_mean.data[freeze_mask],bn2.running_mean.data[freeze_mask])
-                    assert torch.equal(bn1.running_var.data[freeze_mask],bn2.running_var.data[freeze_mask])
+                assert torch.equal(conv1.weight.data[freeze_mask, :, :, :], conv2.weight.data[freeze_mask, :, :, :])
+                assert torch.equal(bn1.weight.data[freeze_mask], bn2.weight.data[freeze_mask])
+                assert torch.equal(bn1.bias.data[freeze_mask], bn2.bias.data[freeze_mask])
+                assert torch.equal(bn1.running_mean.data[freeze_mask],bn2.running_mean.data[freeze_mask])
+                assert torch.equal(bn1.running_var.data[freeze_mask],bn2.running_var.data[freeze_mask])
             ch_start += ch_len
         else:
             assert torch.equal(conv1.weight.data, conv2.weight.data)
