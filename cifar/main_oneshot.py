@@ -827,7 +827,7 @@ def train(epoch):
             scale_lr(optimizer,net_id,reset=True)
             total_changed = compare_models(old_model,model)
             print(net_id,total_changed.sum())
-            assert(total_changed == (1-freeze_mask))
+            assert torch.equal(total_changed , (1-freeze_mask))
         if args.loss in {LossType.POLARIZATION,
                          LossType.L2_POLARIZATION,
                          LossType.LOG_QUANTIZATION}:
