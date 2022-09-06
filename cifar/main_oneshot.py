@@ -656,6 +656,7 @@ def compare_models(old,new,whole=False):
                 assert torch.equal(bn1.running_mean.data[freeze_mask],bn2.running_mean.data[freeze_mask])
                 assert torch.equal(bn1.running_var.data[freeze_mask],bn2.running_var.data[freeze_mask])
             else:
+                print(bn1.weight.data.tolist(), bn2.weight.data.tolist())
                 assert torch.equal(conv1.weight.data, conv2.weight.data)
                 assert torch.equal(bn1.weight.data, bn2.weight.data)
                 assert torch.equal(bn1.bias.data, bn2.bias.data)
