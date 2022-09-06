@@ -648,7 +648,6 @@ def compare_models(old,new):
         changed = bn1.weight.data != bn2.weight.data
         total_changed = torch.cat((total_changed,changed))
     return total_changed
-    
         
 def scale_lr(optim,net_id,default_factor=0.1,reset=False):
     scale_factor = 1 if net_id == 3 else default_factor
@@ -782,8 +781,7 @@ def train(epoch):
                          LossType.PROGRESSIVE_SHRINKING}:
             old_model = copy.deepcopy(model)
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
-            freeze_mask,net_id = sample_network(model)
-            if net_id !=3:continue
+            freeze_mask,net_id = sample_network(model,net_id=3)
         if args.cuda:
             data, target = data.cuda(), target.cuda()
         optimizer.zero_grad()
