@@ -660,8 +660,8 @@ def compare_models(old,new,mask_list,whole=False):
             assert torch.equal(conv1.weight.data, conv2.weight.data)
             assert torch.equal(bn1.weight.data, bn2.weight.data)
             assert torch.equal(bn1.bias.data, bn2.bias.data)
-            assert torch.equal(bn1.running_mean.data,bn2.running_mean.data)
-            assert torch.equal(bn1.running_var.data,bn2.running_var.data)
+            #assert torch.equal(bn1.running_mean.data,bn2.running_mean.data)
+            #assert torch.equal(bn1.running_var.data,bn2.running_var.data)
     if whole:
         assert torch.equal(new.conv1.weight.data,old.conv1.weight.data)
         assert torch.equal(new.bn1.weight.data,old.bn1.weight.data)
@@ -846,7 +846,7 @@ def train(epoch):
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
             recover_weights(model,old_model,[freeze_mask],keep_extra=(net_id!=3))
             scale_lr(optimizer,net_id,reset=True)
-            if net_id!=3:compare_models(old_model,model,[freeze_mask],whole=False)
+            if net_id!=3:compare_models(old_model,model,[freeze_mask],whole=True)
         if args.loss in {LossType.POLARIZATION,
                          LossType.L2_POLARIZATION,
                          LossType.LOG_QUANTIZATION}:
