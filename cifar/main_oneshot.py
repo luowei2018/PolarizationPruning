@@ -616,6 +616,8 @@ def recover_weights(new_model,old_model,mask_list,keep_extra=False):
         for freeze_mask in mask_list:
             with torch.no_grad():
                 freeze_mask = freeze_mask[ch_start:ch_start+ch_len] == 1
+                if keep_extra:
+                    freeze_mask = torch.ones(ch_len).long().cuda()
                 bn1.weight.data[freeze_mask] = bn2.weight.data[freeze_mask].clone().detach()
                 bn1.running_mean.data[freeze_mask] = bn2.running_mean.data[freeze_mask].clone().detach()
                 bn1.running_var.data[freeze_mask] = bn2.running_var.data[freeze_mask].clone().detach()
@@ -660,8 +662,8 @@ def compare_models(old,new,mask_list,whole=False):
             assert torch.equal(conv1.weight.data, conv2.weight.data)
             assert torch.equal(bn1.weight.data, bn2.weight.data)
             assert torch.equal(bn1.bias.data, bn2.bias.data)
-            #assert torch.equal(bn1.running_mean.data,bn2.running_mean.data)
-            #assert torch.equal(bn1.running_var.data,bn2.running_var.data)
+            assert torch.equal(bn1.running_mean.data,bn2.running_mean.data)
+            assert torch.equal(bn1.running_var.data,bn2.running_var.data)
     if whole:
         assert torch.equal(new.conv1.weight.data,old.conv1.weight.data)
         assert torch.equal(new.bn1.weight.data,old.bn1.weight.data)
