@@ -639,9 +639,9 @@ def accumulate_grad(old_model,new_model,mask,net_id):
             print(bn1.weight)
             optimizer.param_groups[0]['momentum'] = 0
             optimizer.param_groups[1]['momentum'] = 0
-            optimizer.step()
-            print(bn1.weight)
-            exit(0)
+            #optimizer.step()
+            #print(bn1.weight)
+            break
             
         ch_start += ch_len
    
@@ -881,6 +881,8 @@ def train(epoch):
         if args.loss not in {LossType.PROGRESSIVE_SHRINKING}:
             optimizer.step()
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
+            accumulate_grad(model,dynamic_model,freeze_mask,net_id)
+            exit(0)
             pass
             #fix_weights(model,old_model,[freeze_mask])
             #scale_lr(optimizer,net_id,reset=True)
