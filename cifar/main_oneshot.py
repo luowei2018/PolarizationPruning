@@ -607,11 +607,11 @@ def prune_by_mask(old_model,mask_list,zero_bias=True):
 def accumulate_grad(old_model,new_model,mask,net_id):
     def helper(old_param,new_param):
         if net_id == 0:
-            old_param.grad_tmp = new_param.grad.data.clone().detach()
+            old_param.grad_tmp = new_param.grad.clone().detach()
         else:
-            old_param.grad_tmp += new_param.grad.data.clone().detach() * args.training_factor[net_id]
+            old_param.grad_tmp += new_param.grad.clone().detach() * args.training_factor[net_id]
         if net_id == 3:
-            old_param.grad.data = old_param.grad_tmp
+            old_param.grad = old_param.grad_tmp
     bns1,convs1 = old_model.get_sparse_layers_and_convs()
     bns2,convs2 = new_model.get_sparse_layers_and_convs()
     ch_start = 0
