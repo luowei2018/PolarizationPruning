@@ -818,9 +818,6 @@ def cross_entropy_loss_with_soft_target(pred, soft_target):
     return torch.mean(torch.sum(-soft_target * logsoftmax(pred), 1))
 
 def train(epoch):
-    
-    prune_while_training(model, arch=args.arch,prune_mode="default",num_classes=num_classes)
-    exit(0)
     model.train()
     global history_score, global_step
     avg_loss = 0.
@@ -831,6 +828,8 @@ def train(epoch):
     for batch_idx, (data, target) in enumerate(train_iter):
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
             freeze_mask,net_id = sample_network(model,net_id=batch_idx%4)
+        prune_while_training(model, arch=args.arch,prune_mode="default",num_classes=num_classes)
+        exit(0)
         if args.cuda:
             data, target = data.cuda(), target.cuda()
         optimizer.zero_grad()
