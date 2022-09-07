@@ -869,7 +869,8 @@ def train(epoch):
         if args.loss not in {LossType.PROGRESSIVE_SHRINKING} or batch_idx%4 == 3:
             optimizer.step()
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
-            fix_weights(model,old_model,[freeze_mask])
+            pass
+            #fix_weights(model,old_model,[freeze_mask])
             #scale_lr(optimizer,net_id,reset=True)
             #if net_id!=3:compare_models(old_model,model,[freeze_mask],whole=True)
         if args.loss in {LossType.POLARIZATION,
