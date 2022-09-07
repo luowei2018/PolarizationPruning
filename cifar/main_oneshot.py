@@ -339,7 +339,7 @@ if args.resume:
             if args.cuda:
                 model.cuda()
 
-        args.start_epoch = 0#checkpoint['epoch']
+        args.start_epoch = checkpoint['epoch']
         best_prec1 = checkpoint['best_prec1']
         model.load_state_dict(checkpoint['state_dict'])
         #optimizer.load_state_dict(checkpoint['optimizer'])
@@ -608,7 +608,7 @@ def prune_by_mask(old_model,mask_list,zero_bias=True):
     #for name, param in model.named_parameters(): print(name, param.data)
     return pruned_model
    
-def recover_weights(new_model,old_model,mask_list,whole=False):
+def fix_weights(new_model,old_model,mask_list,whole=False):
     bns1,convs1 = new_model.get_sparse_layers_and_convs()
     bns2,convs2 = old_model.get_sparse_layers_and_convs()
     ch_start = 0
@@ -843,9 +843,9 @@ def train(epoch):
             scale_lr(optimizer,net_id,reset=False)
         optimizer.step()
         if args.loss in {LossType.LOG_QUANTIZATION}:
-            recover_weights(model,old_model,args.mask_list[:args.current_stage])
+            fix_weights(model,old_model,args.mask_list[:args.current_stage])
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
-            recover_weights(model,old_model,[freeze_mask])
+            fix_weights(model,old_model,[freeze_mask])
             scale_lr(optimizer,net_id,reset=True)
             #if net_id!=3:compare_models(old_model,model,[freeze_mask],whole=True)
         if args.loss in {LossType.POLARIZATION,
@@ -931,7 +931,7 @@ for args.current_stage in range(args.start_stage, args.stages):
     if args.loss in {LossType.LOG_QUANTIZATION} and args.current_stage >= 1:
         old_model = copy.deepcopy(model)
         model._initialize_weights(1.0)
-        recover_weights(model,old_model,args.mask_list[:args.current_stage])
+        fix_weights(model,old_model,args.mask_list[:args.current_stage])
     for epoch in range(args.start_epoch, args.epochs):
         if args.max_epoch is not None and epoch >= args.max_epoch:
             break
