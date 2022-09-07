@@ -638,6 +638,7 @@ def accumulate_grad(old_model,new_model,mask,net_id):
             print(freeze_mask)
             print(bn1.weight.grad)
             print(bn1.weight)
+            optimizer.param_groups[0]['momentum'] = 0
             optimizer.step()
             print(bn1.weight)
             exit(0)
