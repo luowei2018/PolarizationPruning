@@ -545,10 +545,9 @@ def sample_network(old_model,net_id=None,zero_bias=True,eval=False):
     if net_id is None:
         net_id = torch.tensor(0).random_(0,4)
     all_scale_factors = torch.tensor([]).cuda()
-    if eval:
-        old_model = copy.deepcopy(old_model)
+    dynamic_model = copy.deepcopy(old_model)
         
-    bn_modules = old_model.get_sparse_layers()
+    bn_modules = dynamic_model.get_sparse_layers()
     for bn_module in bn_modules:
         all_scale_factors = torch.cat((all_scale_factors,bn_module.weight.data))
     
@@ -576,9 +575,9 @@ def sample_network(old_model,net_id=None,zero_bias=True,eval=False):
                 bn_module.bias.data[inactive] = 0
             ch_start += ch_len
     if not eval:
-        return freeze_mask,net_id
+        return freeze_mask,net_id,dynamic_model
     else:
-        return test(old_model)
+        return test(dynamic_model)
         
 def prune_by_mask(old_model,mask_list,zero_bias=True):
     import copy
@@ -605,33 +604,34 @@ def prune_by_mask(old_model,mask_list,zero_bias=True):
     #for name, param in model.named_parameters(): print(name, param.data)
     return pruned_model
     
-def accumulate_grad(old_model,mask,net_id):
-    bns,convs = old_model.get_sparse_layers_and_convs()
-    ch_start = 0
-    def helper(param):
+def accumulate_grad(old_model,new_model,mask,net_id):
+    def helper(old_param,new_param):
         if net_id == 0:
-            param.grad_tmp = param.grad.data.clone().detach()
+            old_param.grad_tmp = new_param.grad.data.clone().detach()
         else:
-            param.grad_tmp += param.grad.data.clone().detach() * args.training_factor[net_id]
+            old_param.grad_tmp += new_param.grad.data.clone().detach() * args.training_factor[net_id]
         if net_id == 3:
-            param.grad.data = param.grad_tmp
-    for conv,bn in zip(convs,bns):
-        ch_len = conv.weight.data.size(0)
+            old_param.grad.data = old_param.grad_tmp
+    bns1,convs1 = old_model.get_sparse_layers_and_convs()
+    bns2,convs2 = new_model.get_sparse_layers_and_convs()
+    ch_start = 0
+    for conv1,bn1,conv2,bn2 in zip(convs1,bns1,convs2,bns2):
+        ch_len = conv1.weight.data.size(0)
         with torch.no_grad():
             freeze_mask = mask[ch_start:ch_start+ch_len] == 1
-            bn.weight.grad.data[freeze_mask] = 0
-            helper(bn.weight)
+            bn2.weight.grad.data[freeze_mask] = 0
+            helper(bn1.weight,bn2.weight)
             if hasattr(bn, 'bias') and bn.bias is not None:
                 bn.bias.grad.data[freeze_mask] = 0
-                helper(bn.bias)
+                helper(bn1.bias,bn2.bias)
             if isinstance(conv, nn.Conv2d):
                 conv.weight.grad.data[freeze_mask, :, :, :] = 0
             else:
                 conv.weight.grad.data[freeze_mask, :] = 0
-            helper(conv.weight)
+            helper(conv1.weight,conv2.weight)
             if hasattr(conv, 'bias') and conv.bias is not None:
                 conv.bias.grad.data[freeze_mask] = 0
-                helper(conv.bias)
+                helper(conv1.bias,conv2.bias)
         ch_start += ch_len
    
 def fix_weights(new_model,old_model,mask_list,whole=False):
@@ -827,13 +827,14 @@ def train(epoch):
     train_iter = tqdm(train_loader)
     for batch_idx, (data, target) in enumerate(train_iter):
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
-            freeze_mask,net_id = sample_network(model,net_id=batch_idx%4)
-        prune_while_training(model, arch=args.arch,prune_mode="default",num_classes=num_classes)
-        exit(0)
+            freeze_mask,net_id,dynamic_model = sample_network(model,net_id=batch_idx%4)
         if args.cuda:
             data, target = data.cuda(), target.cuda()
         optimizer.zero_grad()
-        output = model(data)
+        if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
+            output = dynamic_model(data)
+        else:
+            output = model(data)
         if isinstance(output, tuple):
             output, output_aux = output
         loss = F.cross_entropy(output, target)
@@ -864,12 +865,11 @@ def train(epoch):
             updateBN()
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
             #scale_lr(optimizer,net_id,reset=False)
-            accumulate_grad(model,freeze_mask,net_id)
+            accumulate_grad(model,dynamic_model,freeze_mask,net_id)
         if args.loss not in {LossType.PROGRESSIVE_SHRINKING} or batch_idx%4 == 3:
             optimizer.step()
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
-            pass
-            #fix_weights(model,old_model,[freeze_mask])
+            fix_weights(model,old_model,[freeze_mask])
             #scale_lr(optimizer,net_id,reset=True)
             #if net_id!=3:compare_models(old_model,model,[freeze_mask],whole=True)
         if args.loss in {LossType.POLARIZATION,
@@ -880,6 +880,8 @@ def train(epoch):
             'Step: {} Train Epoch: {} [{}/{} ({:.1f}%)]. Loss: {:.6f}'.format(
             global_step, epoch, batch_idx * len(data), len(train_loader.dataset),
                                 100. * batch_idx / len(train_loader), avg_loss / len(train_loader)))
+        prune_while_training(model, arch=args.arch,prune_mode="default",num_classes=num_classes)
+        exit(0)
                                 
     history_score[epoch][0] = avg_loss / len(train_loader)
     history_score[epoch][1] = float(train_acc) / float(total_data)
