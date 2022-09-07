@@ -324,7 +324,7 @@ if args.debug:
 
 args.mask_list = []
 args.stage = 0
-args.training_factor=[1,0.01,0.002,0]
+args.training_factor=[1,0.01,0.001,0.0001]
 
 if args.resume:
     if os.path.isfile(args.resume):
@@ -342,10 +342,7 @@ if args.resume:
         args.start_epoch = checkpoint['epoch']
         best_prec1 = checkpoint['best_prec1']
         model.load_state_dict(checkpoint['state_dict'])
-        #optimizer.load_state_dict(checkpoint['optimizer'])
-        if hasattr(checkpoint,'mask_list'):
-            args.mask_list = checkpoint['mask_list']
-            args.start_stage = checkpoint['stage']
+        optimizer.load_state_dict(checkpoint['optimizer'])
 
         print("=> loaded checkpoint '{}' (epoch {}) Prec1: {:f}"
               .format(args.resume, checkpoint['epoch'], best_prec1))
@@ -804,7 +801,7 @@ def train(epoch):
                          LossType.PROGRESSIVE_SHRINKING}:
             old_model = copy.deepcopy(model)
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
-            freeze_mask,net_id = sample_network(model,net_id=batch_idx%3)
+            freeze_mask,net_id = sample_network(model,net_id=batch_idx%4)
         if args.cuda:
             data, target = data.cuda(), target.cuda()
         optimizer.zero_grad()
@@ -841,11 +838,11 @@ def train(epoch):
             log_quantization(model)
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
             scale_lr(optimizer,net_id,reset=False)
-        #optimizer.step()
+        optimizer.step()
         if args.loss in {LossType.LOG_QUANTIZATION}:
             fix_weights(model,old_model,args.mask_list[:args.current_stage])
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
-            #fix_weights(model,old_model,[freeze_mask])
+            fix_weights(model,old_model,[freeze_mask])
             scale_lr(optimizer,net_id,reset=True)
             #if net_id!=3:compare_models(old_model,model,[freeze_mask],whole=True)
         if args.loss in {LossType.POLARIZATION,
@@ -950,8 +947,6 @@ for args.current_stage in range(args.start_stage, args.stages):
             'state_dict': model.state_dict(),
             'best_prec1': prec1,
             'optimizer': optimizer.state_dict(),
-            'mask_list': args.mask_list,
-            'stage': args.current_stage,
         }, is_best, filepath=args.save,
             backup_path=args.backup_path,
             backup=epoch % args.backup_freq == 0,
