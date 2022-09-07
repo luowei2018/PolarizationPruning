@@ -604,6 +604,24 @@ def prune_by_mask(old_model,mask_list,zero_bias=True):
             ch_start += ch_len
     #for name, param in model.named_parameters(): print(name, param.data)
     return pruned_model
+    
+def zero_selected_grad(old_model,freeze_mask):
+    bns,convs = old_model.get_sparse_layers_and_convs()
+    ch_start = 0
+    for conv,bn in zip(convs,bns):
+        ch_len = conv.weight.data.size(0)
+        with torch.no_grad():
+            freeze_mask = freeze_mask[ch_start:ch_start+ch_len] == 1
+            bn.weight.data.grad[freeze_mask] = 0
+            if hasattr(bn, 'bias') and bn.bias is not None:
+                bn.bias.data.grad[freeze_mask] = 0
+            if isinstance(conv, nn.Conv2d):
+                conv.weight.data[freeze_mask, :, :, :] = 0
+            else:
+                conv.weight.data[freeze_mask, :] = 0
+            if hasattr(conv, 'bias') and conv.bias is not None:
+                conv.bias.data[freeze_mask] = 0
+        ch_start += ch_len
    
 def fix_weights(new_model,old_model,mask_list,whole=False):
     bns1,convs1 = new_model.get_sparse_layers_and_convs()
@@ -797,14 +815,12 @@ def train(epoch):
     total_data = 0
     train_iter = tqdm(train_loader)
     for batch_idx, (data, target) in enumerate(train_iter):
-        if args.loss in {LossType.LOG_QUANTIZATION,
-                         LossType.PROGRESSIVE_SHRINKING}:
-            old_model = copy.deepcopy(model)
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
             freeze_mask,net_id = sample_network(model,net_id=batch_idx%4)
         if args.cuda:
             data, target = data.cuda(), target.cuda()
-        optimizer.zero_grad()
+        if args.loss not in {LossType.PROGRESSIVE_SHRINKING} or batch_idx%4 == 0:
+            optimizer.zero_grad()
         output = model(data)
         if isinstance(output, tuple):
             output, output_aux = output
@@ -834,20 +850,17 @@ def train(epoch):
         loss.backward()
         if args.loss in {LossType.L1_SPARSITY_REGULARIZATION}:
             updateBN()
-        if args.loss in {LossType.LOG_QUANTIZATION}:
-            log_quantization(model)
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
             scale_lr(optimizer,net_id,reset=False)
-        optimizer.step()
-        if args.loss in {LossType.LOG_QUANTIZATION}:
-            fix_weights(model,old_model,args.mask_list[:args.current_stage])
+            zero_selected_grad(model,freeze_mask)
+        if args.loss not in {LossType.PROGRESSIVE_SHRINKING} or batch_idx%4 == 3:
+            optimizer.step()
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
-            fix_weights(model,old_model,[freeze_mask])
+            #fix_weights(model,old_model,[freeze_mask])
             scale_lr(optimizer,net_id,reset=True)
             #if net_id!=3:compare_models(old_model,model,[freeze_mask],whole=True)
         if args.loss in {LossType.POLARIZATION,
-                         LossType.L2_POLARIZATION,
-                         LossType.LOG_QUANTIZATION}:
+                         LossType.L2_POLARIZATION}:
             clamp_bn(model, upper_bound=args.clamp)
         global_step += 1
         train_iter.set_description(
