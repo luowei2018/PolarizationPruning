@@ -604,6 +604,17 @@ def prune_by_mask(old_model,mask_list,zero_bias=True):
     #for name, param in model.named_parameters(): print(name, param.data)
     return pruned_model
     
+def print_grad(old_model,new_model):
+    bns1,convs1 = old_model.get_sparse_layers_and_convs()
+    bns2,convs2 = new_model.get_sparse_layers_and_convs()
+    ch_start = 0
+    for conv1,bn1,conv2,bn2 in zip(convs1,bns1,convs2,bns2):
+        ch_len = conv1.weight.data.size(0)
+        print(freeze_mask)
+        print(bn1.weight.grad)
+        print(bn1.weight)
+        break
+    
 def accumulate_grad(old_model,new_model,mask,net_id):
     def helper(old_param,new_param):
         #if net_id == 0:
@@ -881,7 +892,7 @@ def train(epoch):
         if args.loss not in {LossType.PROGRESSIVE_SHRINKING}:
             optimizer.step()
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
-            accumulate_grad(model,dynamic_model,freeze_mask,net_id)
+            print_grad(model,dynamic_model)
             exit(0)
             pass
             #fix_weights(model,old_model,[freeze_mask])
