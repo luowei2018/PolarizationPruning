@@ -324,7 +324,7 @@ if args.debug:
 
 args.mask_list = []
 args.stage = 0
-args.training_factor=[1,0.01,0.0005,0]
+args.training_factor=[1,0.01,0.001,0]
 
 if args.resume:
     if os.path.isfile(args.resume):
