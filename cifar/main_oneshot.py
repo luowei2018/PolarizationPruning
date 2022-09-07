@@ -878,7 +878,7 @@ def train(epoch):
             optimizer.step()
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
             accumulate_grad(model,dynamic_model,freeze_mask,net_id)
-            exit(0）
+            exit(0)
             pass
             #fix_weights(model,old_model,[freeze_mask])
             #scale_lr(optimizer,net_id,reset=True)
