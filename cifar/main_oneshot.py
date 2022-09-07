@@ -612,15 +612,15 @@ def zero_selected_grad(old_model,freeze_mask):
         ch_len = conv.weight.data.size(0)
         with torch.no_grad():
             freeze_mask = freeze_mask[ch_start:ch_start+ch_len] == 1
-            bn.weight.data.grad[freeze_mask] = 0
+            bn.weight.grad.data[freeze_mask] = 0
             if hasattr(bn, 'bias') and bn.bias is not None:
-                bn.bias.data.grad[freeze_mask] = 0
+                bn.bias.grad.data[freeze_mask] = 0
             if isinstance(conv, nn.Conv2d):
-                conv.weight.data[freeze_mask, :, :, :] = 0
+                conv.weight.grad.data[freeze_mask, :, :, :] = 0
             else:
-                conv.weight.data[freeze_mask, :] = 0
+                conv.weight.grad.data[freeze_mask, :] = 0
             if hasattr(conv, 'bias') and conv.bias is not None:
-                conv.bias.data[freeze_mask] = 0
+                conv.bias.grad.data[freeze_mask] = 0
         ch_start += ch_len
    
 def fix_weights(new_model,old_model,mask_list,whole=False):
