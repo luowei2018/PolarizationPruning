@@ -622,7 +622,6 @@ def accumulate_grad(old_model,new_model,mask,net_id):
             freeze_mask = mask[ch_start:ch_start+ch_len] == 1
             bn2.weight.grad.data[freeze_mask] = 0
             helper(bn1.weight,bn2.weight)
-            bn1.weight.grad.data[:] = 0
             if hasattr(bn2, 'bias') and bn2.bias is not None:
                 bn2.bias.grad.data[freeze_mask] = 0
                 helper(bn1.bias,bn2.bias)
@@ -640,7 +639,6 @@ def accumulate_grad(old_model,new_model,mask,net_id):
             print(bn1.weight)
             optimizer.param_groups[0]['momentum'] = 0
             optimizer.param_groups[1]['momentum'] = 0
-            print(optimizer)
             optimizer.step()
             print(bn1.weight)
             exit(0)
