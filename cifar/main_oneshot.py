@@ -612,7 +612,7 @@ def accumulate_grad(old_model,new_model,mask,net_id):
         #    old_param.grad_tmp += new_param.grad.clone().detach() * args.training_factor[net_id]
         #if net_id == 3:
         #    old_param.grad = old_param.grad_tmp
-        old_param.grad = new_param.grad
+        old_param.grad = new_param.grad.clone().detach()
     bns1,convs1 = old_model.get_sparse_layers_and_convs()
     bns2,convs2 = new_model.get_sparse_layers_and_convs()
     ch_start = 0
