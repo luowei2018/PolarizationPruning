@@ -638,7 +638,6 @@ def accumulate_grad(old_model,new_model,mask,net_id):
             print(freeze_mask.tolist())
             print(bn1.weight.grad.data.tolist())
             print(bn1.weight)
-            print(bn1.weight.grad)
             optimizer.step()
             print(bn1.weight)
             exit(0)
