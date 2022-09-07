@@ -634,6 +634,7 @@ def accumulate_grad(old_model,new_model,mask,net_id):
                 conv2.bias.grad.data[freeze_mask] = 0
                 helper(conv1.bias,conv2.bias)
         if ch_start == 0:
+            print(freeze_mask)
             print(bn1.weight.grad.data.tolist())
             print(bn1.weight)
             optimizer.step()
