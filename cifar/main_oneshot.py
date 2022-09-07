@@ -654,7 +654,7 @@ def accumulate_grad(old_model,new_model,mask,net_id):
             break
             
         ch_start += ch_len
-        
+    optimizer.step()
     print_grad(old_model,new_model)
    
 def fix_weights(new_model,old_model,mask_list,whole=False):
