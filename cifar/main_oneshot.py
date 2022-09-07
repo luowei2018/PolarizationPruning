@@ -633,6 +633,8 @@ def accumulate_grad(old_model,new_model,mask,net_id):
             if hasattr(conv2, 'bias') and conv2.bias is not None:
                 conv2.bias.grad.data[freeze_mask] = 0
                 helper(conv1.bias,conv2.bias)
+        print(freeze_mask.tolist())
+        print(bn1.weight.grad.data.to_list())
         ch_start += ch_len
    
 def fix_weights(new_model,old_model,mask_list,whole=False):
@@ -874,7 +876,7 @@ def train(epoch):
             pass
             #fix_weights(model,old_model,[freeze_mask])
             #scale_lr(optimizer,net_id,reset=True)
-            compare_models(model,teacher_model,[freeze_mask],whole=True)
+            #compare_models(model,teacher_model,[freeze_mask],whole=True)
         if args.loss in {LossType.POLARIZATION,
                          LossType.L2_POLARIZATION}:
             clamp_bn(model, upper_bound=args.clamp)
