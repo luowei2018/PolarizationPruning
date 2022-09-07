@@ -613,6 +613,8 @@ def accumulate_grad(old_model,mask,net_id):
             param.grad_tmp = param.grad.data.clone().detach()
         else:
             param.grad_tmp += param.grad.data.clone().detach() * args.training_factor[net_id]
+        if net_id == 3:
+            param.grad.data = param.grad_tmp
     for conv,bn in zip(convs,bns):
         ch_len = conv.weight.data.size(0)
         with torch.no_grad():
