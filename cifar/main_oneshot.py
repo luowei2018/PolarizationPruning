@@ -818,6 +818,9 @@ def cross_entropy_loss_with_soft_target(pred, soft_target):
     return torch.mean(torch.sum(-soft_target * logsoftmax(pred), 1))
 
 def train(epoch):
+    
+    prune_while_training(model, arch=args.arch,prune_mode="default",num_classes=num_classes)
+    exit(0)
     model.train()
     global history_score, global_step
     avg_loss = 0.
@@ -862,8 +865,7 @@ def train(epoch):
             updateBN()
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
             #scale_lr(optimizer,net_id,reset=False)
-            #accumulate_grad(model,freeze_mask,net_id)
-            pass
+            accumulate_grad(model,freeze_mask,net_id)
         if args.loss not in {LossType.PROGRESSIVE_SHRINKING} or batch_idx%4 == 3:
             optimizer.step()
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
@@ -879,8 +881,6 @@ def train(epoch):
             'Step: {} Train Epoch: {} [{}/{} ({:.1f}%)]. Loss: {:.6f}'.format(
             global_step, epoch, batch_idx * len(data), len(train_loader.dataset),
                                 100. * batch_idx / len(train_loader), avg_loss / len(train_loader)))
-        prune_while_training(model, arch=args.arch,prune_mode="default",num_classes=num_classes)
-        exit(0)
                                 
     history_score[epoch][0] = avg_loss / len(train_loader)
     history_score[epoch][1] = float(train_acc) / float(total_data)
