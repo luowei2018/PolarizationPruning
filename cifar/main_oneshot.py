@@ -612,7 +612,7 @@ def accumulate_grad(old_model,new_model,mask,net_id):
         #    old_param.grad_tmp += new_param.grad.clone().detach() * args.training_factor[net_id]
         #if net_id == 3:
         #    old_param.grad = old_param.grad_tmp
-        old_param.grad = new_param.grad.data.clone().detach()
+        old_param.grad = new_param.grad.data.clone().detach() * args.training_factor[net_id]
     bns1,convs1 = old_model.get_sparse_layers_and_convs()
     bns2,convs2 = new_model.get_sparse_layers_and_convs()
     ch_start = 0
@@ -830,8 +830,6 @@ def train(epoch):
     train_iter = tqdm(train_loader)
     for batch_idx, (data, target) in enumerate(train_iter):
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
-            optimizer.param_groups[0]['momentum'] = 0
-            optimizer.param_groups[1]['momentum'] = 0
             freeze_mask,net_id,dynamic_model = sample_network(model,net_id=batch_idx%4)
         if args.cuda:
             data, target = data.cuda(), target.cuda()
@@ -872,6 +870,10 @@ def train(epoch):
             accumulate_grad(model,dynamic_model,freeze_mask,net_id)
         #if args.loss not in {LossType.PROGRESSIVE_SHRINKING} or batch_idx%4==3:
         optimizer.step()
+        if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
+            pass
+            #fix_weights(model,old_model,[freeze_mask])
+            #scale_lr(optimizer,net_id,reset=True)
         if args.loss in {LossType.POLARIZATION,
                          LossType.L2_POLARIZATION}:
             clamp_bn(model, upper_bound=args.clamp)
