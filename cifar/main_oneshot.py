@@ -639,7 +639,9 @@ def accumulate_grad(old_model,new_model,mask,net_id):
             print(bn1.weight.grad.data.tolist())
             print(bn1.weight)
             print(bn1.weight.grad)
-            break
+            optimize.step()
+            print(bn1.weight)
+            exit(0)
             
         ch_start += ch_len
    
@@ -879,8 +881,6 @@ def train(epoch):
         if args.loss not in {LossType.PROGRESSIVE_SHRINKING}:
             optimizer.step()
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
-            accumulate_grad(model,dynamic_model,freeze_mask,net_id)
-            exit(0)
             pass
             #fix_weights(model,old_model,[freeze_mask])
             #scale_lr(optimizer,net_id,reset=True)
