@@ -635,6 +635,7 @@ def accumulate_grad(old_model,new_model,mask,net_id):
                 helper(conv1.bias,conv2.bias)
         print(freeze_mask.tolist())
         print(bn1.weight.grad.data.tolist())
+        exit(0)
         ch_start += ch_len
    
 def fix_weights(new_model,old_model,mask_list,whole=False):
