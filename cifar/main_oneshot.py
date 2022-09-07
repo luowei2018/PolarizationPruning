@@ -324,6 +324,7 @@ if args.debug:
 
 args.mask_list = []
 args.stage = 0
+args.training_factor=[1,0.01,0.0005,0]
 
 if args.resume:
     if os.path.isfile(args.resume):
@@ -672,10 +673,10 @@ def compare_models(old,new,mask_list,whole=False):
         assert torch.equal(new.linear.weight.data,old.linear.weight.data)
         assert torch.equal(new.linear.bias.data,old.linear.bias.data)
         
-def scale_lr(optim,net_id,scale_factors=None,reset=False):
+def scale_lr(optim,net_id,reset=False):
     for g in optim.param_groups:
         if not reset:
-            g['lr'] = args.current_lr * scale_factors[net_id]
+            g['lr'] = args.current_lr * args.training_factor[net_id]
         else:
             g['lr'] = args.current_lr
         
@@ -839,7 +840,7 @@ def train(epoch):
         if args.loss in {LossType.LOG_QUANTIZATION}:
             log_quantization(model)
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
-            scale_lr(optimizer,net_id,scale_factors=[1,0.01,0.004,0],reset=False)
+            scale_lr(optimizer,net_id,reset=False)
         optimizer.step()
         if args.loss in {LossType.LOG_QUANTIZATION}:
             recover_weights(model,old_model,args.mask_list[:args.current_stage])
