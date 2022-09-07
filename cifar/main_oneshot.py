@@ -605,13 +605,14 @@ def prune_by_mask(old_model,mask_list,zero_bias=True):
     #for name, param in model.named_parameters(): print(name, param.data)
     return pruned_model
     
-def zero_selected_grad(old_model,freeze_mask):
+def zero_selected_grad(old_model,mask):
     bns,convs = old_model.get_sparse_layers_and_convs()
     ch_start = 0
     for conv,bn in zip(convs,bns):
         ch_len = conv.weight.data.size(0)
         with torch.no_grad():
-            freeze_mask = freeze_mask[ch_start:ch_start+ch_len] == 1
+            freeze_mask = mask[ch_start:ch_start+ch_len] == 1
+            
             bn.weight.grad.data[freeze_mask] = 0
             if hasattr(bn, 'bias') and bn.bias is not None:
                 bn.bias.grad.data[freeze_mask] = 0
