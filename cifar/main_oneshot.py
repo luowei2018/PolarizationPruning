@@ -324,7 +324,7 @@ if args.debug:
 
 args.mask_list = []
 args.stage = 0
-args.training_factor=[1,0.01,0.001,0]
+args.training_factor=[1,0.01,0.0005,0]
 
 if args.resume:
     if os.path.isfile(args.resume):
@@ -339,7 +339,7 @@ if args.resume:
             if args.cuda:
                 model.cuda()
 
-        args.start_epoch = checkpoint['epoch']
+        args.start_epoch = 0#checkpoint['epoch']
         best_prec1 = checkpoint['best_prec1']
         model.load_state_dict(checkpoint['state_dict'])
         #optimizer.load_state_dict(checkpoint['optimizer'])
