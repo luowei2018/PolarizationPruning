@@ -686,6 +686,7 @@ def compare_models(old,new,mask_list,whole=False):
                 assert torch.equal(bn1.running_var.data[freeze_mask],bn2.running_var.data[freeze_mask])
             ch_start += ch_len
         else:
+            print(conv1.weight.grad)
             assert torch.equal(conv1.weight.data, conv2.weight.data)
             assert torch.equal(bn1.weight.data, bn2.weight.data)
             assert torch.equal(bn1.bias.data, bn2.bias.data)
