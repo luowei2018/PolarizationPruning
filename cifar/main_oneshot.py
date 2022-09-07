@@ -635,9 +635,9 @@ def accumulate_grad(old_model,new_model,mask,net_id):
                 helper(conv1.bias,conv2.bias)
         if ch_start == 0:
             print(bn1.weight.grad.data.tolist())
-            print(bn1.weight.data.tolist())
+            print(bn1.weight)
             optimizer.step()
-            print(bn1.weight.data.tolist())
+            print(bn1.weight)
             exit(0)
             
         ch_start += ch_len
