@@ -608,7 +608,7 @@ def prune_by_mask(old_model,mask_list,zero_bias=True):
 def accumulate_grad(old_model,mask,net_id):
     bns,convs = old_model.get_sparse_layers_and_convs()
     ch_start = 0
-    def helper(param,net_id):
+    def helper(param):
         if net_id == 0:
             param.grad_tmp = param.grad.data.clone().detach()
         else:
