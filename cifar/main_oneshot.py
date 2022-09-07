@@ -622,7 +622,6 @@ def accumulate_grad(old_model,new_model,mask,net_id):
             freeze_mask = mask[ch_start:ch_start+ch_len] == 1
             bn2.weight.grad.data[freeze_mask] = 0
             helper(bn1.weight,bn2.weight)
-            bn1.weight.grad = freeze_mask.float()
             if hasattr(bn2, 'bias') and bn2.bias is not None:
                 bn2.bias.grad.data[freeze_mask] = 0
                 helper(bn1.bias,bn2.bias)
@@ -636,8 +635,10 @@ def accumulate_grad(old_model,new_model,mask,net_id):
                 helper(conv1.bias,conv2.bias)
         if ch_start == 0:
             print(bn1.weight.grad.data.tolist())
-            print(bn1.weight)
-            break
+            print(bn1.weight.data.tolist())
+            optimizer.step()
+            print(bn1.weight.data.tolist())
+            exit(0)
             
         ch_start += ch_len
    
@@ -877,8 +878,6 @@ def train(epoch):
         if args.loss not in {LossType.PROGRESSIVE_SHRINKING}:
             optimizer.step()
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
-            accumulate_grad(model,dynamic_model,freeze_mask,net_id)
-            exit(0)
             pass
             #fix_weights(model,old_model,[freeze_mask])
             #scale_lr(optimizer,net_id,reset=True)
