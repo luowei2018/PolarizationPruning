@@ -841,11 +841,11 @@ def train(epoch):
             log_quantization(model)
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
             scale_lr(optimizer,net_id,reset=False)
-        optimizer.step()
+        #optimizer.step()
         if args.loss in {LossType.LOG_QUANTIZATION}:
             fix_weights(model,old_model,args.mask_list[:args.current_stage])
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
-            fix_weights(model,old_model,[freeze_mask])
+            #fix_weights(model,old_model,[freeze_mask])
             scale_lr(optimizer,net_id,reset=True)
             #if net_id!=3:compare_models(old_model,model,[freeze_mask],whole=True)
         if args.loss in {LossType.POLARIZATION,
