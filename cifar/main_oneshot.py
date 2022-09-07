@@ -636,7 +636,7 @@ def accumulate_grad(old_model,new_model,mask,net_id):
         if ch_start == 0:
             print(freeze_mask.tolist())
             print(bn1.weight.grad.data.tolist())
-            print(bn1.weight.data.tolist())
+            print(bn1.weight)
             break
             
         ch_start += ch_len
