@@ -608,7 +608,6 @@ def prune_by_mask(old_model,mask_list,zero_bias=True):
 def accumulate_grad(old_model,mask,net_id):
     bns,convs = old_model.get_sparse_layers_and_convs()
     ch_start = 0
-    print(mask.sum(),net_id)
     def helper(param):
         if net_id == 0:
             param.grad_tmp = param.grad.data.clone().detach()
@@ -879,6 +878,8 @@ def train(epoch):
             'Step: {} Train Epoch: {} [{}/{} ({:.1f}%)]. Loss: {:.6f}'.format(
             global_step, epoch, batch_idx * len(data), len(train_loader.dataset),
                                 100. * batch_idx / len(train_loader), avg_loss / len(train_loader)))
+        prune_while_training(model, arch=args.arch,prune_mode="default",num_classes=num_classes)
+        exit(0)
                                 
     history_score[epoch][0] = avg_loss / len(train_loader)
     history_score[epoch][1] = float(train_acc) / float(total_data)
