@@ -612,7 +612,7 @@ def print_grad(old_model,new_model):
         ch_len = conv1.weight.data.size(0)
         print(bn1.weight.grad)
         print(bn1.weight)
-        break
+        exit(0)
     
 def accumulate_grad(old_model,new_model,mask,net_id):
     def helper(old_param,new_param):
@@ -654,6 +654,8 @@ def accumulate_grad(old_model,new_model,mask,net_id):
             break
             
         ch_start += ch_len
+        
+    print_grad(old_model,new_model)
    
 def fix_weights(new_model,old_model,mask_list,whole=False):
     bns1,convs1 = new_model.get_sparse_layers_and_convs()
@@ -892,7 +894,6 @@ def train(epoch):
             optimizer.step()
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
             print_grad(model,dynamic_model)
-            exit(0)
             pass
             #fix_weights(model,old_model,[freeze_mask])
             #scale_lr(optimizer,net_id,reset=True)
