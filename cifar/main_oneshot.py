@@ -859,13 +859,15 @@ def train(epoch):
         if args.loss in {LossType.L1_SPARSITY_REGULARIZATION}:
             updateBN()
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
-            scale_lr(optimizer,net_id,reset=False)
+            #scale_lr(optimizer,net_id,reset=False)
             accumulate_grad(model,freeze_mask,net_id)
         if args.loss not in {LossType.PROGRESSIVE_SHRINKING} or batch_idx%4 == 3:
-            optimizer.step()
+            pass
+            #optimizer.step()
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
+            pass
             #fix_weights(model,old_model,[freeze_mask])
-            scale_lr(optimizer,net_id,reset=True)
+            #scale_lr(optimizer,net_id,reset=True)
             #if net_id!=3:compare_models(old_model,model,[freeze_mask],whole=True)
         if args.loss in {LossType.POLARIZATION,
                          LossType.L2_POLARIZATION}:
