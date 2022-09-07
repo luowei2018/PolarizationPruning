@@ -606,12 +606,13 @@ def prune_by_mask(old_model,mask_list,zero_bias=True):
     
 def accumulate_grad(old_model,new_model,mask,net_id):
     def helper(old_param,new_param):
-        if net_id == 0:
-            old_param.grad_tmp = new_param.grad.clone().detach()
-        else:
-            old_param.grad_tmp += new_param.grad.clone().detach() * args.training_factor[net_id]
-        if net_id == 3:
-            old_param.grad = old_param.grad_tmp
+        #if net_id == 0:
+        #    old_param.grad_tmp = new_param.grad.clone().detach()
+        #else:
+        #    old_param.grad_tmp += new_param.grad.clone().detach() * args.training_factor[net_id]
+        #if net_id == 3:
+        #    old_param.grad = old_param.grad_tmp
+        old_param.grad = new_param.grad
     bns1,convs1 = old_model.get_sparse_layers_and_convs()
     bns2,convs2 = new_model.get_sparse_layers_and_convs()
     ch_start = 0
@@ -866,7 +867,7 @@ def train(epoch):
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
             #scale_lr(optimizer,net_id,reset=False)
             accumulate_grad(model,dynamic_model,freeze_mask,net_id)
-        if args.loss not in {LossType.PROGRESSIVE_SHRINKING} or batch_idx%4 == 3:
+        if args.loss not in {LossType.PROGRESSIVE_SHRINKING}:
             optimizer.step()
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
             pass
