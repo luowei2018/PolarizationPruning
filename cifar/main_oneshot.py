@@ -604,25 +604,15 @@ def prune_by_mask(old_model,mask_list,zero_bias=True):
     #for name, param in model.named_parameters(): print(name, param.data)
     return pruned_model
     
-def print_grad(old_model,new_model):
-    bns1,convs1 = old_model.get_sparse_layers_and_convs()
-    bns2,convs2 = new_model.get_sparse_layers_and_convs()
-    ch_start = 0
-    for conv1,bn1,conv2,bn2 in zip(convs1,bns1,convs2,bns2):
-        ch_len = conv1.weight.data.size(0)
-        print(bn1.weight.grad)
-        print(bn1.weight)
-        exit(0)
-    
 def accumulate_grad(old_model,new_model,mask,net_id):
     def helper(old_param,new_param):
-        #if net_id == 0:
-        #    old_param.grad_tmp = new_param.grad.clone().detach()
-        #else:
-        #    old_param.grad_tmp += new_param.grad.clone().detach() * args.training_factor[net_id]
-        #if net_id == 3:
-        #    old_param.grad = old_param.grad_tmp
-        old_param.grad = new_param.grad.data.clone().detach()
+        if net_id == 0:
+            old_param.grad_tmp = new_param.grad.clone().detach()
+        else:
+            old_param.grad_tmp += new_param.grad.clone().detach() * args.training_factor[net_id]
+        if net_id == 3:
+            old_param.grad = old_param.grad_tmp
+        #old_param.grad = new_param.grad.data.clone().detach()
     bns1,convs1 = old_model.get_sparse_layers_and_convs()
     bns2,convs2 = new_model.get_sparse_layers_and_convs()
     ch_start = 0
@@ -643,15 +633,6 @@ def accumulate_grad(old_model,new_model,mask,net_id):
             if hasattr(conv2, 'bias') and conv2.bias is not None:
                 conv2.bias.grad.data[freeze_mask] = 0
                 helper(conv1.bias,conv2.bias)
-        if ch_start == 0:
-            print(freeze_mask)
-            print(bn1.weight.grad)
-            print(bn1.weight)
-            optimizer.param_groups[0]['momentum'] = 0
-            optimizer.param_groups[1]['momentum'] = 0
-            #optimizer.step()
-            #print(bn1.weight)
-            break
             
         ch_start += ch_len
    
@@ -886,16 +867,9 @@ def train(epoch):
         if args.loss in {LossType.L1_SPARSITY_REGULARIZATION}:
             updateBN()
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
-            #scale_lr(optimizer,net_id,reset=False)
             accumulate_grad(model,dynamic_model,freeze_mask,net_id)
-        if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
+        if args.loss not in {LossType.PROGRESSIVE_SHRINKING} or batch_idx%4==3:
             optimizer.step()
-        if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
-            print_grad(model,dynamic_model)
-            pass
-            #fix_weights(model,old_model,[freeze_mask])
-            #scale_lr(optimizer,net_id,reset=True)
-            #compare_models(model,teacher_model,[freeze_mask],whole=True)
         if args.loss in {LossType.POLARIZATION,
                          LossType.L2_POLARIZATION}:
             clamp_bn(model, upper_bound=args.clamp)
