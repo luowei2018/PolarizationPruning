@@ -622,6 +622,7 @@ def accumulate_grad(old_model,new_model,mask,net_id):
             freeze_mask = mask[ch_start:ch_start+ch_len] == 1
             bn2.weight.grad.data[freeze_mask] = 0
             helper(bn1.weight,bn2.weight)
+            bn1.weight.grad = freeze_mask.float()
             if hasattr(bn2, 'bias') and bn2.bias is not None:
                 bn2.bias.grad.data[freeze_mask] = 0
                 helper(bn1.bias,bn2.bias)
