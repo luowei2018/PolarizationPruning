@@ -605,23 +605,31 @@ def prune_by_mask(old_model,mask_list,zero_bias=True):
     #for name, param in model.named_parameters(): print(name, param.data)
     return pruned_model
     
-def zero_selected_grad(old_model,mask):
+def accumulate_grad(old_model,mask,net_id):
     bns,convs = old_model.get_sparse_layers_and_convs()
     ch_start = 0
+    def helper(param,net_id):
+        if net_id == 0:
+            param.grad_tmp = param.grad.data.clone().detach()
+        else:
+            param.grad_tmp += param.grad.data.clone().detach() * args.training_factor[net_id]
     for conv,bn in zip(convs,bns):
         ch_len = conv.weight.data.size(0)
         with torch.no_grad():
             freeze_mask = mask[ch_start:ch_start+ch_len] == 1
-            
             bn.weight.grad.data[freeze_mask] = 0
+            helper(bn.weight)
             if hasattr(bn, 'bias') and bn.bias is not None:
                 bn.bias.grad.data[freeze_mask] = 0
+                helper(bn.bias)
             if isinstance(conv, nn.Conv2d):
                 conv.weight.grad.data[freeze_mask, :, :, :] = 0
             else:
                 conv.weight.grad.data[freeze_mask, :] = 0
+            helper(conv.weight)
             if hasattr(conv, 'bias') and conv.bias is not None:
                 conv.bias.grad.data[freeze_mask] = 0
+                helper(conv.bias)
         ch_start += ch_len
    
 def fix_weights(new_model,old_model,mask_list,whole=False):
@@ -820,8 +828,7 @@ def train(epoch):
             freeze_mask,net_id = sample_network(model,net_id=batch_idx%4)
         if args.cuda:
             data, target = data.cuda(), target.cuda()
-        if args.loss not in {LossType.PROGRESSIVE_SHRINKING} or batch_idx%4 == 0:
-            optimizer.zero_grad()
+        optimizer.zero_grad()
         output = model(data)
         if isinstance(output, tuple):
             output, output_aux = output
@@ -853,7 +860,7 @@ def train(epoch):
             updateBN()
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
             scale_lr(optimizer,net_id,reset=False)
-            zero_selected_grad(model,freeze_mask)
+            accumulate_grad(model,freeze_mask,net_id)
         if args.loss not in {LossType.PROGRESSIVE_SHRINKING} or batch_idx%4 == 3:
             optimizer.step()
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
