@@ -880,6 +880,7 @@ def train(epoch):
             optimizer.param_groups[1]['momentum'] = 0
             optimizer.param_groups[1]['weight_decay'] = 0
             freeze_mask,net_id,dynamic_model,ch_indices = sample_network(model,net_id=batch_idx%4)
+            if net_id<3:continue
         if args.cuda:
             data, target = data.cuda(), target.cuda()
         optimizer.zero_grad()
