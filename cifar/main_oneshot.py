@@ -611,7 +611,6 @@ def prune_by_mask(old_model,mask_list,zero_bias=True):
     return pruned_model
     
 def accumulate_grad(old_model,new_model,mask,net_id,ch_indices):
-    if net_id<3:return
     def helper(old_param,new_param):
         if net_id == 3:
             old_param.grad_tmp = new_param.grad.clone().detach()
@@ -880,7 +879,6 @@ def train(epoch):
             optimizer.param_groups[1]['momentum'] = 0
             optimizer.param_groups[1]['weight_decay'] = 0
             freeze_mask,net_id,dynamic_model,ch_indices = sample_network(model,net_id=batch_idx%4)
-            if net_id<3:continue
         if args.cuda:
             data, target = data.cuda(), target.cuda()
         optimizer.zero_grad()
@@ -899,6 +897,7 @@ def train(epoch):
             soft_label = F.softmax(soft_logits.detach(), dim=1)
             loss = cross_entropy_loss_with_soft_target(output, soft_label)
 
+        if net_id<3:continue
         # logging
         avg_loss += loss.data.item()
         pred = output.data.max(1, keepdim=True)[1]
