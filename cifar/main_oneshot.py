@@ -994,38 +994,34 @@ if args.evaluate:
                        num_classes=num_classes)
     exit(0)
          
+for epoch in range(args.start_epoch, args.epochs):
+    if args.max_epoch is not None and epoch >= args.max_epoch:
+        break
 
-for args.current_stage in range(args.start_stage, args.stages):
-    for epoch in range(args.start_epoch, args.epochs):
-        if args.max_epoch is not None and epoch >= args.max_epoch:
-            break
+    args.current_lr = adjust_learning_rate(optimizer, epoch, args.gammas, args.decay_epoch)
+    print("Start epoch {}/{} with learning rate {}...".format(epoch, args.epochs, args.current_lr),args.save)
 
-        args.current_lr = adjust_learning_rate(optimizer, epoch, args.gammas, args.decay_epoch)
-        print("Start epoch {}/{} stage {}/{} with learning rate {}...".format(epoch, args.epochs, args.current_stage, args.stages, args.current_lr),args.save)
+    train(epoch) # train with regularization
 
-        train(epoch) # train with regularization
+    prec1 = test(model)
+    print(f"All Prec1: {prec1}")
+    is_best = prec1 > best_prec1
+    best_prec1 = max(prec1, best_prec1)
+    save_checkpoint({
+        'epoch': epoch + 1,
+        'state_dict': model.state_dict(),
+        'best_prec1': prec1,
+        'optimizer': optimizer.state_dict(),
+    }, is_best, filepath=args.save,
+        backup_path=args.backup_path,
+        backup=epoch % args.backup_freq == 0,
+        epoch=epoch,
+        max_backup=args.max_backup
+    )
+    
+    # visualize scale factors
+    #factor_visualization(epoch, model, prec1)
 
-        prec1 = test(model)
-        print(f"All Prec1: {prec1}")
-        is_best = prec1 > best_prec1
-        best_prec1 = max(prec1, best_prec1)
-        save_checkpoint({
-            'epoch': epoch + 1,
-            'state_dict': model.state_dict(),
-            'best_prec1': prec1,
-            'optimizer': optimizer.state_dict(),
-        }, is_best, filepath=args.save,
-            backup_path=args.backup_path,
-            backup=epoch % args.backup_freq == 0,
-            epoch=epoch,
-            max_backup=args.max_backup
-        )
-        
-        # visualize scale factors
-        #factor_visualization(epoch, model, prec1)
-
-        # flops
-        prune_while_training(model, arch=args.arch,prune_mode="default",num_classes=num_classes)
-    print("Best accuracy: " + str(best_prec1))
-    prec1_list += [prec1]
-print(prec1_list)
+    # flops
+    prune_while_training(model, arch=args.arch,prune_mode="default",num_classes=num_classes)
+print("Best accuracy: " + str(best_prec1))
