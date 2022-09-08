@@ -258,6 +258,8 @@ def prune_conv_layer(conv_layer: Union[nn.Conv2d, nn.Linear],
                 # prune according the bn layer
                 if prune_mode == 'mask':
                     out_channel_mask = bn_layer.prune_mask
+                    print(out_channel_mask.sum(),out_channel_mask.size())
+                    exit(0)
                 else:
                     output_threshold = pruner(sparse_weight)
                     out_channel_mask: np.ndarray = sparse_weight > output_threshold
