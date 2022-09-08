@@ -837,7 +837,7 @@ def train(epoch):
     train_iter = tqdm(train_loader)
     for batch_idx, (data, target) in enumerate(train_iter):
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
-            #old_model = copy.deepcopy(model)
+            old_model = copy.deepcopy(model)
             optimizer.param_groups[0]['momentum'] = 0
             optimizer.param_groups[1]['momentum'] = 0
             freeze_mask,net_id,dynamic_model = sample_network(model,net_id=batch_idx%1)
@@ -884,8 +884,7 @@ def train(epoch):
         #if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
         #    fix_weights(model,old_model,[freeze_mask])
         #    scale_lr(optimizer,net_id,reset=True)
-        print(batch_idx)
-        compare_models(model,teacher_model,[freeze_mask],whole=False)
+        compare_models(model,old_model,[freeze_mask],whole=False)
         if args.loss in {LossType.POLARIZATION,
                          LossType.L2_POLARIZATION}:
             clamp_bn(model, upper_bound=args.clamp)
