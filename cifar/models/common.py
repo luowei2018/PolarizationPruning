@@ -245,7 +245,6 @@ def prune_conv_layer(conv_layer: Union[nn.Conv2d, nn.Linear],
         
         # prune the output channel of the conv layer
         if prune_output_mode == "prune":
-            print(prune_mode,prune_on)
             if prune_on == 'factor':
                 # the sparse_layer.weight need to be flatten, because the weight of SparseGate is not 1d
                 sparse_weight: np.ndarray = torch.abs(sparse_layer.weight).view(-1).data.cpu().numpy()
@@ -257,10 +256,8 @@ def prune_conv_layer(conv_layer: Union[nn.Conv2d, nn.Linear],
                     raise ValueError(f"Do not support prune_mode {prune_mode}")
 
                 # prune according the bn layer
-                if prune_mode == 'mask':
+                if hasattr(bn_layer,'prune_mask'):
                     out_channel_mask = bn_layer.prune_mask
-                    print(out_channel_mask.sum(),out_channel_mask.size())
-                    exit(0)
                 else:
                     output_threshold = pruner(sparse_weight)
                     out_channel_mask: np.ndarray = sparse_weight > output_threshold
