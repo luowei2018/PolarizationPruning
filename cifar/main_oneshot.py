@@ -632,13 +632,29 @@ args.training_factor= [1,1,1,1]
 args.ps_batch = 4
     
 def accumulate_grad(old_model,new_model,mask,batch_idx,ch_indices):
-    def helper(old_param,new_param):
+    def copy_module_grad(old_module,new_module,freeze_mask):
+        if isinstance(new_module, nn.Conv2d):
+            new_module.weight.grad.data[freeze_mask, :, :, :] = 0
+        elif isinstance(new_module, nn.Linear):
+            new_module.weight.grad.data[freeze_mask, :] = 0
+        elif isinstance(new_module,nn.BatchNorm2d) or isinstance(new_module,nn.BatchNorm1d):
+            old_module.running_mean.data = new_module.running_mean.data
+            old_module.running_var.data = new_module.running_var.data
+            new_module.weight.grad.data[freeze_mask] = 0
+            
+        copy_param_grad(old_module.weight,new_module.weight)
+        if hasattr(new_module,'bias') and new_module.bias is not None:
+            new_module.bias.grad.data[freeze_mask] = 0
+            copy_param_grad(old_module.bias,new_module.bias)
+            
+    def copy_param_grad(old_param,new_param):
         if batch_idx%args.ps_batch == 0:
             old_param.grad_tmp = new_param.grad.clone().detach()
         else:
             old_param.grad_tmp += new_param.grad.clone().detach() * args.training_factor[batch_idx%4]
         if batch_idx%args.ps_batch == args.ps_batch-1:
             old_param.grad = old_param.grad_tmp
+            
     def helper2(old_bn,new_bn,adjust=True,adjust_mask=None,start=None,end=None):
         adjusted_mean = new_bn.running_mean.data.clone().detach()
         adjusted_var = new_bn.running_var.data.clone().detach()
@@ -674,38 +690,20 @@ def accumulate_grad(old_model,new_model,mask,batch_idx,ch_indices):
         ch_len = conv1.weight.data.size(0)
         with torch.no_grad():
             freeze_mask = mask[ch_start:ch_start+ch_len] == 1
-            bn2.weight.grad.data[freeze_mask] = 0
-            helper(bn1.weight,bn2.weight)
-            #bn2.running_mean.data[freeze_mask] = 0
-            #bn2.running_var.data[freeze_mask] = 0
+            copy_module_grad(bn1,bn2,freeze_mask)
             #helper2(bn1,bn2,adjust=True,adjust_mask=adjust_mask,start=ch_start,end=ch_start+ch_len)
             #helper2(bn1,bn2,adjust=False)
-            bn1.running_mean.data = bn2.running_mean.data
-            bn1.running_var.data = bn2.running_var.data
-            if hasattr(bn2, 'bias') and bn2.bias is not None:
-                bn2.bias.grad.data[freeze_mask] = 0
-                helper(bn1.bias,bn2.bias)
-            if isinstance(conv2, nn.Conv2d):
-                conv2.weight.grad.data[freeze_mask, :, :, :] = 0
-            else:
-                conv2.weight.grad.data[freeze_mask, :] = 0
-            helper(conv1.weight,conv2.weight)
-            if hasattr(conv2, 'bias') and conv2.bias is not None:
-                conv2.bias.grad.data[freeze_mask] = 0
-                helper(conv1.bias,conv2.bias)
+            copy_module_grad(conv1,conv2,freeze_mask)
             
         ch_start += ch_len
     
     if args.arch == 'resnet56':
-        helper(old_model.conv1.weight,new_model.conv1.weight)
-        helper(old_model.bn1.weight,new_model.bn1.weight)
-        helper(old_model.bn1.bias,new_model.bn1.bias)
-        helper(old_model.linear.weight,new_model.linear.weight)
-        helper(old_model.linear.bias,new_model.linear.bias)
-        old_model.bn1.running_mean.data = new_model.bn1.running_mean.data
-        old_model.bn1.running_var.data = new_model.bn1.running_var.data
+        copy_module_grad(old_model.conv1,new_model.conv1)
+        copy_module_grad(old_model.bn1,new_model.bn1)
+        copy_module_grad(old_model.linear,new_model.linear)
     else:
         assert args.arch == 'vgg16_linear'
+        copy_module_grad(old_model.classifier[1],new_model.classifier[1])
    
 def fix_weights(new_model,old_model,mask_list,whole=False):
     bns1,convs1 = new_model.get_sparse_layers_and_convs()
@@ -988,8 +986,6 @@ if args.evaluate:
     #prec1 = test(model)
     #print(f"All Prec1: {prec1}")
     #factor_visualization(0, model, prec1)
-    for name, param in model.named_parameters(): print(name, param.size())
-    exit(0)
     prune_while_training(model, arch=args.arch,
                        prune_mode="default",
                        num_classes=num_classes)

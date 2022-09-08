@@ -240,6 +240,23 @@ class VGG(nn.Module):
                         raise ValueError("No sparse modules available.")
 
         return sparse_layers
+        
+    def get_sparse_layers_and_convs(self):
+        sparse_layers = []
+        sparse_convs = []
+        for submodule in self.modules():
+            if isinstance(submodule, VGGBlock):
+                submodule: VGGBlock
+                if self.gate:
+                    sparse_layers.append(submodule.sparse_gate)
+                else:
+                    if submodule.is_batch_norm:
+                        sparse_layers.append(submodule.batch_norm)
+                        sparse_convs.append(submodule.conv)
+                    else:
+                        raise ValueError("No sparse modules available.")
+        
+        return sparse_layers,sparse_convs
 
     def _compute_flops_weight_layerwise(self) -> List[int]:
         vgg_blocks = list(filter(lambda m: isinstance(m, VGGBlock), self.modules()))
