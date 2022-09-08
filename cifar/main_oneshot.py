@@ -629,10 +629,10 @@ def accumulate_grad(old_model,new_model,mask,net_id,ch_indices):
         else:
             adjusted_mean *= 1./4
             adjusted_var *= 1./4
+        print(net_id,start,end)
         if net_id == 0:
             b1.mean_tmp = adjusted_mean
             b1.var_tmp = adjusted_var
-            print('?')
         else:
             b1.mean_tmp += adjusted_mean
             b1.var_tmp += adjusted_mean
@@ -652,7 +652,6 @@ def accumulate_grad(old_model,new_model,mask,net_id,ch_indices):
     ch_start = 0
     for conv1,bn1,conv2,bn2 in zip(convs1,bns1,convs2,bns2):
         ch_len = conv1.weight.data.size(0)
-        print(net_id,ch_start)
         with torch.no_grad():
             freeze_mask = mask[ch_start:ch_start+ch_len] == 1
             bn2.weight.grad.data[freeze_mask] = 0
