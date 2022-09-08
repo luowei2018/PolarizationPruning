@@ -691,9 +691,6 @@ def compare_models(old,new,mask_list,whole=False):
             ch_len = conv1.weight.data.size(0)
             for freeze_mask in mask_list:
                 freeze_mask = freeze_mask[ch_start:ch_start+ch_len] == 1
-                print(bn1.weight.data[freeze_mask].tolist())
-                print(bn2.weight.data[freeze_mask].tolist())
-                print(torch.equal(bn1.weight.data[freeze_mask], bn2.weight.data[freeze_mask]) )
                 assert torch.equal(bn1.weight.data[freeze_mask], bn2.weight.data[freeze_mask]) 
                 assert torch.equal(conv1.weight.data[freeze_mask, :, :, :], conv2.weight.data[freeze_mask, :, :, :])
                 assert torch.equal(bn1.bias.data[freeze_mask], bn2.bias.data[freeze_mask])
@@ -887,6 +884,7 @@ def train(epoch):
             #scale_lr(optimizer,net_id,reset=False)
             accumulate_grad(model,dynamic_model,freeze_mask,net_id)
         #if args.loss not in {LossType.PROGRESSIVE_SHRINKING} or batch_idx%4==3:
+        compare_models(model,old_model,[freeze_mask],whole=False)
         optimizer.step()
         #if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
         #    fix_weights(model,old_model,[freeze_mask])
