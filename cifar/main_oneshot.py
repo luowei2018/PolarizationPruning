@@ -638,7 +638,7 @@ def accumulate_grad(old_model,new_model,mask,net_id,ch_indices):
         if net_id == 3:
             b1.running_mean = b1.mean_tmp
             b1.running_var = b1.var_tmp
-            
+    print(net_id)
     bns1,convs1 = old_model.get_sparse_layers_and_convs()
     bns2,convs2 = new_model.get_sparse_layers_and_convs()
     channel_per_layer = ch_indices.size(0)//4
