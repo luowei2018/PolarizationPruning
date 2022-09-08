@@ -597,7 +597,7 @@ def mask_network(old_model,net_id):
         ch_start += ch_len
         # for pruning
         bn_module.prune_mask = inactive.clone().detach()
-    return
+    return dynamic_model
     
         
 def prune_by_mask(old_model,mask_list,zero_bias=True):
