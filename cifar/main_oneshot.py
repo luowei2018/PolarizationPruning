@@ -603,15 +603,16 @@ def prune_by_mask(old_model,mask_list,zero_bias=True):
     return pruned_model
     
 
-args.training_factor= [1,0.01,0.01,0.01]
+args.training_factor= [1,1,1,1]
+args.ps_batch = 8
     
-def accumulate_grad(old_model,new_model,mask,net_id,ch_indices):
+def accumulate_grad(old_model,new_model,mask,batch_idx,ch_indices):
     def helper(old_param,new_param):
-        if net_id == 0:
+        if batch_idx%args.ps_batch == 0:
             old_param.grad_tmp = new_param.grad.clone().detach()
         else:
             old_param.grad_tmp += new_param.grad.clone().detach() * args.training_factor[net_id]
-        if net_id == 3:
+        if batch_idx%args.ps_batch == ps_batch-1:
             old_param.grad = old_param.grad_tmp
     def helper2(old_bn,new_bn,adjust=True,adjust_mask=None,start=None,end=None):
         adjusted_mean = new_bn.running_mean.data.clone().detach()
@@ -909,8 +910,8 @@ def train(epoch):
         if args.loss in {LossType.L1_SPARSITY_REGULARIZATION}:
             updateBN()
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
-            accumulate_grad(model,dynamic_model,freeze_mask,net_id,ch_indices)
-        if args.loss not in {LossType.PROGRESSIVE_SHRINKING} or batch_idx%4==3:
+            accumulate_grad(model,dynamic_model,freeze_mask,batch_idx,ch_indices)
+        if args.loss not in {LossType.PROGRESSIVE_SHRINKING} or batch_idx%args.ps_batch==(ps_batch-1):
             optimizer.step()
         if args.loss in {LossType.POLARIZATION,
                          LossType.L2_POLARIZATION}:
