@@ -545,12 +545,15 @@ def sample_network(old_model,net_id=None,zero_bias=True,eval=False):
     if net_id is None:
         net_id = torch.tensor(0).random_(0,4)
     all_scale_factors = torch.tensor([]).cuda()
+    #if eval: old_model = copy.deepcopy(old_model)
+    
         
     if eval:
         dynamic_model = copy.deepcopy(old_model)
         bn_modules = dynamic_model.get_sparse_layers()
     else:
-        bn_modules = old_model.get_sparse_layers()
+        dynamic_model = copy.deepcopy(old_model)
+        bn_modules = dynamic_model.get_sparse_layers()
     for bn_module in bn_modules:
         all_scale_factors = torch.cat((all_scale_factors,bn_module.weight.data))
     
@@ -578,7 +581,7 @@ def sample_network(old_model,net_id=None,zero_bias=True,eval=False):
                 bn_module.bias.data[inactive] = 0
             ch_start += ch_len
     if not eval:
-        return freeze_mask,net_id
+        return freeze_mask,net_id,dynamic_model
     else:
         return test(dynamic_model)
         
@@ -623,8 +626,11 @@ def accumulate_grad(old_model,new_model,mask,net_id):
         ch_len = conv1.weight.data.size(0)
         with torch.no_grad():
             freeze_mask = mask[ch_start:ch_start+ch_len] == 1
+            keep_mask = mask[ch_start:ch_start+ch_len] == 0
             bn2.weight.grad.data[freeze_mask] = 0
             helper(bn1.weight,bn2.weight)
+            bn1.running_mean.data = bn2.running_mean.data.clone().detach()
+            bn1.running_var.data = bn2.running_var.data.clone().detach()
             if hasattr(bn2, 'bias') and bn2.bias is not None:
                 bn2.bias.grad.data[freeze_mask] = 0
                 helper(bn1.bias,bn2.bias)
@@ -644,6 +650,8 @@ def accumulate_grad(old_model,new_model,mask,net_id):
     helper(old_model.bn1.bias,new_model.bn1.bias)
     helper(old_model.linear.weight,new_model.linear.weight)
     helper(old_model.linear.bias,new_model.linear.bias)
+    new_model.bn1.running_mean.data = old_model.bn1.running_mean.data.clone().detach()
+    new_model.bn1.running_var.data = old_model.bn1.running_var.data.clone().detach()
    
 def fix_weights(new_model,old_model,mask_list,whole=False):
     bns1,convs1 = new_model.get_sparse_layers_and_convs()
@@ -838,15 +846,19 @@ def train(epoch):
     total_data = 0
     train_iter = tqdm(train_loader)
     for batch_idx, (data, target) in enumerate(train_iter):
-        print(model.bn1.running_mean.data)
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
             old_model = copy.deepcopy(model)
-            freeze_mask,net_id = sample_network(model,net_id=0)
+            optimizer.param_groups[0]['momentum'] = 0
+            optimizer.param_groups[1]['momentum'] = 0
+            optimizer.param_groups[1]['weight_decay'] = 0
+            freeze_mask,net_id,dynamic_model = sample_network(model,net_id=0)
         if args.cuda:
             data, target = data.cuda(), target.cuda()
         optimizer.zero_grad()
-        output = model(data)
-        print(model.bn1.running_mean.data)
+        if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
+            output = dynamic_model(data)
+        else:
+            output = model(data)
         if isinstance(output, tuple):
             output, output_aux = output
         loss = F.cross_entropy(output, target)
@@ -873,17 +885,16 @@ def train(epoch):
             loss += sparsity_loss
             avg_sparsity_loss += sparsity_loss.data.item()
         loss.backward()
-        print(model.bn1.running_mean.data)
         if args.loss in {LossType.L1_SPARSITY_REGULARIZATION}:
             updateBN()
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
-            scale_lr(optimizer,net_id,reset=False)
-            #accumulate_grad(model,dynamic_model,freeze_mask,net_id)
+            #scale_lr(optimizer,net_id,reset=False)
+            accumulate_grad(model,dynamic_model,freeze_mask,net_id)
         #if args.loss not in {LossType.PROGRESSIVE_SHRINKING} or batch_idx%4==3:
         optimizer.step()
-        if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
-            fix_weights(model,old_model,[freeze_mask])
-            scale_lr(optimizer,net_id,reset=True)
+        #if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
+        #    fix_weights(model,old_model,[freeze_mask])
+        #    scale_lr(optimizer,net_id,reset=True)
         if args.loss in {LossType.POLARIZATION,
                          LossType.L2_POLARIZATION}:
             clamp_bn(model, upper_bound=args.clamp)
@@ -892,7 +903,6 @@ def train(epoch):
             'Step: {} Train Epoch: {} [{}/{} ({:.1f}%)]. Loss: {:.6f}'.format(
             global_step, epoch, batch_idx * len(data), len(train_loader.dataset),
                                 100. * batch_idx / len(train_loader), avg_loss / len(train_loader)))
-        exit(0)
                                 
     history_score[epoch][0] = avg_loss / len(train_loader)
     history_score[epoch][1] = float(train_acc) / float(total_data)
