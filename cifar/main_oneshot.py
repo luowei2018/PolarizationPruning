@@ -611,11 +611,11 @@ def prune_by_mask(old_model,mask_list,zero_bias=True):
     return pruned_model
     
 def accumulate_grad(old_model,new_model,mask,net_id,ch_indices):
-    if net_id<3:return
     def helper(old_param,new_param):
         if net_id == 3:
             old_param.grad_tmp = new_param.grad.clone().detach()
         else:
+            return
             old_param.grad_tmp += new_param.grad.clone().detach() * args.training_factor[net_id]
         if net_id == 3:
             old_param.grad = old_param.grad_tmp
@@ -634,6 +634,7 @@ def accumulate_grad(old_model,new_model,mask,net_id,ch_indices):
             old_bn.mean_tmp = adjusted_mean
             old_bn.var_tmp = adjusted_var
         else:
+            return
             old_bn.mean_tmp += adjusted_mean
             old_bn.var_tmp += adjusted_mean
         if net_id == 3:
