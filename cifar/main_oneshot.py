@@ -324,7 +324,7 @@ if args.debug:
 
 args.mask_list = []
 args.stage = 0
-args.training_factor=[1,0.01,0.001,0.0001]
+args.training_factor= [0,0,0,1]#[1,0.01,0.001,0.0001]
 
 if args.resume:
     if os.path.isfile(args.resume):
@@ -874,9 +874,6 @@ def train(epoch):
     for batch_idx, (data, target) in enumerate(train_iter):
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
             #old_model = copy.deepcopy(model)
-            optimizer.param_groups[0]['momentum'] = 0
-            optimizer.param_groups[1]['momentum'] = 0
-            optimizer.param_groups[1]['weight_decay'] = 0
             freeze_mask,net_id,dynamic_model,ch_indices = sample_network(model,net_id=batch_idx%4)
         if args.cuda:
             data, target = data.cuda(), target.cuda()
