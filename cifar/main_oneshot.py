@@ -689,8 +689,11 @@ def compare_models(old,new,mask_list,whole=False):
     for conv1,bn1,conv2,bn2 in zip(convs1,bns1,convs2,bns2):
         if not whole:
             if ch_start == 0:
+                print('1::::::::::::')
                 print(bn1.weight)
                 print(bn1.weight.grad)
+                print('2::::::::::::::::')
+                print(bn2.weight)
             ch_len = conv1.weight.data.size(0)
             for freeze_mask in mask_list:
                 freeze_mask = freeze_mask[ch_start:ch_start+ch_len] == 1
