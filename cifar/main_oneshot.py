@@ -545,9 +545,10 @@ def sample_network(old_model,net_id=None,zero_bias=True,eval=False):
     if net_id is None:
         net_id = torch.tensor(0).random_(0,4)
     all_scale_factors = torch.tensor([]).cuda()
-    dynamic_model = copy.deepcopy(old_model)
+    if eval:
+        old_model = copy.deepcopy(old_model)
         
-    bn_modules = dynamic_model.get_sparse_layers()
+    bn_modules = old_model.get_sparse_layers()
     for bn_module in bn_modules:
         all_scale_factors = torch.cat((all_scale_factors,bn_module.weight.data))
     
@@ -575,9 +576,9 @@ def sample_network(old_model,net_id=None,zero_bias=True,eval=False):
                 bn_module.bias.data[inactive] = 0
             ch_start += ch_len
     if not eval:
-        return freeze_mask,net_id,dynamic_model
+        return freeze_mask,net_id
     else:
-        return test(dynamic_model)
+        return test(old_model)
         
 def prune_by_mask(old_model,mask_list,zero_bias=True):
     import copy
@@ -830,16 +831,12 @@ def train(epoch):
     train_iter = tqdm(train_loader)
     for batch_idx, (data, target) in enumerate(train_iter):
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
-            optimizer.param_groups[0]['momentum'] = 0
-            optimizer.param_groups[1]['momentum'] = 0
-            freeze_mask,net_id,dynamic_model = sample_network(model,net_id=batch_idx%4)
+            old_model = copy.deepcopy(model)
+            freeze_mask,net_id = sample_network(model,net_id=batch_idx%4)
         if args.cuda:
             data, target = data.cuda(), target.cuda()
         optimizer.zero_grad()
-        if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
-            output = dynamic_model(data)
-        else:
-            output = model(data)
+        output = model(data)
         if isinstance(output, tuple):
             output, output_aux = output
         loss = F.cross_entropy(output, target)
@@ -869,13 +866,11 @@ def train(epoch):
         if args.loss in {LossType.L1_SPARSITY_REGULARIZATION}:
             updateBN()
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
-            accumulate_grad(model,dynamic_model,freeze_mask,net_id)
-        #if args.loss not in {LossType.PROGRESSIVE_SHRINKING} or batch_idx%4==3:
+            scale_lr(optimizer,net_id,reset=False)
         optimizer.step()
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
-            pass
-            #fix_weights(model,old_model,[freeze_mask])
-            #scale_lr(optimizer,net_id,reset=True)
+            fix_weights(model,old_model,[freeze_mask])
+            scale_lr(optimizer,net_id,reset=True)
         if args.loss in {LossType.POLARIZATION,
                          LossType.L2_POLARIZATION}:
             clamp_bn(model, upper_bound=args.clamp)
