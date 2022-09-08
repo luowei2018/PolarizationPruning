@@ -83,13 +83,16 @@ def prune_vgg(num_classes: int, sparse_model: torch.nn.Module, pruning_strategy:
         thre_index = int(len(sparse_weight_concat) * l1_norm_ratio)
         threshold = sparse_weight_concat[thre_index]
         pruner = lambda weight: threshold
+    elif prune_type == 'mask':
+        pruner = lambda weight: 0
+        prune_on = 'factor'
     else:
         raise ValueError(f"Unsupport prune type: {prune_type}")
     pruned_model.prune_model(pruner=pruner,
                              prune_mode=prune_mode)
     #print("Pruning finished. cfg:")
     #print(pruned_model.config())
-    return pruned_model,threshold
+    return pruned_model
 
     if sanity_check:
         # sanity check: check if pruned model is as same as sparse model
