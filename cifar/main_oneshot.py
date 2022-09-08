@@ -842,7 +842,7 @@ def train(epoch):
     train_iter = tqdm(train_loader)
     for batch_idx, (data, target) in enumerate(train_iter):
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
-            #old_model = copy.deepcopy(model)
+            old_model = copy.deepcopy(model)
             optimizer.param_groups[0]['momentum'] = 0
             optimizer.param_groups[1]['momentum'] = 0
             optimizer.param_groups[1]['weight_decay'] = 0
@@ -888,7 +888,7 @@ def train(epoch):
         #if args.loss not in {LossType.PROGRESSIVE_SHRINKING} or batch_idx%4==3:
         optimizer.step()
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
-            fix_weights(model,dynamic_model,[freeze_mask])
+            fix_weights(model,old_model,[freeze_mask])
         #    scale_lr(optimizer,net_id,reset=True)
         if args.loss in {LossType.POLARIZATION,
                          LossType.L2_POLARIZATION}:
