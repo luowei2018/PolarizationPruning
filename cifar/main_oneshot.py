@@ -858,8 +858,8 @@ def prune_while_training(model: nn.Module, arch: str, prune_mode: str, num_class
         
     
     print_str = ''
-    for flop,prec1,thresh in zip(saved_flops,saved_prec1s,saved_thresh):
-        print_str += f"[{prec1:.4f}({flop / baseline_flops:.4f}), {thresh:.10f}]\t"
+    for flop,prec1,thresh in zip(saved_flops,saved_prec1s):
+        print_str += f"[{prec1:.4f}({flop / baseline_flops:.4f})]\t"
         
     for prec1 in inplace_precs:
         print_str += f"{prec1:.4f}\t"
@@ -1006,7 +1006,7 @@ for epoch in range(args.start_epoch, args.epochs):
     train(epoch) # train with regularization
 
     prec1 = test(model)
-    print(f"All Prec1: {prec1}")
+    print(f"All Prec1: {prec1}",)
     is_best = prec1 > best_prec1
     best_prec1 = max(prec1, best_prec1)
     save_checkpoint({
