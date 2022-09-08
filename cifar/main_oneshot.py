@@ -911,8 +911,8 @@ def train(epoch):
                                         weight_max=args.weight_max, weight_min=args.weight_min)
             loss += sparsity_loss
             avg_sparsity_loss += sparsity_loss.data.item()
-        loss.backward()
         if net_id<3:continue
+        loss.backward()
         if args.loss in {LossType.L1_SPARSITY_REGULARIZATION}:
             updateBN()
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
