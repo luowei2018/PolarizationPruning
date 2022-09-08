@@ -600,33 +600,6 @@ def mask_network(old_model,net_id):
         bn_module.out_channel_mask = out_channel_mask.clone().detach()
         ch_start += ch_len
     return dynamic_model
-    
-        
-def prune_by_mask(old_model,mask_list,zero_bias=True):
-    import copy
-    pruned_model = copy.deepcopy(old_model)
-        
-    bn_modules = pruned_model.get_sparse_layers()
-    
-    tokeep = None
-    for mask in mask_list:
-        if tokeep is None:
-            tokeep = mask.clone().detach()
-        else:
-            tokeep += mask.clone().detach()
-        
-    ch_start = 0
-    for bn_module in bn_modules:
-        with torch.no_grad():
-            ch_len = len(bn_module.weight.data)
-            inactive = tokeep[ch_start:ch_start+ch_len]==0
-            bn_module.weight.data[inactive] = 0
-            if zero_bias:
-                bn_module.bias.data[inactive] = 0
-            ch_start += ch_len
-    #for name, param in model.named_parameters(): print(name, param.data)
-    return pruned_model
-    
 
 args.training_factor= [1,1,1,1]
 args.ps_batch = 4
