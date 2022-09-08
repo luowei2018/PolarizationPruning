@@ -632,6 +632,7 @@ def accumulate_grad(old_model,new_model,mask,net_id,ch_indices):
         if net_id == 0:
             b1.mean_tmp = adjusted_mean
             b1.var_tmp = adjusted_var
+            print('?')
         else:
             b1.mean_tmp += adjusted_mean
             b1.var_tmp += adjusted_mean
