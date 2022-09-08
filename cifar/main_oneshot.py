@@ -646,7 +646,7 @@ def accumulate_grad(old_model,new_model,mask,net_id,ch_indices):
     adjust_mask = []
     for i in range(4):
         m = torch.zeros(total_channels).long().cuda()
-        m[channel_per_layer*(3-i):channel_per_layer*(4-i)]] = 1
+        m[channel_per_layer*(3-i):channel_per_layer*(4-i)] = 1
         adjust_mask.append(m)
     ch_start = 0
     for conv1,bn1,conv2,bn2 in zip(convs1,bns1,convs2,bns2):
