@@ -805,7 +805,7 @@ def prune_while_training(model: nn.Module, arch: str, prune_mode: str, num_class
     if arch == "resnet56":
         from resprune_gate import prune_resnet
         from models.resnet_expand import resnet56 as resnet50_expand
-        for i in range(3):
+        for i in range(4):
             maskede_model = mask_network(model,i)
             saved_model = prune_resnet(sparse_model=maskede_model, pruning_strategy='fixed', prune_type='mask',
                                              sanity_check=False, prune_mode=prune_mode, num_classes=num_classes)
@@ -836,6 +836,7 @@ def prune_while_training(model: nn.Module, arch: str, prune_mode: str, num_class
         print_str += f"[{prec1:.4f}({flop / baseline_flops:.4f})]\t"
         
     print(print_str,args.training_factor)
+    return prec1
 
 def cross_entropy_loss_with_soft_target(pred, soft_target):
     logsoftmax = nn.LogSoftmax()
@@ -976,8 +977,7 @@ for epoch in range(args.start_epoch, args.epochs):
 
     train(epoch) # train with regularization
 
-    prec1 = test(model)
-    print(f"All Prec1: {prec1}",)
+    prec1 = prune_while_training(model, arch=args.arch,prune_mode="default",num_classes=num_classes)
     is_best = prec1 > best_prec1
     best_prec1 = max(prec1, best_prec1)
     save_checkpoint({
@@ -992,9 +992,4 @@ for epoch in range(args.start_epoch, args.epochs):
         max_backup=args.max_backup
     )
     
-    # visualize scale factors
-    #factor_visualization(epoch, model, prec1)
-
-    # flops
-    prune_while_training(model, arch=args.arch,prune_mode="default",num_classes=num_classes)
 print("Best accuracy: " + str(best_prec1))
