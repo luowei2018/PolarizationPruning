@@ -635,10 +635,6 @@ def accumulate_grad(old_model,new_model,mask,net_id):
             if hasattr(conv2, 'bias') and conv2.bias is not None:
                 conv2.bias.grad.data[freeze_mask] = 0
                 helper(conv1.bias,conv2.bias)
-        if ch_start == 0:
-            print(freeze_mask)
-            print(bn1.weight)
-            print(bn1.weight.grad)
             
         ch_start += ch_len
         
@@ -692,9 +688,6 @@ def compare_models(old,new,mask_list,whole=False):
             ch_len = conv1.weight.data.size(0)
             for freeze_mask in mask_list:
                 freeze_mask = freeze_mask[ch_start:ch_start+ch_len] == 1
-                if ch_start == 0:
-                    print(bn1.weight.data[freeze_mask].tolist())
-                    print(bn2.weight.data[freeze_mask].tolist())
                 assert torch.equal(bn1.weight.data[freeze_mask], bn2.weight.data[freeze_mask]) 
                 assert torch.equal(conv1.weight.data[freeze_mask, :, :, :], conv2.weight.data[freeze_mask, :, :, :])
                 assert torch.equal(bn1.bias.data[freeze_mask], bn2.bias.data[freeze_mask])
