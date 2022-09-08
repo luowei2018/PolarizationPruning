@@ -601,8 +601,8 @@ def mask_network(old_model,net_id):
         ch_start += ch_len
     return dynamic_model
 
-args.training_factor= [1,1,1,1]
-args.ps_batch = 4
+args.training_factor= [1,.1,.1,.1]
+args.ps_batch = 8
     
 def accumulate_grad(old_model,new_model,mask,batch_idx,ch_indices):
     def copy_module_grad(old_module,new_module,freeze_mask=None):
@@ -852,7 +852,7 @@ def train(epoch):
     train_iter = tqdm(train_loader)
     for batch_idx, (data, target) in enumerate(train_iter):
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
-            freeze_mask,net_id,dynamic_model,ch_indices = sample_network(model,net_id=batch_idx%4)
+            freeze_mask,net_id,dynamic_model,ch_indices = sample_network(model)
         if args.cuda:
             data, target = data.cuda(), target.cuda()
         optimizer.zero_grad()
