@@ -208,7 +208,7 @@ class VGG(nn.Module):
             if isinstance(submodule, VGGBlock):
                 submodule: VGGBlock
                 input_mask = submodule.do_pruning(in_channel_mask=input_mask, pruner=pruner, prune_mode=prune_mode)
-        exit(0)
+        
         # prune the last linear layer
         if not fake_prune:
             linear_weight: torch.Tensor = self._logit_layer.weight.data.clone()
