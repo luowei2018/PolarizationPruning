@@ -259,6 +259,7 @@ def prune_conv_layer(conv_layer: Union[nn.Conv2d, nn.Linear],
                 if hasattr(bn_layer,'out_channel_mask'):
                     out_channel_mask = bn_layer.out_channel_mask.data.cpu().numpy()
                     print(out_channel_mask)
+                    exit(0)
                 else:
                     output_threshold = pruner(sparse_weight)
                     out_channel_mask: np.ndarray = sparse_weight > output_threshold
