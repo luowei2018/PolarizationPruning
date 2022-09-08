@@ -842,7 +842,7 @@ def prune_while_training(model: nn.Module, arch: str, prune_mode: str, num_class
         # todo: update
         for i in range(4):
             maskede_model = mask_network(model,i)
-            saved_model = prune_vgg(sparse_model=model, pruning_strategy='fixed', prune_type='mask',
+            saved_model = prune_vgg(sparse_model=maskede_model, pruning_strategy='fixed', prune_type='mask',
                                           sanity_check=False, prune_mode=prune_mode, num_classes=num_classes)
             prec1 = test(saved_model.cuda())
             flop = compute_conv_flops(saved_model, cuda=True)
