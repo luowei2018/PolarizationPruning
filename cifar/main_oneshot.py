@@ -602,7 +602,7 @@ def mask_network(old_model,net_id):
     return dynamic_model
 
 args.training_factor= [1,.1,.1,.1]
-args.ps_batch = 4
+args.ps_batch = 8
     
 def accumulate_grad(old_model,new_model,mask,batch_idx,ch_indices):
     def copy_module_grad(old_module,new_module,freeze_mask=None):
@@ -831,12 +831,10 @@ def prune_while_training(model: nn.Module, arch: str, prune_mode: str, num_class
 
     baseline_flops = compute_conv_flops(model, cuda=True)
     
-    print_str = ''
+    prune_str = ''
     for flop,prec1 in zip(saved_flops,saved_prec1s):
-        print_str += f"[{prec1:.4f}({flop / baseline_flops:.4f})]\t"
-        
-    print(print_str,args.training_factor)
-    return prec1
+        prune_str += f"[{prec1:.4f}({flop / baseline_flops*100:.2f}%)]\t"
+    return prec1,prune_str
 
 def cross_entropy_loss_with_soft_target(pred, soft_target):
     logsoftmax = nn.LogSoftmax()
@@ -852,7 +850,7 @@ def train(epoch):
     train_iter = tqdm(train_loader)
     for batch_idx, (data, target) in enumerate(train_iter):
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
-            freeze_mask,net_id,dynamic_model,ch_indices = sample_network(model,batch_idx%4)
+            freeze_mask,net_id,dynamic_model,ch_indices = sample_network(model)
         if args.cuda:
             data, target = data.cuda(), target.cuda()
         optimizer.zero_grad()
@@ -973,11 +971,11 @@ for epoch in range(args.start_epoch, args.epochs):
         break
 
     args.current_lr = adjust_learning_rate(optimizer, epoch, args.gammas, args.decay_epoch)
-    print("Start epoch {}/{} with learning rate {}...".format(epoch, args.epochs, args.current_lr),args.save)
 
     train(epoch) # train with regularization
 
-    prec1 = prune_while_training(model, arch=args.arch,prune_mode="default",num_classes=num_classes)
+    prec1,prune_str = prune_while_training(model, arch=args.arch,prune_mode="default",num_classes=num_classes)
+    print("Epoch {}/{} learning rate {}".format(epoch, args.epochs, args.current_lr),prune_str,args.save,args.training_factor)
     is_best = prec1 > best_prec1
     best_prec1 = max(prec1, best_prec1)
     save_checkpoint({
