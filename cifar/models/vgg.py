@@ -208,6 +208,7 @@ class VGG(nn.Module):
             if isinstance(submodule, VGGBlock):
                 submodule: VGGBlock
                 input_mask = submodule.do_pruning(in_channel_mask=input_mask, pruner=pruner, prune_mode=prune_mode)
+                print(input_mask)
                 print(input_mask.size(),input_mask.sum())
         exit(0)
         # prune the last linear layer
