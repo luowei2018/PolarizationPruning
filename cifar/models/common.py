@@ -244,9 +244,6 @@ def prune_conv_layer(conv_layer: Union[nn.Conv2d, nn.Linear],
             raise ValueError(f"unsupported conv layer type: {conv_layer}")
         
         # prune the output channel of the conv layer
-        print('1',prune_output_mode)
-        print('2',prune_on)
-        exit(0)
         if prune_output_mode == "prune":
             if prune_on == 'factor':
                 # the sparse_layer.weight need to be flatten, because the weight of SparseGate is not 1d
@@ -259,10 +256,10 @@ def prune_conv_layer(conv_layer: Union[nn.Conv2d, nn.Linear],
                     raise ValueError(f"Do not support prune_mode {prune_mode}")
 
                 # prune according the bn layer
+                print(hasattr(bn_layer,'out_channel_mask'))
+                exit(0)
                 if hasattr(bn_layer,'out_channel_mask'):
                     out_channel_mask = bn_layer.out_channel_mask.data.cpu().numpy()
-                    print(out_channel_mask)
-                    exit(0)
                 else:
                     output_threshold = pruner(sparse_weight)
                     out_channel_mask: np.ndarray = sparse_weight > output_threshold
