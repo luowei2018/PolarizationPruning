@@ -695,14 +695,17 @@ def accumulate_grad(old_model,new_model,mask,batch_idx,ch_indices):
                 helper(conv1.bias,conv2.bias)
             
         ch_start += ch_len
-        
-    helper(old_model.conv1.weight,new_model.conv1.weight)
-    helper(old_model.bn1.weight,new_model.bn1.weight)
-    helper(old_model.bn1.bias,new_model.bn1.bias)
-    helper(old_model.linear.weight,new_model.linear.weight)
-    helper(old_model.linear.bias,new_model.linear.bias)
-    old_model.bn1.running_mean.data = new_model.bn1.running_mean.data
-    old_model.bn1.running_var.data = new_model.bn1.running_var.data
+    
+    if args.arch == 'resnet56':
+        helper(old_model.conv1.weight,new_model.conv1.weight)
+        helper(old_model.bn1.weight,new_model.bn1.weight)
+        helper(old_model.bn1.bias,new_model.bn1.bias)
+        helper(old_model.linear.weight,new_model.linear.weight)
+        helper(old_model.linear.bias,new_model.linear.bias)
+        old_model.bn1.running_mean.data = new_model.bn1.running_mean.data
+        old_model.bn1.running_var.data = new_model.bn1.running_var.data
+    else:
+        assert args.arch == 'vgg16_linear'
    
 def fix_weights(new_model,old_model,mask_list,whole=False):
     bns1,convs1 = new_model.get_sparse_layers_and_convs()
@@ -985,6 +988,8 @@ if args.evaluate:
     #prec1 = test(model)
     #print(f"All Prec1: {prec1}")
     #factor_visualization(0, model, prec1)
+    for name, param in model.named_parameters(): print(name, param.size())
+    exit(0)
     prune_while_training(model, arch=args.arch,
                        prune_mode="default",
                        num_classes=num_classes)
