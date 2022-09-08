@@ -580,6 +580,9 @@ def sample_network(old_model,net_id=None,zero_bias=True,eval=False):
 def mask_network(old_model,net_id):
     dynamic_model = copy.deepcopy(old_model)
     all_scale_factors = torch.tensor([]).cuda()
+    bn_modules = dynamic_model.get_sparse_layers()
+    for bn_module in bn_modules:
+        all_scale_factors = torch.cat((all_scale_factors,bn_module.weight.data))
     # total channels
     total_channels = len(all_scale_factors)
     channel_per_layer = total_channels//4
@@ -590,15 +593,12 @@ def mask_network(old_model,net_id):
     weight_valid_mask[ch_indices[channel_per_layer*(3-net_id):]] = 1
     
     ch_start = 0
-    bn_modules = dynamic_model.get_sparse_layers()
     for bn_module in bn_modules:
         ch_len = len(bn_module.weight.data)
         out_channel_mask = weight_valid_mask[ch_start:ch_start+ch_len]==1
         ch_start += ch_len
         # for pruning
         bn_module.out_channel_mask = out_channel_mask.clone().detach()
-        print(bn_module.out_channel_mask)
-        exit(0)
     return dynamic_model
     
         
