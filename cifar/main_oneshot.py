@@ -616,9 +616,8 @@ def accumulate_grad(old_model,new_model,mask,net_id,ch_indices):
             old_param.grad_tmp = new_param.grad.clone().detach()
         else:
             old_param.grad_tmp += new_param.grad.clone().detach() * args.training_factor[net_id]
-        if net_id == 3:
+        if net_id == 0:
             old_param.grad = old_param.grad_tmp
-        #old_param.grad = new_param.grad.data.clone().detach()
     def helper2(b1,b2,adjust=True,adjust_mask=None,start=None,end=None):
         adjusted_mean = b2.running_mean.data.clone().detach()
         adjusted_var = b2.running_var.data.clone().detach()
@@ -635,7 +634,7 @@ def accumulate_grad(old_model,new_model,mask,net_id,ch_indices):
         else:
             b1.mean_tmp += adjusted_mean
             b1.var_tmp += adjusted_mean
-        if net_id == 3:
+        if net_id == 0:
             b1.running_mean = b1.mean_tmp
             b1.running_var = b1.var_tmp
     
