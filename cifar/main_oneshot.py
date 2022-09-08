@@ -828,7 +828,7 @@ def prune_while_training(model: nn.Module, arch: str, prune_mode: str, num_class
     if arch == "resnet56":
         from resprune_gate import prune_resnet
         from models.resnet_expand import resnet56 as resnet50_expand
-        for i in range(4):
+        for i in range(3):
             maskede_model = mask_network(model,i)
             saved_model = prune_resnet(sparse_model=maskede_model, pruning_strategy='fixed', prune_type='mask',
                                              sanity_check=False, prune_mode=prune_mode, num_classes=num_classes)
@@ -841,7 +841,8 @@ def prune_while_training(model: nn.Module, arch: str, prune_mode: str, num_class
         from models import vgg16_linear
         # todo: update
         for i in range(4):
-            saved_model = prune_vgg(sparse_model=model, pruning_strategy='fixed', prune_type='ns',
+            maskede_model = mask_network(model,i)
+            saved_model = prune_vgg(sparse_model=model, pruning_strategy='fixed', prune_type='mask',
                                           sanity_check=False, prune_mode=prune_mode, num_classes=num_classes)
             prec1 = test(saved_model.cuda())
             flop = compute_conv_flops(saved_model, cuda=True)
@@ -852,19 +853,10 @@ def prune_while_training(model: nn.Module, arch: str, prune_mode: str, num_class
         raise NotImplementedError(f"do not support arch {arch}")
 
     baseline_flops = compute_conv_flops(model, cuda=True)
-        
-    inplace_precs = []
-    if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
-        for i in range(0, 3):
-            inplace_precs += [test(sample_network(model,net_id=i,zero_bias=True,eval=True))]
-        
     
     print_str = ''
     for flop,prec1 in zip(saved_flops,saved_prec1s):
         print_str += f"[{prec1:.4f}({flop / baseline_flops:.4f})]\t"
-        
-    for prec1 in inplace_precs:
-        print_str += f"{prec1:.4f}\t"
         
     print(print_str,args.training_factor)
 
