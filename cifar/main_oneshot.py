@@ -612,12 +612,13 @@ def prune_by_mask(old_model,mask_list,zero_bias=True):
     
 def accumulate_grad(old_model,new_model,mask,net_id,ch_indices):
     def helper(old_param,new_param):
-        if net_id == 0:
-            old_param.grad_tmp = new_param.grad.clone().detach()
-        else:
-            old_param.grad_tmp += new_param.grad.clone().detach() * args.training_factor[net_id]
-        if net_id == 0:
-            old_param.grad = old_param.grad_tmp
+        #if net_id == 0:
+        #    old_param.grad_tmp = new_param.grad.clone().detach()
+        #else:
+        #    old_param.grad_tmp += new_param.grad.clone().detach() * args.training_factor[net_id]
+        #if net_id == 3:
+        #    old_param.grad = old_param.grad_tmp
+        old_param.grad = new_param.grad.clone().detach()
     def helper2(old_bn,new_bn,adjust=True,adjust_mask=None,start=None,end=None):
         adjusted_mean = new_bn.running_mean.data.clone().detach()
         adjusted_var = new_bn.running_var.data.clone().detach()
@@ -878,7 +879,7 @@ def train(epoch):
             optimizer.param_groups[0]['momentum'] = 0
             optimizer.param_groups[1]['momentum'] = 0
             optimizer.param_groups[1]['weight_decay'] = 0
-            freeze_mask,net_id,dynamic_model,ch_indices = sample_network(model,net_id=0)
+            freeze_mask,net_id,dynamic_model,ch_indices = sample_network(model,net_id=3)
         if args.cuda:
             data, target = data.cuda(), target.cuda()
         optimizer.zero_grad()
