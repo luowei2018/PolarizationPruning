@@ -204,6 +204,7 @@ def prune_conv_layer(conv_layer: Union[nn.Conv2d, nn.Linear],
 
         # prune the input channel of the conv layer
         # if sparse_layer_in and in_channel_mask are both None, the input dim will NOT be pruned
+        assert in_channel_mask is not None and sparse_layer_in is None
         if sparse_layer_in is not None:
             if in_channel_mask is not None:
                 raise ValueError("")
@@ -255,8 +256,11 @@ def prune_conv_layer(conv_layer: Union[nn.Conv2d, nn.Linear],
                     raise ValueError(f"Do not support prune_mode {prune_mode}")
 
                 # prune according the bn layer
-                output_threshold = pruner(sparse_weight)
-                out_channel_mask: np.ndarray = sparse_weight > output_threshold
+                if prune_mode == 'mask':
+                    out_channel_mask = bn_layer.prune_mask
+                else:
+                    output_threshold = pruner(sparse_weight)
+                    out_channel_mask: np.ndarray = sparse_weight > output_threshold
             else:
                 sparse_weight: np.ndarray = sparse_layer.weight.view(-1).data.cpu().numpy()
                 # in this case, the sparse weight should be the conv or linear weight

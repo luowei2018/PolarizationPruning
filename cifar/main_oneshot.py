@@ -537,8 +537,6 @@ def sample_network(old_model,net_id=None,zero_bias=True,eval=False):
     if net_id is None:
         net_id = torch.tensor(0).random_(0,4)
     all_scale_factors = torch.tensor([]).cuda()
-    #if eval: old_model = copy.deepcopy(old_model)
-    
         
     if eval:
         dynamic_model = copy.deepcopy(old_model)
@@ -572,10 +570,35 @@ def sample_network(old_model,net_id=None,zero_bias=True,eval=False):
             if zero_bias:
                 bn_module.bias.data[inactive] = 0
             ch_start += ch_len
+            # for pruning
+            bn_module.prune_mask = inactive.clone().detach()
     if not eval:
         return freeze_mask,net_id,dynamic_model,ch_indices
     else:
-        return test(dynamic_model)
+        return dynamic_model
+        
+def mask_network(old_model,net_id):
+    dynamic_model = copy.deepcopy(old_model)
+    all_scale_factors = torch.tensor([]).cuda()
+    # total channels
+    total_channels = len(all_scale_factors)
+    channel_per_layer = total_channels//4
+    
+    _,ch_indices = all_scale_factors.sort(dim=0)
+    
+    weight_valid_mask = torch.zeros(total_channels).long().cuda()
+    weight_valid_mask[ch_indices[channel_per_layer*(3-net_id):]] = 1
+    
+    ch_start = 0
+    bn_modules = dynamic_model.get_sparse_layers()
+    for bn_module in bn_modules:
+        ch_len = len(bn_module.weight.data)
+        inactive = weight_valid_mask[ch_start:ch_start+ch_len]==0
+        ch_start += ch_len
+        # for pruning
+        bn_module.prune_mask = inactive.clone().detach()
+    return
+    
         
 def prune_by_mask(old_model,mask_list,zero_bias=True):
     import copy
@@ -798,41 +821,30 @@ def factor_visualization(iter, model, prec):
 
 def prune_while_training(model: nn.Module, arch: str, prune_mode: str, num_classes: int):
     model.eval()
-    target_ratios = []#.25,.5,.75]#[0.1 + 0.1*x for x in range(9)]
     saved_flops = []
     saved_prec1s = []
-    saved_thresh = []
     if arch == "resnet56":
         from resprune_gate import prune_resnet
         from models.resnet_expand import resnet56 as resnet50_expand
-        for strat in []:#['grad','fixed']:
-            saved_model,thresh = prune_resnet(sparse_model=model, pruning_strategy=strat,
-                                            sanity_check=False, prune_mode=prune_mode, num_classes=num_classes)
-            prec1 = test(saved_model.cuda())
-            flop = compute_conv_flops(saved_model, cuda=True)
-            saved_prec1s += [prec1]
-            saved_flops += [flop]
-            saved_thresh += [thresh]
-        for ratio in target_ratios:
-            saved_model,thresh = prune_resnet(sparse_model=model, pruning_strategy='fixed', prune_type='ns', l1_norm_ratio=ratio,
+        for i in range(4):
+            maskede_model = mask_network(model,net_id=i,zero_bias=True,eval=True)
+            saved_model = prune_resnet(sparse_model=maskede_model, pruning_strategy='fixed', prune_type='mask',
                                              sanity_check=False, prune_mode=prune_mode, num_classes=num_classes)
             prec1 = test(saved_model.cuda())
             flop = compute_conv_flops(saved_model, cuda=True)
             saved_prec1s += [prec1]
             saved_flops += [flop]
-            saved_thresh += [thresh]
     elif arch == 'vgg16_linear':
         from vggprune_gate import prune_vgg
         from models import vgg16_linear
         # todo: update
-        for ratio in target_ratios:
-            saved_model,thresh = prune_vgg(sparse_model=model, pruning_strategy='fixed', prune_type='ns', l1_norm_ratio=ratio,
+        for i in range(4):
+            saved_model = prune_vgg(sparse_model=model, pruning_strategy='fixed', prune_type='ns',
                                           sanity_check=False, prune_mode=prune_mode, num_classes=num_classes)
             prec1 = test(saved_model.cuda())
             flop = compute_conv_flops(saved_model, cuda=True)
             saved_prec1s += [prec1]
             saved_flops += [flop]
-            saved_thresh += [thresh]
     else:
         # not available
         raise NotImplementedError(f"do not support arch {arch}")
@@ -840,14 +852,9 @@ def prune_while_training(model: nn.Module, arch: str, prune_mode: str, num_class
     baseline_flops = compute_conv_flops(model, cuda=True)
         
     inplace_precs = []
-    if args.loss in {LossType.LOG_QUANTIZATION}:
-        for i in range(min(3,len(args.mask_list))):
-            inplace_precs += [test(prune_by_mask(model,args.mask_list[:i+1],zero_bias=True))]
-            inplace_precs += [test(prune_by_mask(model,args.mask_list[:i+1],zero_bias=False))]
-    
     if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
         for i in range(0, 3):
-            inplace_precs += [sample_network(model,net_id=i,zero_bias=True,eval=True)]
+            inplace_precs += [test(sample_network(model,net_id=i,zero_bias=True,eval=True))]
         
     
     print_str = ''
