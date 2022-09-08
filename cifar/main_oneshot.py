@@ -638,7 +638,7 @@ def accumulate_grad(old_model,new_model,mask,net_id,ch_indices):
         if net_id == 3:
             b1.running_mean = b1.mean_tmp
             b1.running_var = b1.var_tmp
-    print(net_id)
+    
     bns1,convs1 = old_model.get_sparse_layers_and_convs()
     bns2,convs2 = new_model.get_sparse_layers_and_convs()
     channel_per_layer = ch_indices.size(0)//4
@@ -651,6 +651,7 @@ def accumulate_grad(old_model,new_model,mask,net_id,ch_indices):
     ch_start = 0
     for conv1,bn1,conv2,bn2 in zip(convs1,bns1,convs2,bns2):
         ch_len = conv1.weight.data.size(0)
+        print(net_id,ch_start)
         with torch.no_grad():
             freeze_mask = mask[ch_start:ch_start+ch_len] == 1
             bn2.weight.grad.data[freeze_mask] = 0
