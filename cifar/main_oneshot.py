@@ -874,7 +874,10 @@ def train(epoch):
     for batch_idx, (data, target) in enumerate(train_iter):
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
             #old_model = copy.deepcopy(model)
-            freeze_mask,net_id,dynamic_model,ch_indices = sample_network(model,net_id=batch_idx%4)
+            optimizer.param_groups[0]['momentum'] = 0
+            optimizer.param_groups[1]['momentum'] = 0
+            optimizer.param_groups[1]['weight_decay'] = 0
+            freeze_mask,net_id,dynamic_model,ch_indices = sample_network(model,net_id=0)
         if args.cuda:
             data, target = data.cuda(), target.cuda()
         optimizer.zero_grad()
@@ -913,8 +916,8 @@ def train(epoch):
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
             #scale_lr(optimizer,net_id,reset=False)
             accumulate_grad(model,dynamic_model,freeze_mask,net_id,ch_indices)
-        if args.loss not in {LossType.PROGRESSIVE_SHRINKING} or batch_idx%4==3:
-            optimizer.step()
+        #if args.loss not in {LossType.PROGRESSIVE_SHRINKING} or batch_idx%4==3:
+        optimizer.step()
         #if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
         #    fix_weights(model,old_model,[freeze_mask])
         #    scale_lr(optimizer,net_id,reset=True)
