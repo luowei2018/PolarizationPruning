@@ -846,7 +846,7 @@ def train(epoch):
     train_iter = tqdm(train_loader)
     for batch_idx, (data, target) in enumerate(train_iter):
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
-            old_model = copy.deepcopy(model)
+            #old_model = copy.deepcopy(model)
             optimizer.param_groups[0]['momentum'] = 0
             optimizer.param_groups[1]['momentum'] = 0
             optimizer.param_groups[1]['weight_decay'] = 0
