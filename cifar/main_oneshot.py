@@ -211,7 +211,7 @@ else:
 
 num_classes = 10 if args.dataset == 'cifar10' else 100
 
-if not args.retrain:
+if False and not args.retrain:
     if re.match("resnet[0-9]+", args.arch):
         model = models.__dict__[args.arch](num_classes=num_classes,
                                            gate=args.gate,
