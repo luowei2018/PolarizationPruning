@@ -602,7 +602,7 @@ def mask_network(old_model,net_id):
     return dynamic_model
 
 args.training_factor= [1,.1,.1,.1]
-args.ps_batch = 8
+args.ps_batch = 4
     
 def accumulate_grad(old_model,new_model,mask,batch_idx,ch_indices):
     def copy_module_grad(old_module,new_module,freeze_mask=None):
