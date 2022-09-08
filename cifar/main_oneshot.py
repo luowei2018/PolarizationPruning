@@ -618,9 +618,7 @@ def accumulate_grad(old_model,new_model,mask,net_id,ch_indices):
         adjusted_mean = new_bn.running_mean.data.clone().detach()
         adjusted_var = new_bn.running_var.data.clone().detach()
         if adjust:
-            print(i)
-            exit(0)
-            for m in adjust_mask:
+            for i,m in enumerate(adjust_mask):
                 adjusted_mean[m[start:end]==1] *= 1./(4-i)
                 adjusted_var[m[start:end]==1] *= 1./(4-i)
         else:
