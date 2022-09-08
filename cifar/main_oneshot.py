@@ -896,7 +896,8 @@ def train(epoch):
                 soft_logits, _ = soft_logits
             soft_label = F.softmax(soft_logits.detach(), dim=1)
             loss = cross_entropy_loss_with_soft_target(output, soft_label)
-
+        
+        if net_id<3:continue
         # logging
         avg_loss += loss.data.item()
         pred = output.data.max(1, keepdim=True)[1]
@@ -911,7 +912,6 @@ def train(epoch):
                                         weight_max=args.weight_max, weight_min=args.weight_min)
             loss += sparsity_loss
             avg_sparsity_loss += sparsity_loss.data.item()
-        if net_id<3:continue
         loss.backward()
         if args.loss in {LossType.L1_SPARSITY_REGULARIZATION}:
             updateBN()
