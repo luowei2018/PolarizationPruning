@@ -628,8 +628,6 @@ def accumulate_grad(old_model,new_model,mask,net_id):
             freeze_mask = mask[ch_start:ch_start+ch_len] == 1
             bn2.weight.grad.data[freeze_mask] = 0
             helper(bn1.weight,bn2.weight)
-            bn1.running_mean.data[freeze_mask] = bn2.running_mean.data[freeze_mask].clone().detach()
-            bn1.running_var.data[freeze_mask] = bn2.running_var.data[freeze_mask].clone().detach()
             if hasattr(bn2, 'bias') and bn2.bias is not None:
                 bn2.bias.grad.data[freeze_mask] = 0
                 helper(bn1.bias,bn2.bias)
@@ -649,8 +647,6 @@ def accumulate_grad(old_model,new_model,mask,net_id):
     helper(old_model.bn1.bias,new_model.bn1.bias)
     helper(old_model.linear.weight,new_model.linear.weight)
     helper(old_model.linear.bias,new_model.linear.bias)
-    new_model.bn1.running_mean.data = old_model.bn1.running_mean.data.clone().detach()
-    new_model.bn1.running_var.data = old_model.bn1.running_var.data.clone().detach()
    
 def fix_weights(new_model,old_model,mask_list,whole=False):
     bns1,convs1 = new_model.get_sparse_layers_and_convs()
@@ -891,8 +887,8 @@ def train(epoch):
             accumulate_grad(model,dynamic_model,freeze_mask,net_id)
         #if args.loss not in {LossType.PROGRESSIVE_SHRINKING} or batch_idx%4==3:
         optimizer.step()
-        #if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
-        #    fix_weights(model,old_model,[freeze_mask])
+        if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
+            fix_weights(model,dynamic_model,[freeze_mask])
         #    scale_lr(optimizer,net_id,reset=True)
         if args.loss in {LossType.POLARIZATION,
                          LossType.L2_POLARIZATION}:
