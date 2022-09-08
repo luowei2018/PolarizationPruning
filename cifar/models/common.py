@@ -245,6 +245,7 @@ def prune_conv_layer(conv_layer: Union[nn.Conv2d, nn.Linear],
         
         # prune the output channel of the conv layer
         if prune_output_mode == "prune":
+            print(prune_mode,prune_on)
             if prune_on == 'factor':
                 # the sparse_layer.weight need to be flatten, because the weight of SparseGate is not 1d
                 sparse_weight: np.ndarray = torch.abs(sparse_layer.weight).view(-1).data.cpu().numpy()
