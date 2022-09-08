@@ -604,7 +604,7 @@ def prune_by_mask(old_model,mask_list,zero_bias=True):
     
 
 args.training_factor= [1,1,1,1]
-args.ps_batch = 8
+args.ps_batch = 16
     
 def accumulate_grad(old_model,new_model,mask,batch_idx,ch_indices):
     def helper(old_param,new_param):
