@@ -612,7 +612,7 @@ def accumulate_grad(old_model,new_model,mask,batch_idx,ch_indices):
             old_param.grad_tmp = new_param.grad.clone().detach()
         else:
             old_param.grad_tmp += new_param.grad.clone().detach() * args.training_factor[net_id]
-        if batch_idx%args.ps_batch == ps_batch-1:
+        if batch_idx%args.ps_batch == args.ps_batch-1:
             old_param.grad = old_param.grad_tmp
     def helper2(old_bn,new_bn,adjust=True,adjust_mask=None,start=None,end=None):
         adjusted_mean = new_bn.running_mean.data.clone().detach()
