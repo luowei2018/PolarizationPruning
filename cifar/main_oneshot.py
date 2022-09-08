@@ -601,7 +601,7 @@ def mask_network(old_model,net_id):
         ch_start += ch_len
     return dynamic_model
 
-args.training_factor= [1,1,1,1]
+args.training_factor= [1,.01,.01,.01]
 args.ps_batch = 4
     
 def accumulate_grad(old_model,new_model,mask,batch_idx,ch_indices):
