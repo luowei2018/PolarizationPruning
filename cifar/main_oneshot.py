@@ -545,15 +545,12 @@ def sample_network(old_model,net_id=None,zero_bias=True,eval=False):
     if net_id is None:
         net_id = torch.tensor(0).random_(0,4)
     all_scale_factors = torch.tensor([]).cuda()
-    #if eval: old_model = copy.deepcopy(old_model)
-    
         
     if eval:
         dynamic_model = copy.deepcopy(old_model)
         bn_modules = dynamic_model.get_sparse_layers()
     else:
-        dynamic_model = copy.deepcopy(old_model)
-        bn_modules = dynamic_model.get_sparse_layers()
+        bn_modules = old_model.get_sparse_layers()
     for bn_module in bn_modules:
         all_scale_factors = torch.cat((all_scale_factors,bn_module.weight.data))
     
@@ -581,7 +578,7 @@ def sample_network(old_model,net_id=None,zero_bias=True,eval=False):
                 bn_module.bias.data[inactive] = 0
             ch_start += ch_len
     if not eval:
-        return freeze_mask,net_id,dynamic_model
+        return freeze_mask,net_id
     else:
         return test(dynamic_model)
         
@@ -618,7 +615,7 @@ def accumulate_grad(old_model,new_model,mask,net_id):
         #    old_param.grad_tmp += new_param.grad.clone().detach() * args.training_factor[net_id]
         #if net_id == 3:
         #    old_param.grad = old_param.grad_tmp
-        old_param.grad = new_param.grad.data.clone().detach() * args.training_factor[net_id]
+        old_param.grad = new_param.grad.data.clone().detach()
     bns1,convs1 = old_model.get_sparse_layers_and_convs()
     bns2,convs2 = new_model.get_sparse_layers_and_convs()
     ch_start = 0
@@ -843,17 +840,11 @@ def train(epoch):
     for batch_idx, (data, target) in enumerate(train_iter):
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
             old_model = copy.deepcopy(model)
-            optimizer.param_groups[0]['momentum'] = 0
-            optimizer.param_groups[1]['momentum'] = 0
-            optimizer.param_groups[1]['weight_decay'] = 0
-            freeze_mask,net_id,dynamic_model = sample_network(model,net_id=0)
+            freeze_mask,net_id = sample_network(model,net_id=0)
         if args.cuda:
             data, target = data.cuda(), target.cuda()
         optimizer.zero_grad()
-        if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
-            output = dynamic_model(data)
-        else:
-            output = model(data)
+        output = model(data)
         if isinstance(output, tuple):
             output, output_aux = output
         loss = F.cross_entropy(output, target)
@@ -883,13 +874,13 @@ def train(epoch):
         if args.loss in {LossType.L1_SPARSITY_REGULARIZATION}:
             updateBN()
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
-            #scale_lr(optimizer,net_id,reset=False)
-            accumulate_grad(model,dynamic_model,freeze_mask,net_id)
+            scale_lr(optimizer,net_id,reset=False)
+            #accumulate_grad(model,dynamic_model,freeze_mask,net_id)
         #if args.loss not in {LossType.PROGRESSIVE_SHRINKING} or batch_idx%4==3:
         optimizer.step()
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
             fix_weights(model,old_model,[freeze_mask])
-        #    scale_lr(optimizer,net_id,reset=True)
+            scale_lr(optimizer,net_id,reset=True)
         if args.loss in {LossType.POLARIZATION,
                          LossType.L2_POLARIZATION}:
             clamp_bn(model, upper_bound=args.clamp)
