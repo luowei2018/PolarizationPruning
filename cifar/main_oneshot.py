@@ -599,6 +599,8 @@ def mask_network(old_model,net_id):
         # for pruning
         bn_module.out_channel_mask = out_channel_mask.clone().detach()
         ch_start += ch_len
+    print(dynamic_model.get_sparse_layers()[0].out_channel_mask)
+    exit(0)
     return dynamic_model
     
         
