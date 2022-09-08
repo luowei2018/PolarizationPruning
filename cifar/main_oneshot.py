@@ -603,7 +603,7 @@ def prune_by_mask(old_model,mask_list,zero_bias=True):
     return pruned_model
     
 
-args.training_factor= [1,0.1,0.1,0.1]
+args.training_factor= [1,0.5,0.5,0.5]
     
 def accumulate_grad(old_model,new_model,mask,net_id,ch_indices):
     def helper(old_param,new_param):
@@ -845,7 +845,7 @@ def prune_while_training(model: nn.Module, arch: str, prune_mode: str, num_class
             inplace_precs += [test(prune_by_mask(model,args.mask_list[:i+1],zero_bias=False))]
     
     if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
-        for i in range(0, 4):
+        for i in range(0, 3):
             inplace_precs += [sample_network(model,net_id=i,zero_bias=True,eval=True)]
         
     
