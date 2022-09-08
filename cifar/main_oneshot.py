@@ -611,6 +611,7 @@ def prune_by_mask(old_model,mask_list,zero_bias=True):
     return pruned_model
     
 def accumulate_grad(old_model,new_model,mask,net_id,ch_indices):
+    if net_id<3:return
     def helper(old_param,new_param):
         if net_id == 3:
             old_param.grad_tmp = new_param.grad.clone().detach()
