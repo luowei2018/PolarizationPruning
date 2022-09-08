@@ -618,9 +618,9 @@ def accumulate_grad(old_model,new_model,mask,net_id,ch_indices):
             old_param.grad_tmp += new_param.grad.clone().detach() * args.training_factor[net_id]
         if net_id == 0:
             old_param.grad = old_param.grad_tmp
-    def helper2(b1,b2,adjust=True,adjust_mask=None,start=None,end=None):
-        adjusted_mean = b2.running_mean.data.clone().detach()
-        adjusted_var = b2.running_var.data.clone().detach()
+    def helper2(old_bn,new_bn,adjust=True,adjust_mask=None,start=None,end=None):
+        adjusted_mean = new_bn.running_mean.data.clone().detach()
+        adjusted_var = new_bn.running_var.data.clone().detach()
         if adjust:
             for m in adjust_mask:
                 adjusted_mean[m[start:end]==1] *= 1./(4-i)
@@ -629,14 +629,14 @@ def accumulate_grad(old_model,new_model,mask,net_id,ch_indices):
             adjusted_mean *= 1./4
             adjusted_var *= 1./4
         if net_id == 0:
-            b1.mean_tmp = adjusted_mean
-            b1.var_tmp = adjusted_var
+            old_bn.mean_tmp = adjusted_mean
+            old_bn.var_tmp = adjusted_var
         else:
-            b1.mean_tmp += adjusted_mean
-            b1.var_tmp += adjusted_mean
+            old_bn.mean_tmp += adjusted_mean
+            old_bn.var_tmp += adjusted_mean
         if net_id == 0:
-            b1.running_mean = b1.mean_tmp
-            b1.running_var = b1.var_tmp
+            old_bn.running_mean = old_bn.mean_tmp
+            old_bn.running_var = old_bn.var_tmp
     
     bns1,convs1 = old_model.get_sparse_layers_and_convs()
     bns2,convs2 = new_model.get_sparse_layers_and_convs()
@@ -656,7 +656,9 @@ def accumulate_grad(old_model,new_model,mask,net_id,ch_indices):
             helper(bn1.weight,bn2.weight)
             bn2.running_mean.data[freeze_mask] = 0
             bn2.running_var.data[freeze_mask] = 0
-            helper2(bn1,bn2,adjust=True,adjust_mask=adjust_mask,start=ch_start,end=ch_start+ch_len)
+            #helper2(bn1,bn2,adjust=True,adjust_mask=adjust_mask,start=ch_start,end=ch_start+ch_len)
+            bn1.running_mean.data = bn2.running_mean.data.clone().detach()
+            bn1.running_var.data = bn2.running_var.data.clone().detach()
             if hasattr(bn2, 'bias') and bn2.bias is not None:
                 bn2.bias.grad.data[freeze_mask] = 0
                 helper(bn1.bias,bn2.bias)
