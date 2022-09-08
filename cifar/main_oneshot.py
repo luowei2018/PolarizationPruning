@@ -559,16 +559,16 @@ def sample_network(old_model,net_id=None,zero_bias=True,eval=False):
     
     # total channels
     total_channels = len(all_scale_factors)
-    channel_per_layer = total_channels//4
+    args.channel_per_layer = total_channels//4
     
-    _,ch_indices = all_scale_factors.sort(dim=0)
+    _,args.ch_indices = all_scale_factors.sort(dim=0)
     
     weight_valid_mask = torch.zeros(total_channels).long().cuda()
-    weight_valid_mask[ch_indices[channel_per_layer*(3-net_id):]] = 1
+    weight_valid_mask[args.ch_indices[args.channel_per_layer*(3-net_id):]] = 1
         
     if False:
         freeze_mask = torch.ones(total_channels).long().cuda()
-        freeze_mask[ch_indices[channel_per_layer*(3-net_id):channel_per_layer*(4-net_id)]] = 0
+        freeze_mask[args.ch_indices[args.channel_per_layer*(3-net_id):args.channel_per_layer*(4-net_id)]] = 0
     else:
         freeze_mask = 1-weight_valid_mask
     ch_start = 0
@@ -612,13 +612,33 @@ def prune_by_mask(old_model,mask_list,zero_bias=True):
     
 def accumulate_grad(old_model,new_model,mask,net_id):
     def helper(old_param,new_param):
-        #if net_id == 0:
-        #    old_param.grad_tmp = new_param.grad.clone().detach()
-        #else:
-        #    old_param.grad_tmp += new_param.grad.clone().detach() * args.training_factor[net_id]
-        #if net_id == 3:
-        #    old_param.grad = old_param.grad_tmp
-        old_param.grad = new_param.grad.data.clone().detach()
+        if net_id == 0:
+            old_param.grad_tmp = new_param.grad.clone().detach()
+        else:
+            old_param.grad_tmp += new_param.grad.clone().detach() * args.training_factor[net_id]
+        if net_id == 3:
+            old_param.grad = old_param.grad_tmp
+        #old_param.grad = new_param.grad.data.clone().detach()
+    def helper2(b1,b2,adjust=True):
+        adjusted_mean = b2.running_mean.data.clone().detach()
+        adjusted_var = b2.running_var.data.clone().detach()
+        if adjust:
+            for i in range(4):
+                adjusted_mean[args.ch_indices[args.channel_per_layer*(3-i):args.channel_per_layer*(4-i)]] *= 1./(4-i)
+                adjusted_var[args.ch_indices[args.channel_per_layer*(3-i):args.channel_per_layer*(4-i)]] *= 1./(4-i)
+        else:
+            adjusted_mean *= 1./4
+            adjusted_var *= 1./4
+        if net_id == 0：
+            b1.mean_tmp = adjusted_mean
+            b1.var_tmp = adjusted_var
+        else:
+            b1.mean_tmp += adjusted_mean
+            b1.var_tmp += adjusted_mean
+        if net_id == 3:
+            b1.running_mean = b1.mean_tmp
+            b1.running_var = b1.var_tmp
+            
     bns1,convs1 = old_model.get_sparse_layers_and_convs()
     bns2,convs2 = new_model.get_sparse_layers_and_convs()
     ch_start = 0
@@ -626,11 +646,11 @@ def accumulate_grad(old_model,new_model,mask,net_id):
         ch_len = conv1.weight.data.size(0)
         with torch.no_grad():
             freeze_mask = mask[ch_start:ch_start+ch_len] == 1
-            keep_mask = mask[ch_start:ch_start+ch_len] == 0
             bn2.weight.grad.data[freeze_mask] = 0
             helper(bn1.weight,bn2.weight)
-            bn1.running_mean.data = bn2.running_mean.data.clone().detach()
-            bn1.running_var.data = bn2.running_var.data.clone().detach()
+            bn2.running_mean.data[freeze_mask] = 0
+            bn2.running_var.data[freeze_mask] = 0
+            helper2(bn1,bn2,adjust=True)
             if hasattr(bn2, 'bias') and bn2.bias is not None:
                 bn2.bias.grad.data[freeze_mask] = 0
                 helper(bn1.bias,bn2.bias)
@@ -650,8 +670,7 @@ def accumulate_grad(old_model,new_model,mask,net_id):
     helper(old_model.bn1.bias,new_model.bn1.bias)
     helper(old_model.linear.weight,new_model.linear.weight)
     helper(old_model.linear.bias,new_model.linear.bias)
-    new_model.bn1.running_mean.data = old_model.bn1.running_mean.data.clone().detach()
-    new_model.bn1.running_var.data = old_model.bn1.running_var.data.clone().detach()
+    helper2(new_model.bn1,old_model.bn1,adjust=False)
    
 def fix_weights(new_model,old_model,mask_list,whole=False):
     bns1,convs1 = new_model.get_sparse_layers_and_convs()
@@ -847,11 +866,8 @@ def train(epoch):
     train_iter = tqdm(train_loader)
     for batch_idx, (data, target) in enumerate(train_iter):
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
-            old_model = copy.deepcopy(model)
-            optimizer.param_groups[0]['momentum'] = 0
-            optimizer.param_groups[1]['momentum'] = 0
-            optimizer.param_groups[1]['weight_decay'] = 0
-            freeze_mask,net_id,dynamic_model = sample_network(model,net_id=0)
+            #old_model = copy.deepcopy(model)
+            freeze_mask,net_id,dynamic_model = sample_network(model,net_id=batch_idx%4)
         if args.cuda:
             data, target = data.cuda(), target.cuda()
         optimizer.zero_grad()
@@ -890,8 +906,8 @@ def train(epoch):
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
             #scale_lr(optimizer,net_id,reset=False)
             accumulate_grad(model,dynamic_model,freeze_mask,net_id)
-        #if args.loss not in {LossType.PROGRESSIVE_SHRINKING} or batch_idx%4==3:
-        optimizer.step()
+        if args.loss not in {LossType.PROGRESSIVE_SHRINKING} or batch_idx%4==3:
+            optimizer.step()
         #if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
         #    fix_weights(model,old_model,[freeze_mask])
         #    scale_lr(optimizer,net_id,reset=True)
