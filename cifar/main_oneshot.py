@@ -114,10 +114,6 @@ parser.add_argument('--bias-decay-mult', type=int, default=1,
                     help='Apply bias decay on BatchNorm layers')
 parser.add_argument('--log-scale', action='store_true',
                     help='use log scale')
-parser.add_argument('--stages', type=int, default=4, 
-                    help='number of stages to train (default: 4, single round of training)')
-parser.add_argument('--start-stage', default=0, type=int,
-                    help='manual stage number (useful on restarts)')
 
 args = parser.parse_args()
 args.cuda = not args.no_cuda and torch.cuda.is_available()
@@ -321,10 +317,6 @@ if args.debug:
             module.weight.data[:one_num] = 1.
 
             print(f"{name} remains {one_num}")
-
-args.mask_list = []
-args.stage = 0
-args.training_factor= [0,0,0,1]#[1,0.01,0.001,0.0001]
 
 if args.resume:
     if os.path.isfile(args.resume):
@@ -610,6 +602,9 @@ def prune_by_mask(old_model,mask_list,zero_bias=True):
     #for name, param in model.named_parameters(): print(name, param.data)
     return pruned_model
     
+
+args.training_factor= [1,1,1,1]#[1,0.01,0.001,0.0001]
+    
 def accumulate_grad(old_model,new_model,mask,net_id,ch_indices):
     def helper(old_param,new_param):
         if net_id == 3:
@@ -627,8 +622,9 @@ def accumulate_grad(old_model,new_model,mask,net_id,ch_indices):
                 adjusted_mean[m[start:end]==1] *= 1./(4-i)
                 adjusted_var[m[start:end]==1] *= 1./(4-i)
         else:
-            adjusted_mean *= 1./4
-            adjusted_var *= 1./4
+            #adjusted_mean *= 1./4
+            #adjusted_var *= 1./4
+            pass
         if net_id == 0:
             old_bn.mean_tmp = adjusted_mean
             old_bn.var_tmp = adjusted_var
@@ -657,8 +653,8 @@ def accumulate_grad(old_model,new_model,mask,net_id,ch_indices):
             helper(bn1.weight,bn2.weight)
             bn2.running_mean.data[freeze_mask] = 0
             bn2.running_var.data[freeze_mask] = 0
-            #helper2(bn1,bn2,adjust=True,adjust_mask=adjust_mask,start=ch_start,end=ch_start+ch_len)
-            helper2(bn1,bn2,adjust=False)
+            helper2(bn1,bn2,adjust=True,adjust_mask=adjust_mask,start=ch_start,end=ch_start+ch_len)
+            #helper2(bn1,bn2,adjust=False)
             if hasattr(bn2, 'bias') and bn2.bias is not None:
                 bn2.bias.grad.data[freeze_mask] = 0
                 helper(bn1.bias,bn2.bias)
