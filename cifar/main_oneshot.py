@@ -838,6 +838,7 @@ def train(epoch):
     total_data = 0
     train_iter = tqdm(train_loader)
     for batch_idx, (data, target) in enumerate(train_iter):
+        print(model.bn1.running_mean.data)
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
             old_model = copy.deepcopy(model)
             freeze_mask,net_id = sample_network(model,net_id=0)
@@ -845,6 +846,7 @@ def train(epoch):
             data, target = data.cuda(), target.cuda()
         optimizer.zero_grad()
         output = model(data)
+        print(model.bn1.running_mean.data)
         if isinstance(output, tuple):
             output, output_aux = output
         loss = F.cross_entropy(output, target)
@@ -871,6 +873,7 @@ def train(epoch):
             loss += sparsity_loss
             avg_sparsity_loss += sparsity_loss.data.item()
         loss.backward()
+        print(model.bn1.running_mean.data)
         if args.loss in {LossType.L1_SPARSITY_REGULARIZATION}:
             updateBN()
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
@@ -889,6 +892,7 @@ def train(epoch):
             'Step: {} Train Epoch: {} [{}/{} ({:.1f}%)]. Loss: {:.6f}'.format(
             global_step, epoch, batch_idx * len(data), len(train_loader.dataset),
                                 100. * batch_idx / len(train_loader), avg_loss / len(train_loader)))
+        exit(0)
                                 
     history_score[epoch][0] = avg_loss / len(train_loader)
     history_score[epoch][1] = float(train_acc) / float(total_data)
