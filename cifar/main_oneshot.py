@@ -672,13 +672,14 @@ def accumulate_grad(old_model,new_model,mask,batch_idx,ch_indices):
             
         ch_start += ch_len
     
-    if args.arch == 'resnet56':
-        copy_module_grad(old_model.conv1,new_model.conv1)
-        copy_module_grad(old_model.bn1,new_model.bn1)
-        copy_module_grad(old_model.linear,new_model.linear)
-    else:
-        assert args.arch == 'vgg16_linear'
-        copy_module_grad(old_model.classifier[1],new_model.classifier[1])
+    with torch.no_grad():
+        if args.arch == 'resnet56':
+            copy_module_grad(old_model.conv1,new_model.conv1)
+            copy_module_grad(old_model.bn1,new_model.bn1)
+            copy_module_grad(old_model.linear,new_model.linear)
+        else:
+            assert args.arch == 'vgg16_linear'
+            copy_module_grad(old_model.classifier[1],new_model.classifier[1])
    
 def fix_weights(new_model,old_model,mask_list,whole=False):
     bns1,convs1 = new_model.get_sparse_layers_and_convs()
