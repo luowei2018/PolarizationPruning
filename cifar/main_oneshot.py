@@ -629,7 +629,6 @@ def accumulate_grad(old_model,new_model,mask,net_id,ch_indices):
         else:
             adjusted_mean *= 1./4
             adjusted_var *= 1./4
-        print(net_id,start,end)
         if net_id == 0:
             b1.mean_tmp = adjusted_mean
             b1.var_tmp = adjusted_var
@@ -678,7 +677,7 @@ def accumulate_grad(old_model,new_model,mask,net_id,ch_indices):
     helper(old_model.bn1.bias,new_model.bn1.bias)
     helper(old_model.linear.weight,new_model.linear.weight)
     helper(old_model.linear.bias,new_model.linear.bias)
-    helper2(new_model.bn1,old_model.bn1,adjust=False)
+    helper2(old_model.bn1,new_model.bn1,adjust=False)
    
 def fix_weights(new_model,old_model,mask_list,whole=False):
     bns1,convs1 = new_model.get_sparse_layers_and_convs()
