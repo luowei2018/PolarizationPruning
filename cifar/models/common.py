@@ -258,8 +258,6 @@ def prune_conv_layer(conv_layer: Union[nn.Conv2d, nn.Linear],
                 # prune according the bn layer
                 if hasattr(bn_layer,'out_channel_mask'):
                     out_channel_mask = bn_layer.out_channel_mask.data.cpu().numpy()
-                    print('?')
-                    exit(0)
                 else:
                     output_threshold = pruner(sparse_weight)
                     out_channel_mask: np.ndarray = sparse_weight > output_threshold
@@ -280,6 +278,9 @@ def prune_conv_layer(conv_layer: Union[nn.Conv2d, nn.Linear],
             
         if fake_prune:
             idx_block: np.ndarray = np.squeeze(np.argwhere(np.asarray(1-out_channel_mask)))
+            print(idx_block)
+            print(bn_layer.out_channel_mask)
+            exit(0)
 
         if not np.any(out_channel_mask):
             # there is no channel left
