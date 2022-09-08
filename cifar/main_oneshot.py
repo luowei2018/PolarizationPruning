@@ -622,8 +622,9 @@ def accumulate_grad(old_model,new_model,mask,net_id,ch_indices):
                 adjusted_mean[m[start:end]==1] *= 1./(4-i)
                 adjusted_var[m[start:end]==1] *= 1./(4-i)
         else:
-            adjusted_mean *= 1./4
-            adjusted_var *= 1./4
+            #adjusted_mean *= 1./4
+            #adjusted_var *= 1./4
+            pass
         if net_id == 0:
             old_bn.mean_tmp = adjusted_mean
             old_bn.var_tmp = adjusted_var
@@ -650,10 +651,12 @@ def accumulate_grad(old_model,new_model,mask,net_id,ch_indices):
             freeze_mask = mask[ch_start:ch_start+ch_len] == 1
             bn2.weight.grad.data[freeze_mask] = 0
             helper(bn1.weight,bn2.weight)
-            bn2.running_mean.data[freeze_mask] = 0
-            bn2.running_var.data[freeze_mask] = 0
+            #bn2.running_mean.data[freeze_mask] = 0
+            #bn2.running_var.data[freeze_mask] = 0
             #helper2(bn1,bn2,adjust=True,adjust_mask=adjust_mask,start=ch_start,end=ch_start+ch_len)
-            helper2(bn1,bn2,adjust=False)
+            #helper2(bn1,bn2,adjust=False)
+            bn1.running_mean.data = bn2.running_mean.data
+            bn1.running_var.data = bn2.running_var.data
             if hasattr(bn2, 'bias') and bn2.bias is not None:
                 bn2.bias.grad.data[freeze_mask] = 0
                 helper(bn1.bias,bn2.bias)
@@ -673,7 +676,9 @@ def accumulate_grad(old_model,new_model,mask,net_id,ch_indices):
     helper(old_model.bn1.bias,new_model.bn1.bias)
     helper(old_model.linear.weight,new_model.linear.weight)
     helper(old_model.linear.bias,new_model.linear.bias)
-    helper2(old_model.bn1,new_model.bn1,adjust=False)
+    #helper2(old_model.bn1,new_model.bn1,adjust=False)
+    old_model.bn1.running_mean.data = new_model.bn1.running_mean.data
+    old_model.bn1.running_var.data = new_model.bn1.running_var.data
    
 def fix_weights(new_model,old_model,mask_list,whole=False):
     bns1,convs1 = new_model.get_sparse_layers_and_convs()
