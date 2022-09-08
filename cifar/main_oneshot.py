@@ -618,13 +618,14 @@ def accumulate_grad(old_model,new_model,mask,net_id,ch_indices):
         adjusted_mean = new_bn.running_mean.data.clone().detach()
         adjusted_var = new_bn.running_var.data.clone().detach()
         if adjust:
+            print(i)
+            exit(0)
             for m in adjust_mask:
                 adjusted_mean[m[start:end]==1] *= 1./(4-i)
                 adjusted_var[m[start:end]==1] *= 1./(4-i)
         else:
-            #adjusted_mean *= 1./4
-            #adjusted_var *= 1./4
-            pass
+            adjusted_mean *= 1./4
+            adjusted_var *= 1./4
         if net_id == 0:
             old_bn.mean_tmp = adjusted_mean
             old_bn.var_tmp = adjusted_var
