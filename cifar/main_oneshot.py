@@ -612,7 +612,7 @@ def prune_by_mask(old_model,mask_list,zero_bias=True):
     
 def accumulate_grad(old_model,new_model,mask,net_id,ch_indices):
     def helper(old_param,new_param):
-        if net_id == 3:
+        if net_id == 0:
             old_param.grad_tmp = new_param.grad.clone().detach()
         else:
             old_param.grad_tmp += new_param.grad.clone().detach() * args.training_factor[net_id]
@@ -629,7 +629,7 @@ def accumulate_grad(old_model,new_model,mask,net_id,ch_indices):
             #adjusted_mean *= 1./4
             #adjusted_var *= 1./4
             pass
-        if net_id == 3:
+        if net_id == 0:
             old_bn.mean_tmp = adjusted_mean
             old_bn.var_tmp = adjusted_var
         else:
@@ -878,7 +878,7 @@ def train(epoch):
             optimizer.param_groups[0]['momentum'] = 0
             optimizer.param_groups[1]['momentum'] = 0
             optimizer.param_groups[1]['weight_decay'] = 0
-            freeze_mask,net_id,dynamic_model,ch_indices = sample_network(model,net_id=3)
+            freeze_mask,net_id,dynamic_model,ch_indices = sample_network(model,net_id=batch_idx%4)
         if args.cuda:
             data, target = data.cuda(), target.cuda()
         optimizer.zero_grad()
@@ -917,8 +917,8 @@ def train(epoch):
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
             #scale_lr(optimizer,net_id,reset=False)
             accumulate_grad(model,dynamic_model,freeze_mask,net_id,ch_indices)
-        #if args.loss not in {LossType.PROGRESSIVE_SHRINKING} or batch_idx%4==3:
-        optimizer.step()
+        if args.loss not in {LossType.PROGRESSIVE_SHRINKING} or batch_idx%4==3:
+            optimizer.step()
         #if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
         #    fix_weights(model,old_model,[freeze_mask])
         #    scale_lr(optimizer,net_id,reset=True)
