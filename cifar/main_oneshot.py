@@ -629,7 +629,7 @@ def accumulate_grad(old_model,new_model,mask,net_id):
         else:
             adjusted_mean *= 1./4
             adjusted_var *= 1./4
-        if net_id == 0：
+        if net_id == 0:
             b1.mean_tmp = adjusted_mean
             b1.var_tmp = adjusted_var
         else:
