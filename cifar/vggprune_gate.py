@@ -89,7 +89,7 @@ def prune_vgg(num_classes: int, sparse_model: torch.nn.Module, pruning_strategy:
     else:
         raise ValueError(f"Unsupport prune type: {prune_type}")
     
-    print(pruned_model.get_sparse_layers()[0].out_channel_mask)
+    print(sparse_model.get_sparse_layers()[0].out_channel_mask)
     exit(0)
     pruned_model.prune_model(pruner=pruner,
                              prune_mode=prune_mode)
