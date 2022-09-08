@@ -842,7 +842,7 @@ def train(epoch):
             optimizer.param_groups[0]['momentum'] = 0
             optimizer.param_groups[1]['momentum'] = 0
             optimizer.param_groups[1]['weight_decay'] = 0
-            freeze_mask,net_id,dynamic_model = sample_network(model,net_id=batch_idx%1)
+            freeze_mask,net_id,dynamic_model = sample_network(model,net_id=0)
         if args.cuda:
             data, target = data.cuda(), target.cuda()
         optimizer.zero_grad()
@@ -886,6 +886,7 @@ def train(epoch):
         #if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
         #    fix_weights(model,old_model,[freeze_mask])
         #    scale_lr(optimizer,net_id,reset=True)
+        mpare_models(model,old_model,[freeze_mask],whole=False)
         if args.loss in {LossType.POLARIZATION,
                          LossType.L2_POLARIZATION}:
             clamp_bn(model, upper_bound=args.clamp)
