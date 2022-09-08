@@ -598,7 +598,6 @@ def mask_network(old_model,net_id):
         out_channel_mask = weight_valid_mask[ch_start:ch_start+ch_len]==1
         # for pruning
         bn_module.out_channel_mask = out_channel_mask.clone().detach()
-        print(ch_start,bn_module.out_channel_mask.tolist())
         ch_start += ch_len
     return dynamic_model
     
