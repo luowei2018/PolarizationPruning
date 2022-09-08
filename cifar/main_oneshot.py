@@ -603,7 +603,7 @@ def prune_by_mask(old_model,mask_list,zero_bias=True):
     return pruned_model
     
 
-args.training_factor= [1,0.01,0.001,0.0001]
+args.training_factor= [1,1,1,1]#[1,0.01,0.001,0.0001]
     
 def accumulate_grad(old_model,new_model,mask,net_id,ch_indices):
     def helper(old_param,new_param):
