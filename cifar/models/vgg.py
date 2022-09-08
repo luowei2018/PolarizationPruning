@@ -236,6 +236,7 @@ class VGG(nn.Module):
                 else:
                     if submodule.is_batch_norm:
                         sparse_layers.append(submodule.batch_norm)
+                        print('?')
                     else:
                         raise ValueError("No sparse modules available.")
 
