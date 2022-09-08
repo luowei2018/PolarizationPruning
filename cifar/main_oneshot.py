@@ -675,7 +675,6 @@ def accumulate_grad(old_model,new_model,mask,net_id,ch_indices):
     helper(old_model.bn1.bias,new_model.bn1.bias)
     helper(old_model.linear.weight,new_model.linear.weight)
     helper(old_model.linear.bias,new_model.linear.bias)
-    #helper2(old_model.bn1,new_model.bn1,adjust=False)
     old_model.bn1.running_mean.data = new_model.bn1.running_mean.data
     old_model.bn1.running_var.data = new_model.bn1.running_var.data
    
@@ -873,10 +872,6 @@ def train(epoch):
     train_iter = tqdm(train_loader)
     for batch_idx, (data, target) in enumerate(train_iter):
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
-            #old_model = copy.deepcopy(model)
-            optimizer.param_groups[0]['momentum'] = 0
-            optimizer.param_groups[1]['momentum'] = 0
-            optimizer.param_groups[1]['weight_decay'] = 0
             freeze_mask,net_id,dynamic_model,ch_indices = sample_network(model,net_id=batch_idx%4)
         if args.cuda:
             data, target = data.cuda(), target.cuda()
@@ -914,13 +909,9 @@ def train(epoch):
         if args.loss in {LossType.L1_SPARSITY_REGULARIZATION}:
             updateBN()
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
-            #scale_lr(optimizer,net_id,reset=False)
             accumulate_grad(model,dynamic_model,freeze_mask,net_id,ch_indices)
         if args.loss not in {LossType.PROGRESSIVE_SHRINKING} or batch_idx%4==3:
             optimizer.step()
-        #if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
-        #    fix_weights(model,old_model,[freeze_mask])
-        #    scale_lr(optimizer,net_id,reset=True)
         if args.loss in {LossType.POLARIZATION,
                          LossType.L2_POLARIZATION}:
             clamp_bn(model, upper_bound=args.clamp)
