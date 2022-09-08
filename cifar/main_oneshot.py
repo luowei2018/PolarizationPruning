@@ -856,7 +856,7 @@ def prune_while_training(model: nn.Module, arch: str, prune_mode: str, num_class
     for prec1 in inplace_precs:
         print_str += f"{prec1:.4f}\t"
         
-    print(print_str)
+    print(print_str,args.training_factor)
 
 def cross_entropy_loss_with_soft_target(pred, soft_target):
     logsoftmax = nn.LogSoftmax()
