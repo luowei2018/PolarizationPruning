@@ -603,7 +603,7 @@ def prune_by_mask(old_model,mask_list,zero_bias=True):
     return pruned_model
     
 
-args.training_factor= [1,.1,.1,.1]
+args.training_factor= [1,1,1,1]
 args.ps_batch = 4
     
 def accumulate_grad(old_model,new_model,mask,batch_idx,ch_indices):
@@ -884,7 +884,7 @@ def train(epoch):
         if isinstance(output, tuple):
             output, output_aux = output
         loss = F.cross_entropy(output, target)
-        if args.loss in {LossType.PROGRESSIVE_SHRINKING,
+        if False and args.loss in {LossType.PROGRESSIVE_SHRINKING,
                          LossType.LOG_QUANTIZATION}:
             soft_logits = teacher_model(data)
             if isinstance(soft_logits, tuple):
