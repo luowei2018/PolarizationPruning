@@ -911,7 +911,7 @@ def train(epoch):
             updateBN()
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
             accumulate_grad(model,dynamic_model,freeze_mask,batch_idx,ch_indices)
-        if args.loss not in {LossType.PROGRESSIVE_SHRINKING} or batch_idx%args.ps_batch==(ps_batch-1):
+        if args.loss not in {LossType.PROGRESSIVE_SHRINKING} or batch_idx%args.ps_batch==(args.ps_batch-1):
             optimizer.step()
         if args.loss in {LossType.POLARIZATION,
                          LossType.L2_POLARIZATION}:
