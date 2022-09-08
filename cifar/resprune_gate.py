@@ -100,7 +100,7 @@ def prune_resnet(num_classes: int, sparse_model: torch.nn.Module, pruning_strate
         pruner = lambda weight: threshold
         prune_on = 'factor'
     elif prune_type == 'mask':
-        pass
+        pruner = lambda weight: 0
     else:
         raise ValueError(f"Unsupport prune type: {prune_type}")
 
