@@ -919,8 +919,8 @@ def train(epoch):
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
             #scale_lr(optimizer,net_id,reset=False)
             accumulate_grad(model,dynamic_model,freeze_mask,net_id,ch_indices)
-        #if args.loss not in {LossType.PROGRESSIVE_SHRINKING} or batch_idx%4==3:
-        optimizer.step()
+        if args.loss not in {LossType.PROGRESSIVE_SHRINKING} or batch_idx%4==3:
+            optimizer.step()
         #if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
         #    fix_weights(model,old_model,[freeze_mask])
         #    scale_lr(optimizer,net_id,reset=True)
