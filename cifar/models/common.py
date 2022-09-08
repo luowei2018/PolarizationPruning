@@ -256,8 +256,6 @@ def prune_conv_layer(conv_layer: Union[nn.Conv2d, nn.Linear],
                     raise ValueError(f"Do not support prune_mode {prune_mode}")
 
                 # prune according the bn layer
-                print(hasattr(bn_layer,'out_channel_mask'))
-                exit(0)
                 if hasattr(bn_layer,'out_channel_mask'):
                     out_channel_mask = bn_layer.out_channel_mask.data.cpu().numpy()
                 else:
