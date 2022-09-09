@@ -606,7 +606,7 @@ args.ps_batch = 4
     
 def accumulate_grad(old_model,new_model,mask,batch_idx,ch_indices):
     def copy_module_grad(old_module,new_module,onmask=None):
-        # copy weights
+        # copy weights grad
         if onmask is not None:
             freeze_mask = onmask == 1
             keep_mask = onmask == 0
@@ -625,7 +625,7 @@ def accumulate_grad(old_model,new_model,mask,batch_idx,ch_indices):
             else:
                 old_module.running_mean.data = new_module.running_mean.data
                 old_module.running_var.data = new_module.running_var.data
-        # copy bias
+        # copy bias grad
         if hasattr(new_module,'bias') and new_module.bias is not None:
             if onmask is not None:
                 new_module.bias.grad.data[freeze_mask] = 0
@@ -829,7 +829,7 @@ def train(epoch):
     train_iter = tqdm(train_loader)
     for batch_idx, (data, target) in enumerate(train_iter):
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
-            freeze_mask,net_id,dynamic_model,ch_indices = sample_network(model,batch_idx%4)
+            freeze_mask,net_id,dynamic_model,ch_indices = sample_network(model)
         if args.cuda:
             data, target = data.cuda(), target.cuda()
         optimizer.zero_grad()
