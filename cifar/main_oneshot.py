@@ -604,7 +604,8 @@ args.ps_batch = 4
 #optimizer.param_groups[1]['momentum'] = 0
 #optimizer.param_groups[1]['weight_decay'] = 0
     
-def accumulate_grad(old_model,new_model,mask,batch_idx,ch_indices):
+def accumulate_grad(old_model,new_model,mask,batch_idx,ch_indices,net_id):
+    if args.alphas[net_id] == 0:return
     def copy_module_grad(old_module,new_module,onmask=None):
         # copy weights grad
         if onmask is not None:
@@ -635,7 +636,7 @@ def accumulate_grad(old_model,new_model,mask,batch_idx,ch_indices):
         if batch_idx%args.ps_batch == 0:
             old_param.grad_tmp = new_param.grad.clone().detach()
         else:
-            old_param.grad_tmp += new_param.grad.clone().detach() * args.alphas[batch_idx%4]
+            old_param.grad_tmp += new_param.grad.clone().detach() * args.alphas[net_id]
         if batch_idx%args.ps_batch == args.ps_batch-1:
             old_param.grad = old_param.grad_tmp
     
@@ -866,7 +867,7 @@ def train(epoch):
         if args.loss in {LossType.L1_SPARSITY_REGULARIZATION}:
             updateBN()
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
-            accumulate_grad(model,dynamic_model,freeze_mask,batch_idx,ch_indices)
+            accumulate_grad(model,dynamic_model,freeze_mask,batch_idx,ch_indices,net_id)
         if args.loss not in {LossType.PROGRESSIVE_SHRINKING} or batch_idx%args.ps_batch==(args.ps_batch-1):
             optimizer.step()
         if args.loss in {LossType.POLARIZATION,
