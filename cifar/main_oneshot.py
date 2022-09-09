@@ -601,8 +601,8 @@ def mask_network(old_model,net_id):
         ch_start += ch_len
     return dynamic_model
 
-args.training_factor= [1,.1,.1,.1]
-args.ps_batch = 16
+args.training_factor= [.1,1,.1,.1]
+args.ps_batch = 4
 #optimizer.param_groups[0]['momentum'] = 0
 #optimizer.param_groups[1]['momentum'] = 0
 #optimizer.param_groups[1]['weight_decay'] = 0
@@ -832,7 +832,7 @@ def train(epoch):
     train_iter = tqdm(train_loader)
     for batch_idx, (data, target) in enumerate(train_iter):
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
-            freeze_mask,net_id,dynamic_model,ch_indices = sample_network(model)
+            freeze_mask,net_id,dynamic_model,ch_indices = sample_network(model,batch_idx%4)
         if args.cuda:
             data, target = data.cuda(), target.cuda()
         optimizer.zero_grad()
