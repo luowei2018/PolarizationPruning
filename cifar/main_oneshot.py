@@ -605,10 +605,10 @@ args.training_factor= [1,.1,.1,.1]
 args.ps_batch = 4
     
 def accumulate_grad(old_model,new_model,mask,batch_idx,ch_indices):
-    def copy_module_grad(old_module,new_module,mask=None):
-        if mask is not None:
-            freeze_mask = mask == 1
-            keep_mask = mask == 0
+    def copy_module_grad(old_module,new_module,onmask=None):
+        if onmask is not None:
+            freeze_mask = onmask == 1
+            keep_mask = onmask == 0
             if isinstance(new_module, nn.Conv2d):
                 new_module.weight.grad.data[freeze_mask, :, :, :] = 0
             elif isinstance(new_module, nn.Linear):
@@ -620,8 +620,8 @@ def accumulate_grad(old_model,new_model,mask,batch_idx,ch_indices):
             
         copy_param_grad(old_module.weight,new_module.weight)
         if hasattr(new_module,'bias') and new_module.bias is not None:
-            if mask is not None:
-                freeze_mask = mask == 1
+            if onmask is not None:
+                freeze_mask = onmask == 1
                 new_module.bias.grad.data[freeze_mask] = 0
             copy_param_grad(old_module.bias,new_module.bias)
             
@@ -640,9 +640,9 @@ def accumulate_grad(old_model,new_model,mask,batch_idx,ch_indices):
     for conv1,bn1,conv2,bn2 in zip(convs1,bns1,convs2,bns2):
         ch_len = conv1.weight.data.size(0)
         with torch.no_grad():
-            mask = mask[ch_start:ch_start+ch_len]
-            copy_module_grad(bn1,bn2,mask)
-            copy_module_grad(conv1,conv2,mask)
+            tmp = mask[ch_start:ch_start+ch_len]
+            copy_module_grad(bn1,bn2,tmp)
+            copy_module_grad(conv1,conv2,tmp)
         ch_start += ch_len
     
     with torch.no_grad():
