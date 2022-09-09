@@ -602,7 +602,7 @@ def mask_network(old_model,net_id):
     return dynamic_model
 
 args.training_factor= [1,.1,.1,.1]
-args.ps_batch = 16
+args.ps_batch = 32
 #optimizer.param_groups[0]['momentum'] = 0
 #optimizer.param_groups[1]['momentum'] = 0
 #optimizer.param_groups[1]['weight_decay'] = 0
