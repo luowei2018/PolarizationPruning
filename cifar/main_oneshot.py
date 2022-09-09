@@ -833,7 +833,7 @@ def train(epoch):
     train_iter = tqdm(train_loader)
     for batch_idx, (data, target) in enumerate(train_iter):
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
-            freeze_mask,net_id,dynamic_model,ch_indices = sample_network(model,0)
+            freeze_mask,net_id,dynamic_model,ch_indices = sample_network(model,1)
         if args.cuda:
             data, target = data.cuda(), target.cuda()
         optimizer.zero_grad()
