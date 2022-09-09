@@ -114,6 +114,8 @@ parser.add_argument('--bias-decay-mult', type=int, default=1,
                     help='Apply bias decay on BatchNorm layers')
 parser.add_argument('--log-scale', action='store_true',
                     help='use log scale')
+parser.add_argument('--alphas', type=float, nargs='+', default=[1,1,1,1],
+                    help='Multiplier of each subnet')
 
 args = parser.parse_args()
 args.cuda = not args.no_cuda and torch.cuda.is_available()
@@ -331,7 +333,7 @@ if args.resume:
             if args.cuda:
                 model.cuda()
 
-        args.start_epoch =30# checkpoint['epoch']
+        args.start_epoch =0# checkpoint['epoch']
         best_prec1 = checkpoint['best_prec1']
         model.load_state_dict(checkpoint['state_dict'])
         #optimizer.load_state_dict(checkpoint['optimizer'])
@@ -601,7 +603,6 @@ def mask_network(old_model,net_id):
         ch_start += ch_len
     return dynamic_model
 
-args.training_factor= [0,0,0,1]
 args.ps_batch = 4
 #optimizer.param_groups[0]['momentum'] = 0
 #optimizer.param_groups[1]['momentum'] = 0
@@ -638,7 +639,7 @@ def accumulate_grad(old_model,new_model,mask,batch_idx,ch_indices):
         if batch_idx%args.ps_batch == 0:
             old_param.grad_tmp = new_param.grad.clone().detach()
         else:
-            old_param.grad_tmp += new_param.grad.clone().detach() * args.training_factor[batch_idx%4]
+            old_param.grad_tmp += new_param.grad.clone().detach() * args.alphas[batch_idx%4]
         if batch_idx%args.ps_batch == args.ps_batch-1:
             old_param.grad = old_param.grad_tmp
     
@@ -732,7 +733,7 @@ def compare_models(old,new,mask_list,whole=False):
 def scale_lr(optim,net_id,reset=False):
     for g in optim.param_groups:
         if not reset:
-            g['lr'] = args.current_lr * args.training_factor[net_id]
+            g['lr'] = args.current_lr * args.alphas[net_id]
         else:
             g['lr'] = args.current_lr
         
@@ -957,7 +958,7 @@ for epoch in range(args.start_epoch, args.epochs):
     train(epoch) # train with regularization
 
     prec1,prune_str = prune_while_training(model, arch=args.arch,prune_mode="default",num_classes=num_classes)
-    print(f"Epoch {epoch}/{args.epochs} learning rate {args.current_lr:.4f}",args.save,prune_str,args.training_factor)
+    print(f"Epoch {epoch}/{args.epochs} learning rate {args.current_lr:.4f}",args.save,prune_str,args.alphas)
     is_best = prec1 > best_prec1
     best_prec1 = max(prec1, best_prec1)
     save_checkpoint({
