@@ -331,7 +331,7 @@ if args.resume:
             if args.cuda:
                 model.cuda()
 
-        args.start_epoch = 0#checkpoint['epoch']
+        args.start_epoch = checkpoint['epoch']
         best_prec1 = checkpoint['best_prec1']
         model.load_state_dict(checkpoint['state_dict'])
         #optimizer.load_state_dict(checkpoint['optimizer'])
@@ -602,7 +602,7 @@ def mask_network(old_model,net_id):
     return dynamic_model
 
 args.training_factor= [1,.1,.1,.1]
-args.ps_batch = 16
+args.ps_batch = 8
 #optimizer.param_groups[0]['momentum'] = 0
 #optimizer.param_groups[1]['momentum'] = 0
 #optimizer.param_groups[1]['weight_decay'] = 0
