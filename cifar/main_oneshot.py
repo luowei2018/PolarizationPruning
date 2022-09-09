@@ -605,7 +605,6 @@ args.ps_batch = 4
 #optimizer.param_groups[1]['weight_decay'] = 0
     
 def accumulate_grad(old_model,new_model,mask,batch_idx,ch_indices,net_id):
-    if args.alphas[net_id] == 0:return
     def copy_module_grad(old_module,new_module,onmask=None):
         # copy weights grad
         if onmask is not None:
@@ -831,6 +830,7 @@ def train(epoch):
     for batch_idx, (data, target) in enumerate(train_iter):
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
             freeze_mask,net_id,dynamic_model,ch_indices = sample_network(model,batch_idx%4)
+            if args.alphas[net_id] == 0:continue
         if args.cuda:
             data, target = data.cuda(), target.cuda()
         optimizer.zero_grad()
