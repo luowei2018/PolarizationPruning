@@ -614,8 +614,8 @@ def accumulate_grad(old_model,new_model,mask,batch_idx,ch_indices):
             elif isinstance(new_module, nn.Linear):
                 new_module.weight.grad.data[freeze_mask, :] = 0
             elif isinstance(new_module,nn.BatchNorm2d) or isinstance(new_module,nn.BatchNorm1d):
-                old_module.running_mean.data[keep_mask] = new_module.running_mean.data[keep_mask]
-                old_module.running_var.data[keep_mask] = new_module.running_var.data[keep_mask]
+                #old_module.running_mean.data[keep_mask] = new_module.running_mean.data[keep_mask]
+                #old_module.running_var.data[keep_mask] = new_module.running_var.data[keep_mask]
                 new_module.weight.grad.data[freeze_mask] = 0
             
         copy_param_grad(old_module.weight,new_module.weight)
