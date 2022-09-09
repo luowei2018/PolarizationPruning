@@ -606,6 +606,7 @@ args.ps_batch = 4
     
 def accumulate_grad(old_model,new_model,mask,batch_idx,ch_indices):
     def copy_module_grad(old_module,new_module,onmask=None):
+        # copy weights
         if onmask is not None:
             freeze_mask = onmask == 1
             keep_mask = onmask == 0
@@ -614,14 +615,19 @@ def accumulate_grad(old_model,new_model,mask,batch_idx,ch_indices):
             elif isinstance(new_module, nn.Linear):
                 new_module.weight.grad.data[freeze_mask, :] = 0
             elif isinstance(new_module,nn.BatchNorm2d) or isinstance(new_module,nn.BatchNorm1d):
+                new_module.weight.grad.data[freeze_mask] = 0
+        copy_param_grad(old_module.weight,new_module.weight)
+        # copy running mean/var
+        if isinstance(new_module,nn.BatchNorm2d) or isinstance(new_module,nn.BatchNorm1d):
+            if onmask is not None:
                 old_module.running_mean.data[keep_mask] = new_module.running_mean.data[keep_mask]
                 old_module.running_var.data[keep_mask] = new_module.running_var.data[keep_mask]
-                new_module.weight.grad.data[freeze_mask] = 0
-            
-        copy_param_grad(old_module.weight,new_module.weight)
+            else:
+                old_module.running_mean.data = new_module.running_mean.data
+                old_module.running_var.data = new_module.running_var.data
+        # copy bias
         if hasattr(new_module,'bias') and new_module.bias is not None:
             if onmask is not None:
-                freeze_mask = onmask == 1
                 new_module.bias.grad.data[freeze_mask] = 0
             copy_param_grad(old_module.bias,new_module.bias)
             
