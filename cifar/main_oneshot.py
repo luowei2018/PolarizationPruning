@@ -602,23 +602,26 @@ def mask_network(old_model,net_id):
     return dynamic_model
 
 args.training_factor= [1,.1,.1,.1]
-args.ps_batch = 8
+args.ps_batch = 4
     
 def accumulate_grad(old_model,new_model,mask,batch_idx,ch_indices):
-    def copy_module_grad(old_module,new_module,freeze_mask=None):
-        if freeze_mask is not None:
+    def copy_module_grad(old_module,new_module,mask=None):
+        if mask is not None:
+            freeze_mask = mask == 1
+            keep_mask = mask == 0
             if isinstance(new_module, nn.Conv2d):
                 new_module.weight.grad.data[freeze_mask, :, :, :] = 0
             elif isinstance(new_module, nn.Linear):
                 new_module.weight.grad.data[freeze_mask, :] = 0
             elif isinstance(new_module,nn.BatchNorm2d) or isinstance(new_module,nn.BatchNorm1d):
-                old_module.running_mean.data = new_module.running_mean.data
-                old_module.running_var.data = new_module.running_var.data
+                old_module.running_mean.data[keep_mask] = new_module.running_mean.data[keep_mask]
+                old_module.running_var.data[keep_mask] = new_module.running_var.data[keep_mask]
                 new_module.weight.grad.data[freeze_mask] = 0
             
         copy_param_grad(old_module.weight,new_module.weight)
         if hasattr(new_module,'bias') and new_module.bias is not None:
-            if freeze_mask is not None:
+            if mask is not None:
+                freeze_mask = mask == 1
                 new_module.bias.grad.data[freeze_mask] = 0
             copy_param_grad(old_module.bias,new_module.bias)
             
@@ -629,47 +632,17 @@ def accumulate_grad(old_model,new_model,mask,batch_idx,ch_indices):
             old_param.grad_tmp += new_param.grad.clone().detach() * args.training_factor[batch_idx%4]
         if batch_idx%args.ps_batch == args.ps_batch-1:
             old_param.grad = old_param.grad_tmp
-            
-    def helper2(old_bn,new_bn,adjust=True,adjust_mask=None,start=None,end=None):
-        adjusted_mean = new_bn.running_mean.data.clone().detach()
-        adjusted_var = new_bn.running_var.data.clone().detach()
-        if adjust:
-            for i,m in enumerate(adjust_mask):
-                adjusted_mean[m[start:end]==1] *= 1./(4-i)
-                adjusted_var[m[start:end]==1] *= 1./(4-i)
-        else:
-            #adjusted_mean *= 1./4
-            #adjusted_var *= 1./4
-            pass
-        if net_id == 0:
-            old_bn.mean_tmp = adjusted_mean
-            old_bn.var_tmp = adjusted_var
-        else:
-            old_bn.mean_tmp += adjusted_mean
-            old_bn.var_tmp += adjusted_mean
-        if net_id == 3:
-            old_bn.running_mean = old_bn.mean_tmp
-            old_bn.running_var = old_bn.var_tmp
     
     bns1,convs1 = old_model.get_sparse_layers_and_convs()
     bns2,convs2 = new_model.get_sparse_layers_and_convs()
     channel_per_layer = ch_indices.size(0)//4
-    total_channels = ch_indices.size(0)
-    adjust_mask = []
-    for i in range(4):
-        m = torch.zeros(total_channels).long().cuda()
-        m[channel_per_layer*(3-i):channel_per_layer*(4-i)] = 1
-        adjust_mask.append(m)
     ch_start = 0
     for conv1,bn1,conv2,bn2 in zip(convs1,bns1,convs2,bns2):
         ch_len = conv1.weight.data.size(0)
         with torch.no_grad():
-            freeze_mask = mask[ch_start:ch_start+ch_len] == 1
-            copy_module_grad(bn1,bn2,freeze_mask)
-            #helper2(bn1,bn2,adjust=True,adjust_mask=adjust_mask,start=ch_start,end=ch_start+ch_len)
-            #helper2(bn1,bn2,adjust=False)
-            copy_module_grad(conv1,conv2,freeze_mask)
-            
+            mask = mask[ch_start:ch_start+ch_len]
+            copy_module_grad(bn1,bn2,mask)
+            copy_module_grad(conv1,conv2,mask)
         ch_start += ch_len
     
     with torch.no_grad():
@@ -975,7 +948,7 @@ for epoch in range(args.start_epoch, args.epochs):
     train(epoch) # train with regularization
 
     prec1,prune_str = prune_while_training(model, arch=args.arch,prune_mode="default",num_classes=num_classes)
-    print("Epoch {}/{} learning rate {}".format(epoch, args.epochs, args.current_lr),prune_str,args.save,args.training_factor)
+    print(f"Epoch {epoch}/{args.epochs} learning rate {args.current_lr:.4f}",args.save,prune_str,args.training_factor)
     is_best = prec1 > best_prec1
     best_prec1 = max(prec1, best_prec1)
     save_checkpoint({
