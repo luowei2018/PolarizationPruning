@@ -599,7 +599,7 @@ def mask_network(old_model,net_id):
         ch_start += ch_len
     return dynamic_model
 
-args.ps_batch = 1
+args.ps_batch = 4
 #optimizer.param_groups[0]['momentum'] = 0
 #optimizer.param_groups[1]['momentum'] = 0
 #optimizer.param_groups[1]['weight_decay'] = 0
