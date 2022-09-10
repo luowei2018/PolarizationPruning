@@ -632,7 +632,7 @@ def accumulate_grad(old_model,new_model,mask,batch_idx,ch_indices,net_id):
             copy_param_grad(old_module.bias,new_module.bias)
             
     def copy_param_grad(old_param,new_param):
-        if not hasattr(old_param,'grad_tmp'):
+        if not hasattr(old_param,'grad_tmp') and old_param.grad_tmp is not None:
             old_param.grad_tmp = new_param.grad.clone().detach()
         else:
             old_param.grad_tmp += new_param.grad.clone().detach() * args.alphas[net_id]
