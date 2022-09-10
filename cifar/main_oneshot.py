@@ -632,12 +632,13 @@ def accumulate_grad(old_model,new_model,mask,batch_idx,ch_indices,net_id):
             copy_param_grad(old_module.bias,new_module.bias)
             
     def copy_param_grad(old_param,new_param):
-        if batch_idx%args.ps_batch == 0:
+        if not hasattr(old_param,'grad_tmp'):
             old_param.grad_tmp = new_param.grad.clone().detach()
         else:
             old_param.grad_tmp += new_param.grad.clone().detach() * args.alphas[net_id]
         if batch_idx%args.ps_batch == args.ps_batch-1:
             old_param.grad = old_param.grad_tmp
+            old_param.grad_tmp = None
     
     bns1,convs1 = old_model.get_sparse_layers_and_convs()
     bns2,convs2 = new_model.get_sparse_layers_and_convs()
