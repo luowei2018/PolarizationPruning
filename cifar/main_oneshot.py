@@ -810,7 +810,7 @@ def prune_while_training(model: nn.Module, arch: str, prune_mode: str, num_class
         raise NotImplementedError(f"do not support arch {arch}")
 
     baseline_flops = compute_conv_flops(model, cuda=True)
-    print('?')
+    
     prune_str = ''
     for flop,prec1 in zip(saved_flops,saved_prec1s):
         prune_str += f"[{prec1:.4f}({flop / baseline_flops*100:.2f}%)]\t"
@@ -942,9 +942,10 @@ if args.evaluate:
     #prec1 = test(model)
     #print(f"All Prec1: {prec1}")
     #factor_visualization(0, model, prec1)
-    prune_while_training(model, arch=args.arch,
+    prec1,prune_str = prune_while_training(model, arch=args.arch,
                        prune_mode="default",
                        num_classes=num_classes)
+    print(args.save,prune_str,args.alphas)
     exit(0)
          
 for epoch in range(args.start_epoch, args.epochs):
