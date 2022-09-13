@@ -618,7 +618,7 @@ def accumulate_grad(old_model,new_model,mask,batch_idx,ch_indices,net_id):
                 new_module.weight.grad.data[freeze_mask] = 0
         copy_param_grad(old_module.weight,new_module.weight)
         # copy running mean/var
-        if args.alphas[net_id] >1e-2 and (isinstance(new_module,nn.BatchNorm2d) or isinstance(new_module,nn.BatchNorm1d)):
+        if (isinstance(new_module,nn.BatchNorm2d) or isinstance(new_module,nn.BatchNorm1d)):
             if onmask is not None:
                 old_module.running_mean.data[keep_mask] = new_module.running_mean.data[keep_mask]
                 old_module.running_var.data[keep_mask] = new_module.running_var.data[keep_mask]
@@ -639,7 +639,7 @@ def accumulate_grad(old_model,new_model,mask,batch_idx,ch_indices,net_id):
         if batch_idx%args.ps_batch == args.ps_batch-1:
             old_param.grad = old_param.grad_tmp
             old_param.grad_tmp = None
-    
+    if args.alphas[net_id] >1e-2:return
     bns1,convs1 = old_model.get_sparse_layers_and_convs()
     bns2,convs2 = new_model.get_sparse_layers_and_convs()
     channel_per_layer = ch_indices.size(0)//4
