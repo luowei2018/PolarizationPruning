@@ -622,6 +622,7 @@ args.ps_batch = 4
     
 def update_shared_model(old_model,new_model,mask,batch_idx,ch_indices,net_id):
     def copy_module_grad(old_module,new_module,onmask=None):
+        assert hasattr(old_module,'running_dict')
         # copy weights grad
         if onmask is not None:
             freeze_mask = onmask == 1
@@ -635,7 +636,6 @@ def update_shared_model(old_model,new_model,mask,batch_idx,ch_indices,net_id):
         copy_param_grad(old_module.weight,new_module.weight)
         # copy running mean/var
         if isinstance(new_module,nn.BatchNorm2d) or isinstance(new_module,nn.BatchNorm1d):
-            assert hasattr(old_module,'running_dict')
             if args.split_running_stat:
                 old_module.running_dict[f"mean{net_id}"] = new_module.running_mean.data.clone().detach()
                 old_module.running_dict[f"var{net_id}"] = new_module.running_var.data.clone().detach()
