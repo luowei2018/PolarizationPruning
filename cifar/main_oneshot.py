@@ -542,6 +542,22 @@ def sample_network(old_model,net_id=None,eval=False):
         net_id = torch.tensor(0).random_(0,4)
     all_scale_factors = torch.tensor([]).cuda()
     
+    # config old model
+    for bn_module in old_model.get_sparse_layers():
+        # set the right running mean/var
+        if args.split_running_stat:
+            if not hasattr(bn_module,'running_dict'):
+                # init running list
+                bn_module.running_dict = {}
+                for nid in range(4):
+                    bn_module.running_dict[f"mean{nid}"] = bn_module.running_mean.data.clone().detach()
+                    bn_module.running_dict[f"var{nid}"] = bn_module.running_var.data.clone().detach()
+            else:
+                # choose the right running mean/var for a subnet
+                # updated in the last update
+                bn_module.running_mean.data = bn_module.running_dict[f"mean{net_id}"]
+                bn_module.running_var.data = bn_module.running_dict[f"var{net_id}"]
+    
     dynamic_model = copy.deepcopy(old_model)
     bn_modules = dynamic_model.get_sparse_layers()
     for bn_module in bn_modules:
@@ -566,18 +582,6 @@ def sample_network(old_model,net_id=None,eval=False):
             # set useless channels to 0
             bn_module.weight.data[inactive] = 0
             bn_module.bias.data[inactive] = 0
-            # set the right running mean/var
-            if args.split_running_stat:
-                if not hasattr(bn_module,'running_dict'):
-                    # init running list
-                    bn_module.running_dict = {}
-                    for nid in range(4):
-                        bn_module.running_dict[f"mean{nid}"] = bn_module.running_mean.data.clone().detach()
-                        bn_module.running_dict[f"var{nid}"] = bn_module.running_var.data.clone().detach()
-                else:
-                    # choose the right running mean/var for a subnet
-                    bn_module.running_mean.data = bn_module.running_dict[f"mean{net_id}"]
-                    bn_module.running_var.data = bn_module.running_dict[f"var{net_id}"]
             ch_start += ch_len
             # for pruning
             bn_module.prune_mask = inactive.clone().detach()
