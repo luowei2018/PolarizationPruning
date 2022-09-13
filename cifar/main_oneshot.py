@@ -632,10 +632,11 @@ def accumulate_grad(old_model,new_model,mask,batch_idx,ch_indices,net_id):
             copy_param_grad(old_module.bias,new_module.bias)
             
     def copy_param_grad(old_param,new_param):
+        new_grad = new_param.grad.clone().detach() * args.alphas[net_id]
         if not hasattr(old_param,'grad_tmp') or old_param.grad_tmp is None:
-            old_param.grad_tmp = new_param.grad.clone().detach()
+            old_param.grad_tmp = new_grad
         else:
-            old_param.grad_tmp += new_param.grad.clone().detach() * args.alphas[net_id]
+            old_param.grad_tmp += new_grad
         if batch_idx%args.ps_batch == args.ps_batch-1:
             old_param.grad = old_param.grad_tmp
             old_param.grad_tmp = None
@@ -652,7 +653,6 @@ def accumulate_grad(old_model,new_model,mask,batch_idx,ch_indices,net_id):
             copy_module_grad(conv1,conv2,tmp)
         ch_start += ch_len
     
-    if args.alphas[net_id] <1e-2:return
     with torch.no_grad():
         if args.arch == 'resnet56':
             copy_module_grad(old_model.conv1,new_model.conv1)
