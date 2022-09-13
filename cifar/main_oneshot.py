@@ -556,7 +556,6 @@ def sample_network(old_model,net_id=None,eval=False):
                 # updated in the last update
                 bn_module.running_mean.data = bn_module.running_dict[f"mean{net_id}"]
                 bn_module.running_var.data = bn_module.running_dict[f"var{net_id}"]
-        assert hasattr(bn_module,'running_dict')
     
     dynamic_model = copy.deepcopy(old_model)
     bn_modules = dynamic_model.get_sparse_layers()
