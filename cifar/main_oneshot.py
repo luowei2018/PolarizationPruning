@@ -116,6 +116,8 @@ parser.add_argument('--log-scale', action='store_true',
                     help='use log scale')
 parser.add_argument('--alphas', type=float, nargs='+', default=[1,1,1,1],
                     help='Multiplier of each subnet')
+parset.add_argument('--split_running_stat', action='store_true',
+                    help='use split running mean/var for different subnets')
 
 args = parser.parse_args()
 args.cuda = not args.no_cuda and torch.cuda.is_available()
@@ -535,17 +537,13 @@ def assign_to_indices(bn_modules):
     
     return shrink,targeted
     
-def sample_network(old_model,net_id=None,zero_bias=True,eval=False):
+def sample_network(old_model,net_id=None,eval=False):
     if net_id is None:
         net_id = torch.tensor(0).random_(0,4)
     all_scale_factors = torch.tensor([]).cuda()
-        
-    if eval:
-        dynamic_model = copy.deepcopy(old_model)
-        bn_modules = dynamic_model.get_sparse_layers()
-    else:
-        dynamic_model = copy.deepcopy(old_model)
-        bn_modules = dynamic_model.get_sparse_layers()
+    
+    dynamic_model = copy.deepcopy(old_model)
+    bn_modules = dynamic_model.get_sparse_layers()
     for bn_module in bn_modules:
         all_scale_factors = torch.cat((all_scale_factors,bn_module.weight.data))
     
@@ -559,14 +557,27 @@ def sample_network(old_model,net_id=None,zero_bias=True,eval=False):
     weight_valid_mask[ch_indices[channel_per_layer*(3-net_id):]] = 1
         
     freeze_mask = 1-weight_valid_mask
+    
     ch_start = 0
-    for bn_module in bn_modules:
+    for bn_module in bn_modules):
         with torch.no_grad():
             ch_len = len(bn_module.weight.data)
             inactive = weight_valid_mask[ch_start:ch_start+ch_len]==0
+            # set useless channels to 0
             bn_module.weight.data[inactive] = 0
-            if zero_bias:
-                bn_module.bias.data[inactive] = 0
+            bn_module.bias.data[inactive] = 0
+            # set the right running mean/var
+            if args.split_running_stat:
+                if not hasattr(bn_module,'running_dict'):
+                    # init running list
+                    bn_module.running_dict = {}
+                    for nid in range(4):
+                        bn_module.running_dict[f"mean{nid}"] = bn_module.running_mean.data.clone().detach()
+                        bn_module.running_dict[f"var{nid}"] = bn_module.running_var.data.clone().detach()
+                else:
+                    # choose the right running mean/var for a subnet
+                    bn_module.running_mean.data = bn_module.running_dict[f"mean{net_id}"]
+                    bn_module.running_var.data = bn_module.running_dict[f"var{net_id}"]
             ch_start += ch_len
             # for pruning
             bn_module.prune_mask = inactive.clone().detach()
@@ -604,7 +615,7 @@ args.ps_batch = 4
 #optimizer.param_groups[1]['momentum'] = 0
 #optimizer.param_groups[1]['weight_decay'] = 0
     
-def accumulate_grad(old_model,new_model,mask,batch_idx,ch_indices,net_id):
+def update_shared_model(old_model,new_model,mask,batch_idx,ch_indices,net_id):
     def copy_module_grad(old_module,new_module,onmask=None):
         # copy weights grad
         if onmask is not None:
@@ -619,13 +630,17 @@ def accumulate_grad(old_model,new_model,mask,batch_idx,ch_indices,net_id):
         copy_param_grad(old_module.weight,new_module.weight)
         # copy running mean/var
         if isinstance(new_module,nn.BatchNorm2d) or isinstance(new_module,nn.BatchNorm1d):
-            q = args.alphas[net_id]
-            if onmask is not None:
-                old_module.running_mean.data[keep_mask] = q * new_module.running_mean.data[keep_mask] + (1-q) * old_module.running_mean.data[keep_mask]
-                old_module.running_var.data[keep_mask] = q * new_module.running_var.data[keep_mask] + (1-q) * old_module.running_var.data[keep_mask]
+            if args.split_running_stat:
+                old_module.running_dict[f"mean{net_id}"] = new_module.running_mean.data.clone().detach()
+                old_module.running_dict[f"var{net_id}"] = new_module.running_var.data.clone().detach()
             else:
-                old_module.running_mean.data = q * new_module.running_mean.data + (1-q) * old_module.running_mean.data
-                old_module.running_var.data = q * new_module.running_var.data + (1-q) * old_module.running_var.data
+                q = args.alphas[net_id]
+                if onmask is not None:
+                    old_module.running_mean.data[keep_mask] = q * new_module.running_mean.data[keep_mask] + (1-q) * old_module.running_mean.data[keep_mask]
+                    old_module.running_var.data[keep_mask] = q * new_module.running_var.data[keep_mask] + (1-q) * old_module.running_var.data[keep_mask]
+                else:
+                    old_module.running_mean.data = q * new_module.running_mean.data + (1-q) * old_module.running_mean.data
+                    old_module.running_var.data = q * new_module.running_var.data + (1-q) * old_module.running_var.data
         # copy bias grad
         if hasattr(new_module,'bias') and new_module.bias is not None:
             if onmask is not None:
@@ -644,7 +659,6 @@ def accumulate_grad(old_model,new_model,mask,batch_idx,ch_indices,net_id):
             
     bns1,convs1 = old_model.get_sparse_layers_and_convs()
     bns2,convs2 = new_model.get_sparse_layers_and_convs()
-    channel_per_layer = ch_indices.size(0)//4
     ch_start = 0
     for conv1,bn1,conv2,bn2 in zip(convs1,bns1,convs2,bns2):
         ch_len = conv1.weight.data.size(0)
@@ -870,7 +884,7 @@ def train(epoch):
         if args.loss in {LossType.L1_SPARSITY_REGULARIZATION}:
             updateBN()
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
-            accumulate_grad(model,dynamic_model,freeze_mask,batch_idx,ch_indices,net_id)
+            update_shared_model(model,dynamic_model,freeze_mask,batch_idx,ch_indices,net_id)
         if args.loss not in {LossType.PROGRESSIVE_SHRINKING} or batch_idx%args.ps_batch==(args.ps_batch-1):
             optimizer.step()
         if args.loss in {LossType.POLARIZATION,
