@@ -635,6 +635,7 @@ def update_shared_model(old_model,new_model,mask,batch_idx,ch_indices,net_id):
         copy_param_grad(old_module.weight,new_module.weight)
         # copy running mean/var
         if isinstance(new_module,nn.BatchNorm2d) or isinstance(new_module,nn.BatchNorm1d):
+            assert hasattr(old_module,'running_dict')
             if args.split_running_stat:
                 old_module.running_dict[f"mean{net_id}"] = new_module.running_mean.data.clone().detach()
                 old_module.running_dict[f"var{net_id}"] = new_module.running_var.data.clone().detach()
@@ -669,8 +670,6 @@ def update_shared_model(old_model,new_model,mask,batch_idx,ch_indices,net_id):
         ch_len = conv1.weight.data.size(0)
         with torch.no_grad():
             tmp = mask[ch_start:ch_start+ch_len]
-            assert hasattr(bn1,'running_dict')
-            assert hasattr(bn2,'running_dict')
             copy_module_grad(bn1,bn2,tmp)
             copy_module_grad(conv1,conv2,tmp)
         ch_start += ch_len
