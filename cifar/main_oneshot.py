@@ -559,7 +559,7 @@ def sample_network(old_model,net_id=None,eval=False):
     freeze_mask = 1-weight_valid_mask
     
     ch_start = 0
-    for bn_module in bn_modules):
+    for bn_module in bn_modules:
         with torch.no_grad():
             ch_len = len(bn_module.weight.data)
             inactive = weight_valid_mask[ch_start:ch_start+ch_len]==0
