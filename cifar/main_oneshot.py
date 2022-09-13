@@ -816,8 +816,8 @@ def prune_while_training(model: nn.Module, arch: str, prune_mode: str, num_class
         from resprune_gate import prune_resnet
         from models.resnet_expand import resnet56 as resnet50_expand
         for i in range(4):
-            maskede_model = mask_network(model,i)
-            saved_model = prune_resnet(sparse_model=maskede_model, pruning_strategy='fixed', prune_type='mask',
+            masked_model = mask_network(model,i)
+            saved_model = prune_resnet(sparse_model=masked_model, pruning_strategy='fixed', prune_type='mask',
                                              sanity_check=False, prune_mode=prune_mode, num_classes=num_classes)
             prec1 = test(saved_model.cuda())
             flop = compute_conv_flops(saved_model, cuda=True)
@@ -828,8 +828,8 @@ def prune_while_training(model: nn.Module, arch: str, prune_mode: str, num_class
         from models import vgg16_linear
         # todo: update
         for i in range(4):
-            maskede_model = mask_network(model,i)
-            saved_model = prune_vgg(sparse_model=maskede_model, pruning_strategy='fixed', prune_type='mask',
+            masked_model = mask_network(model,i)
+            saved_model = prune_vgg(sparse_model=masked_model, pruning_strategy='fixed', prune_type='mask',
                                           sanity_check=False, prune_mode=prune_mode, num_classes=num_classes)
             prec1 = test(saved_model.cuda())
             flop = compute_conv_flops(saved_model, cuda=True)
