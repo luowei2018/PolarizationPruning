@@ -621,8 +621,6 @@ args.ps_batch = 4
 #optimizer.param_groups[1]['weight_decay'] = 0
     
 def update_shared_model(old_model,new_model,mask,batch_idx,ch_indices,net_id):
-    for bn_module in old_model.get_sparse_layers():
-        assert hasattr(bn_module,'running_dict')
     def copy_module_grad(old_module,new_module,onmask=None):
         # copy weights grad
         if onmask is not None:
@@ -671,6 +669,7 @@ def update_shared_model(old_model,new_model,mask,batch_idx,ch_indices,net_id):
         ch_len = conv1.weight.data.size(0)
         with torch.no_grad():
             tmp = mask[ch_start:ch_start+ch_len]
+            assert hasattr(bn1,'running_dict')
             copy_module_grad(bn1,bn2,tmp)
             copy_module_grad(conv1,conv2,tmp)
         ch_start += ch_len
