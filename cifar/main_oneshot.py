@@ -634,8 +634,12 @@ def update_shared_model(old_model,new_model,mask,batch_idx,ch_indices,net_id):
         # copy running mean/var
         if isinstance(new_module,nn.BatchNorm2d) or isinstance(new_module,nn.BatchNorm1d):
             if args.split_running_stat:
-                old_module.running_dict[f"mean{net_id}"] = new_module.running_mean.data.clone().detach()
-                old_module.running_dict[f"var{net_id}"] = new_module.running_var.data.clone().detach()
+                if onmask is not None:
+                    old_module.running_dict[f"mean{net_id}"][keep_mask] = new_module.running_mean.data[keep_mask].clone().detach()
+                    old_module.running_dict[f"var{net_id}"][keep_mask] = new_module.running_var.data[keep_mask].clone().detach()
+                else:
+                    old_module.running_dict[f"mean{net_id}"] = new_module.running_mean.data.clone().detach()
+                    old_module.running_dict[f"var{net_id}"] = new_module.running_var.data.clone().detach()
             else:
                 q = args.alphas[net_id]
                 if onmask is not None:
