@@ -116,7 +116,7 @@ parser.add_argument('--log-scale', action='store_true',
                     help='use log scale')
 parser.add_argument('--alphas', type=float, nargs='+', default=[1,1,1,1],
                     help='Multiplier of each subnet')
-parset.add_argument('--split_running_stat', action='store_true',
+parser.add_argument('--split_running_stat', action='store_true',
                     help='use split running mean/var for different subnets')
 
 args = parser.parse_args()
