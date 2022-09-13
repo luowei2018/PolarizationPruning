@@ -618,13 +618,14 @@ def accumulate_grad(old_model,new_model,mask,batch_idx,ch_indices,net_id):
                 new_module.weight.grad.data[freeze_mask] = 0
         copy_param_grad(old_module.weight,new_module.weight)
         # copy running mean/var
-        if (isinstance(new_module,nn.BatchNorm2d) or isinstance(new_module,nn.BatchNorm1d)):
+        if isinstance(new_module,nn.BatchNorm2d) or isinstance(new_module,nn.BatchNorm1d):
+            q = args.alphas[net_id]
             if onmask is not None:
-                old_module.running_mean.data[keep_mask] = new_module.running_mean.data[keep_mask]
-                old_module.running_var.data[keep_mask] = new_module.running_var.data[keep_mask]
+                old_module.running_mean.data[keep_mask] = q * new_module.running_mean.data[keep_mask] + (1-q) * old_module.running_mean.data[keep_mask]
+                old_module.running_var.data[keep_mask] = q * new_module.running_var.data[keep_mask] + (1-q) * old_module.running_var.data[keep_mask]
             else:
-                old_module.running_mean.data = new_module.running_mean.data
-                old_module.running_var.data = new_module.running_var.data
+                old_module.running_mean.data = q * new_module.running_mean.data + (1-q) * old_module.running_mean.data
+                old_module.running_var.data = q * new_module.running_var.data + (1-q) * old_module.running_var.data
         # copy bias grad
         if hasattr(new_module,'bias') and new_module.bias is not None:
             if onmask is not None:
