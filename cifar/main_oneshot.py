@@ -541,9 +541,8 @@ def sample_network(old_model,net_id=None,eval=False):
     if net_id is None:
         net_id = torch.tensor(0).random_(0,4)
     all_scale_factors = torch.tensor([]).cuda()
-    
     # config old model
-    for bn_module in old_model.get_sparse_layers():
+    for bn_module in old_model.get_sparse_layers() + [old_model.bn1]:
         # set the right running mean/var
         if args.split_running_stat:
             if not hasattr(bn_module,'running_dict'):
@@ -622,7 +621,6 @@ args.ps_batch = 4
     
 def update_shared_model(old_model,new_model,mask,batch_idx,ch_indices,net_id):
     def copy_module_grad(old_module,new_module,onmask=None):
-        assert hasattr(old_module,'running_dict')
         # copy weights grad
         if onmask is not None:
             freeze_mask = onmask == 1
