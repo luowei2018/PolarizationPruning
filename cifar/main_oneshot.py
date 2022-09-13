@@ -639,7 +639,7 @@ def accumulate_grad(old_model,new_model,mask,batch_idx,ch_indices,net_id):
         if batch_idx%args.ps_batch == args.ps_batch-1:
             old_param.grad = old_param.grad_tmp
             old_param.grad_tmp = None
-            
+    if args.alphas[net_id] <1e-2:return
     bns1,convs1 = old_model.get_sparse_layers_and_convs()
     bns2,convs2 = new_model.get_sparse_layers_and_convs()
     channel_per_layer = ch_indices.size(0)//4
@@ -867,7 +867,6 @@ def train(epoch):
         loss.backward()
         if args.loss in {LossType.L1_SPARSITY_REGULARIZATION}:
             updateBN()
-        if args.alphas[net_id] >1e-2:continue
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
             accumulate_grad(model,dynamic_model,freeze_mask,batch_idx,ch_indices,net_id)
         if args.loss not in {LossType.PROGRESSIVE_SHRINKING} or batch_idx%args.ps_batch==(args.ps_batch-1):
