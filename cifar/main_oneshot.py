@@ -542,7 +542,11 @@ def sample_network(old_model,net_id=None,eval=False):
         net_id = torch.tensor(0).random_(0,4)
     all_scale_factors = torch.tensor([]).cuda()
     # config old model
-    for bn_module in old_model.get_sparse_layers() + [old_model.bn1]:
+    if args.arch == 'resnet56':
+        old_sparse_layers = old_model.get_sparse_layers() + [old_model.bn1]
+    else:
+        old_sparse_layers = old_model.get_sparse_layers()
+    for bn_module in old_sparse_layers:
         # set the right running mean/var
         if args.split_running_stat:
             if not hasattr(bn_module,'running_dict'):
@@ -582,8 +586,6 @@ def sample_network(old_model,net_id=None,eval=False):
             bn_module.weight.data[inactive] = 0
             bn_module.bias.data[inactive] = 0
             ch_start += ch_len
-            # for pruning
-            bn_module.prune_mask = inactive.clone().detach()
     if not eval:
         return freeze_mask,net_id,dynamic_model,ch_indices
     else:
@@ -595,6 +597,11 @@ def mask_network(old_model,net_id):
     bn_modules = dynamic_model.get_sparse_layers()
     for bn_module in bn_modules:
         all_scale_factors = torch.cat((all_scale_factors,bn_module.weight.data))
+        if args.split_running_stat:
+            assert hasattr(bn_module,'running_dict')
+            bn_module.running_mean.data = bn_module.running_dict[f"mean{net_id}"]
+            bn_module.running_var.data = bn_module.running_dict[f"var{net_id}"]
+            
     # total channels
     total_channels = len(all_scale_factors)
     channel_per_layer = total_channels//4
@@ -634,12 +641,8 @@ def update_shared_model(old_model,new_model,mask,batch_idx,ch_indices,net_id):
         # copy running mean/var
         if isinstance(new_module,nn.BatchNorm2d) or isinstance(new_module,nn.BatchNorm1d):
             if args.split_running_stat:
-                if onmask is not None:
-                    old_module.running_dict[f"mean{net_id}"][keep_mask] = new_module.running_mean.data[keep_mask].clone().detach()
-                    old_module.running_dict[f"var{net_id}"][keep_mask] = new_module.running_var.data[keep_mask].clone().detach()
-                else:
-                    old_module.running_dict[f"mean{net_id}"] = new_module.running_mean.data.clone().detach()
-                    old_module.running_dict[f"var{net_id}"] = new_module.running_var.data.clone().detach()
+                old_module.running_dict[f"mean{net_id}"] = new_module.running_mean.data.clone().detach()
+                old_module.running_dict[f"var{net_id}"] = new_module.running_var.data.clone().detach()
             else:
                 q = args.alphas[net_id]
                 if onmask is not None:
@@ -836,7 +839,7 @@ def prune_while_training(model: nn.Module, arch: str, prune_mode: str, num_class
     
     prune_str = ''
     for flop,prec1 in zip(saved_flops,saved_prec1s):
-        prune_str += f"[{prec1:.4f}({flop / baseline_flops*100:.2f}%)]\t"
+        prune_str += f"[{prec1:.4f}({flop / baseline_flops*100:.2f}%)],"
     return prec1,prune_str
 
 def cross_entropy_loss_with_soft_target(pred, soft_target):
