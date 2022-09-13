@@ -639,7 +639,7 @@ def accumulate_grad(old_model,new_model,mask,batch_idx,ch_indices,net_id):
         if batch_idx%args.ps_batch == args.ps_batch-1:
             old_param.grad = old_param.grad_tmp
             old_param.grad_tmp = None
-    if args.alphas[net_id] <1e-2:return
+            
     bns1,convs1 = old_model.get_sparse_layers_and_convs()
     bns2,convs2 = new_model.get_sparse_layers_and_convs()
     channel_per_layer = ch_indices.size(0)//4
@@ -652,6 +652,7 @@ def accumulate_grad(old_model,new_model,mask,batch_idx,ch_indices,net_id):
             copy_module_grad(conv1,conv2,tmp)
         ch_start += ch_len
     
+    if args.alphas[net_id] <1e-2:return
     with torch.no_grad():
         if args.arch == 'resnet56':
             copy_module_grad(old_model.conv1,new_model.conv1)
