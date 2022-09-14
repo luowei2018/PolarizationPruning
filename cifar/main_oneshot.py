@@ -353,8 +353,6 @@ if args.loss in {LossType.PROGRESSIVE_SHRINKING,
     
 if not args.loss in {LossType.LOG_QUANTIZATION}:args.stages = 1
 
-history_score = np.zeros((args.epochs, 6))
-
 
 def bn_weights(model):
     weights = []
@@ -565,9 +563,6 @@ def mask_network(old_model,net_id):
     return dynamic_model
 
 args.ps_batch = len(args.alphas)
-#optimizer.param_groups[0]['momentum'] = 0
-#optimizer.param_groups[1]['momentum'] = 0
-#optimizer.param_groups[1]['weight_decay'] = 0
     
 def update_shared_model(old_model,new_model,mask,batch_idx,ch_indices,net_id):
     def copy_module_grad(old_module,new_module,onmask=None):
@@ -591,13 +586,12 @@ def update_shared_model(old_model,new_model,mask,batch_idx,ch_indices,net_id):
                     old_module.running_dict[f"mean{net_id}"] = new_module.running_mean.data.clone().detach()
                     old_module.running_dict[f"var{net_id}"] = new_module.running_var.data.clone().detach()
             else:
-                q = args.alphas[net_id]
                 if onmask is not None:
-                    old_module.running_mean.data[keep_mask] = q * new_module.running_mean.data[keep_mask] + (1-q) * old_module.running_mean.data[keep_mask]
-                    old_module.running_var.data[keep_mask] = q * new_module.running_var.data[keep_mask] + (1-q) * old_module.running_var.data[keep_mask]
+                    old_module.running_mean.data[keep_mask] = new_module.running_mean.data[keep_mask]
+                    old_module.running_var.data[keep_mask] = new_module.running_var.data[keep_mask]
                 else:
-                    old_module.running_mean.data = q * new_module.running_mean.data + (1-q) * old_module.running_mean.data
-                    old_module.running_var.data = q * new_module.running_var.data + (1-q) * old_module.running_var.data
+                    old_module.running_mean.data = new_module.running_mean.data
+                    old_module.running_var.data = new_module.running_var.data
         if args.alphas[net_id] == 0:return
         copy_param_grad(old_module.weight,new_module.weight)
         # copy bias grad
@@ -635,28 +629,6 @@ def update_shared_model(old_model,new_model,mask,batch_idx,ch_indices,net_id):
         else:
             assert args.arch == 'vgg16_linear'
             copy_module_grad(old_model.classifier[1],new_model.classifier[1])
-    
-def factor_visualization(iter, model, prec):
-    scale_factors = torch.tensor([]).cuda()
-    biases = torch.tensor([]).cuda()
-    bn_modules = model.get_sparse_layers()
-    for bn_module in bn_modules:
-        scale_factors = torch.cat((scale_factors,(bn_module.weight.data.view(-1))))
-        biases = torch.cat((biases,(bn_module.bias.data.view(-1))))
-    # plot figure
-    save_dir = args.save + 'factor/' + str(args.current_stage) + '/'
-    if not os.path.exists(save_dir):
-        os.makedirs(save_dir)
-    fig, axs = plt.subplots(ncols=4, figsize=(20,4))
-    # plots
-    sns.histplot(scale_factors.detach().cpu().numpy(), ax=axs[0])
-    sns.histplot(torch.log10(torch.clamp(scale_factors.abs(),min=args.eps)).detach().cpu().numpy(), ax=axs[1])
-
-    sns.histplot(biases.detach().cpu().numpy(), ax=axs[2])
-    sns.histplot(torch.log10(torch.clamp(biases.abs(),min=args.eps)).detach().cpu().numpy(), ax=axs[3])
-    fig.savefig(save_dir + f'{iter:03d}_{prec:.3f}.png')
-    plt.close('all')
-        
 
 def prune_while_training(model: nn.Module, arch: str, prune_mode: str, num_classes: int):
     model.eval()
@@ -702,7 +674,7 @@ def cross_entropy_loss_with_soft_target(pred, soft_target):
 
 def train(epoch):
     model.train()
-    global history_score, global_step
+    global global_step
     avg_loss = 0.
     avg_sparsity_loss = 0.
     train_acc = 0.
@@ -759,11 +731,6 @@ def train(epoch):
             'Step: {} Train Epoch: {} [{}/{} ({:.1f}%)]. Loss: {:.6f}'.format(
             global_step, epoch, batch_idx * len(data), len(train_loader.dataset),
                                 100. * batch_idx / len(train_loader), avg_loss / len(train_loader)))
-                                
-    history_score[epoch][0] = avg_loss / len(train_loader)
-    history_score[epoch][1] = float(train_acc) / float(total_data)
-    history_score[epoch][3] = avg_sparsity_loss / len(train_loader)
-    pass
 
 
 def test(modelx):
@@ -819,9 +786,6 @@ global_step = 0
 prec1_list = []
 
 if args.evaluate:
-    #prec1 = test(model)
-    #print(f"All Prec1: {prec1}")
-    #factor_visualization(0, model, prec1)
     prec1,prune_str = prune_while_training(model, arch=args.arch,
                        prune_mode="default",
                        num_classes=num_classes)
