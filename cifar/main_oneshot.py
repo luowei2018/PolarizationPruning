@@ -480,7 +480,7 @@ def bn_sparsity(model, loss_type, sparsity, t, alpha,
         
 args.eps = 1e-10
 def sample_network(old_model,net_id=None,eval=False):
-    num_subnets = len(args.alpha)
+    num_subnets = len(args.alphas)
     if net_id is None:
         net_id = torch.tensor(0).random_(0,num_subnets)
     all_scale_factors = torch.tensor([]).cuda()
@@ -563,7 +563,7 @@ def mask_network(old_model,net_id):
         ch_start += ch_len
     return dynamic_model
 
-args.ps_batch = len(args.alpha)
+args.ps_batch = len(args.alphas)
 #optimizer.param_groups[0]['momentum'] = 0
 #optimizer.param_groups[1]['momentum'] = 0
 #optimizer.param_groups[1]['weight_decay'] = 0
@@ -663,7 +663,7 @@ def prune_while_training(model: nn.Module, arch: str, prune_mode: str, num_class
     if arch == "resnet56":
         from resprune_gate import prune_resnet
         from models.resnet_expand import resnet56 as resnet50_expand
-        for i in range(len(args.alpha)):
+        for i in range(len(args.alphas)):
             masked_model = mask_network(model,i)
             saved_model = prune_resnet(sparse_model=masked_model, pruning_strategy='fixed', prune_type='mask',
                                              sanity_check=False, prune_mode=prune_mode, num_classes=num_classes)
@@ -675,7 +675,7 @@ def prune_while_training(model: nn.Module, arch: str, prune_mode: str, num_class
         from vggprune_gate import prune_vgg
         from models import vgg16_linear
         # todo: update
-        for i in range(args.alpha):
+        for i in range(args.alphas):
             masked_model = mask_network(model,i)
             saved_model = prune_vgg(sparse_model=masked_model, pruning_strategy='fixed', prune_type='mask',
                                           sanity_check=False, prune_mode=prune_mode, num_classes=num_classes)
@@ -708,7 +708,7 @@ def train(epoch):
     train_iter = tqdm(train_loader)
     for batch_idx, (data, target) in enumerate(train_iter):
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
-            freeze_mask,net_id,dynamic_model,ch_indices = sample_network(model,batch_idx%args.alpha)
+            freeze_mask,net_id,dynamic_model,ch_indices = sample_network(model,batch_idx%len(args.alphas))
             if args.alphas[net_id] == 0:continue
         if args.cuda:
             data, target = data.cuda(), target.cuda()
