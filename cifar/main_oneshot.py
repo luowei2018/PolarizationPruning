@@ -118,8 +118,6 @@ parser.add_argument('--alphas', type=float, nargs='+', default=[1,1,1,1],
                     help='Multiplier of each subnet')
 parser.add_argument('--split_running_stat', action='store_true',
                     help='use split running mean/var for different subnets')
-parser.add_argument('--use_running_mask', action='store_true',
-                    help='use mask on running mean/var')
 
 args = parser.parse_args()
 args.cuda = not args.no_cuda and torch.cuda.is_available()
@@ -479,12 +477,69 @@ def bn_sparsity(model, loss_type, sparsity, t, alpha,
             return sparsity_loss
     else:
         raise ValueError()
+    
+def prune_by_thresh(model,left=0,right=100):
+    import copy
+    pruned_model = copy.deepcopy(model)
+        
+    bn_modules = pruned_model.get_sparse_layers()
+    
+    ch_start = 0
+    for bn_module in bn_modules:
+        with torch.no_grad():
+            ch_len = len(bn_module.weight.data)
+            mask0 = bn_module.weight.data.abs()<left
+            mask1 = bn_module.weight.data.abs()>right
+            inactive = torch.logical_or(mask0,mask1)
+            bn_module.weight.data[inactive] = 0
+            ch_start += ch_len
+    return pruned_model
+    
+def mean_sparsity(x,sf_split,sparse_coef=None,N=None):
+    order = 1
+    if order == 1:
+        grad = (args.t + sparse_coef - torch.sign(x-sf_split))
+        x -= args.lbd * args.current_lr * grad
+    else:
+        grad = args.t - 2.*(N-1)*(N-1)/N/N*x + 2.*(N-1)/N*(sf_split*N-x)/N + 2./N * (sf_split*N-x-sf_split*(N-1))
+        x -= args.lbd * grad * args.current_lr
+    return x
         
 args.eps = 1e-10
+        
+# assign bin indices to scale factors
+# num_bins: number of total bins
+# target_indices: indices of bins that need to be assigned
+# default_index: those not assigned to target indices will be assigned the default index 
+# num_bins and target_indices can be adjust to get any ratio
+def assign_to_indices(bn_modules):
+    all_scale_factors = torch.tensor([]).cuda()
+    for bn_module in bn_modules:
+        all_scale_factors = torch.cat((all_scale_factors,torch.abs(bn_module.weight.data)))
+    
+    # total channels
+    total_channels = len(all_scale_factors)
+    ch_per_bin = total_channels//args.stages
+    shrink = torch.ones(total_channels).long().cuda()
+    targeted = torch.zeros(total_channels).long().cuda()
+    
+    # do not sort masked channels
+    for mask in args.mask_list[:args.current_stage]:
+        if mask is not None:
+            shrink[mask==1] = 0
+    not_assigned = shrink.nonzero()
+    remain_factors = all_scale_factors[not_assigned] 
+    tmp,ch_indices = remain_factors.sort(dim=0)
+    # keep the most important and remaining bin
+    selected = not_assigned[ch_indices[-ch_per_bin:]]
+    shrink[selected] = 0
+    targeted[selected] = 1
+    
+    return shrink,targeted
+    
 def sample_network(old_model,net_id=None,eval=False):
-    num_subnets = len(args.alphas)
     if net_id is None:
-        net_id = torch.tensor(0).random_(0,num_subnets)
+        net_id = torch.tensor(0).random_(0,4)
     all_scale_factors = torch.tensor([]).cuda()
     # config old model
     if args.arch == 'resnet56':
@@ -497,7 +552,7 @@ def sample_network(old_model,net_id=None,eval=False):
             if not hasattr(bn_module,'running_dict'):
                 # init running list
                 bn_module.running_dict = {}
-                for nid in range(num_subnets):
+                for nid in range(4):
                     bn_module.running_dict[f"mean{nid}"] = bn_module.running_mean.data.clone().detach()
                     bn_module.running_dict[f"var{nid}"] = bn_module.running_var.data.clone().detach()
             else:
@@ -513,12 +568,12 @@ def sample_network(old_model,net_id=None,eval=False):
     
     # total channels
     total_channels = len(all_scale_factors)
-    channel_per_layer = total_channels//num_subnets
+    channel_per_layer = total_channels//4
     
     _,ch_indices = all_scale_factors.sort(dim=0)
     
     weight_valid_mask = torch.zeros(total_channels).long().cuda()
-    weight_valid_mask[ch_indices[channel_per_layer*(num_subnets-net_id):]] = 1
+    weight_valid_mask[ch_indices[channel_per_layer*(3-net_id):]] = 1
         
     freeze_mask = 1-weight_valid_mask
     
@@ -549,12 +604,12 @@ def mask_network(old_model,net_id):
             
     # total channels
     total_channels = len(all_scale_factors)
-    channel_per_layer = total_channels//len(args.alphas)
+    channel_per_layer = total_channels//4
     
     _,ch_indices = all_scale_factors.sort(dim=0)
     
     weight_valid_mask = torch.zeros(total_channels).long().cuda()
-    weight_valid_mask[ch_indices[channel_per_layer*(len(args.alphas)-1-net_id):]] = 1
+    weight_valid_mask[ch_indices[channel_per_layer*(3-net_id):]] = 1
     
     ch_start = 0
     for bn_module in bn_modules:
@@ -565,7 +620,7 @@ def mask_network(old_model,net_id):
         ch_start += ch_len
     return dynamic_model
 
-args.ps_batch = len(args.alphas)
+args.ps_batch = 4
 #optimizer.param_groups[0]['momentum'] = 0
 #optimizer.param_groups[1]['momentum'] = 0
 #optimizer.param_groups[1]['weight_decay'] = 0
@@ -586,7 +641,7 @@ def update_shared_model(old_model,new_model,mask,batch_idx,ch_indices,net_id):
         # copy running mean/var
         if isinstance(new_module,nn.BatchNorm2d) or isinstance(new_module,nn.BatchNorm1d):
             if args.split_running_stat:
-                if onmask is not None and args.use_running_mask:
+                if onmask is not None:
                     old_module.running_dict[f"mean{net_id}"][keep_mask] = new_module.running_mean.data[keep_mask].clone().detach()
                     old_module.running_dict[f"var{net_id}"][keep_mask] = new_module.running_var.data[keep_mask].clone().detach()
                 else:
@@ -635,6 +690,101 @@ def update_shared_model(old_model,new_model,mask,batch_idx,ch_indices,net_id):
         else:
             assert args.arch == 'vgg16_linear'
             copy_module_grad(old_model.classifier[1],new_model.classifier[1])
+   
+def fix_weights(new_model,old_model,mask_list,whole=False):
+    bns1,convs1 = new_model.get_sparse_layers_and_convs()
+    bns2,convs2 = old_model.get_sparse_layers_and_convs()
+    ch_start = 0
+    for conv1,bn1,conv2,bn2 in zip(convs1,bns1,convs2,bns2):
+        ch_len = conv1.weight.data.size(0)
+        for freeze_mask in mask_list:
+            with torch.no_grad():
+                freeze_mask = freeze_mask[ch_start:ch_start+ch_len] == 1
+                if whole:freeze_mask = torch.ones(ch_len).long().cuda()==1
+                bn1.weight.data[freeze_mask] = bn2.weight.data[freeze_mask].clone().detach()
+                bn1.running_mean.data[freeze_mask] = bn2.running_mean.data[freeze_mask].clone().detach()
+                bn1.running_var.data[freeze_mask] = bn2.running_var.data[freeze_mask].clone().detach()
+                if hasattr(bn1, 'bias') and bn1.bias is not None:
+                    bn1.bias.data[freeze_mask] = bn2.bias.data[freeze_mask].clone().detach()
+                if isinstance(conv1, nn.Conv2d):
+                    conv1.weight.data[freeze_mask, :, :, :] = conv2.weight.data[freeze_mask, :, :, :].clone().detach()
+                else:
+                    conv1.weight.data[freeze_mask, :] = conv2.weight.data[freeze_mask, :].clone().detach()
+                if hasattr(conv1, 'bias') and conv1.bias is not None:
+                    conv1.bias.data[freeze_mask] = conv2.bias.data[freeze_mask].clone().detach()
+        ch_start += ch_len
+    
+    if whole:
+        new_model.conv1.weight.data = old_model.conv1.weight.data.clone().detach()
+        new_model.bn1.weight.data = old_model.bn1.weight.data.clone().detach()
+        new_model.bn1.bias.data = old_model.bn1.bias.data.clone().detach()
+        new_model.bn1.running_mean.data = old_model.bn1.running_mean.data.clone().detach()
+        new_model.bn1.running_var.data = old_model.bn1.running_var.data.clone().detach()
+        new_model.linear.weight.data = old_model.linear.weight.data.clone().detach()
+        new_model.linear.bias.data = old_model.linear.bias.data.clone().detach()
+            
+def compare_models(old,new,mask_list,whole=False):
+    #for name, param in new.named_parameters(): print(name, param.size())
+    #exit(0)
+    bns1,convs1 = old.get_sparse_layers_and_convs()
+    bns2,convs2 = new.get_sparse_layers_and_convs()
+    ch_start = 0
+    total_changed = torch.tensor([]).cuda()
+    for conv1,bn1,conv2,bn2 in zip(convs1,bns1,convs2,bns2):
+        if not whole:
+            ch_len = conv1.weight.data.size(0)
+            for freeze_mask in mask_list:
+                freeze_mask = freeze_mask[ch_start:ch_start+ch_len] == 1
+                assert torch.equal(bn1.weight.data[freeze_mask], bn2.weight.data[freeze_mask]) 
+                assert torch.equal(conv1.weight.data[freeze_mask, :, :, :], conv2.weight.data[freeze_mask, :, :, :])
+                assert torch.equal(bn1.bias.data[freeze_mask], bn2.bias.data[freeze_mask])
+                assert torch.equal(bn1.running_mean.data[freeze_mask],bn2.running_mean.data[freeze_mask])
+                assert torch.equal(bn1.running_var.data[freeze_mask],bn2.running_var.data[freeze_mask])
+            ch_start += ch_len
+        else:
+            print(conv1.weight.grad)
+            assert torch.equal(conv1.weight.data, conv2.weight.data)
+            assert torch.equal(bn1.weight.data, bn2.weight.data)
+            assert torch.equal(bn1.bias.data, bn2.bias.data)
+            assert torch.equal(bn1.running_mean.data,bn2.running_mean.data)
+            assert torch.equal(bn1.running_var.data,bn2.running_var.data)
+    if whole:
+        assert torch.equal(new.conv1.weight.data,old.conv1.weight.data)
+        assert torch.equal(new.bn1.weight.data,old.bn1.weight.data)
+        assert torch.equal(new.bn1.bias.data,old.bn1.bias.data)
+        assert torch.equal(new.bn1.running_mean.data,old.bn1.running_mean.data)
+        assert torch.equal(new.bn1.running_var.data,old.bn1.running_var.data)
+        assert torch.equal(new.linear.weight.data,old.linear.weight.data)
+        assert torch.equal(new.linear.bias.data,old.linear.bias.data)
+        
+def scale_lr(optim,net_id,reset=False):
+    for g in optim.param_groups:
+        if not reset:
+            g['lr'] = args.current_lr * args.alphas[net_id]
+        else:
+            g['lr'] = args.current_lr
+        
+def log_quantization(old_model):
+    if args.current_stage == args.stages - 1:
+        return
+        
+    bn_modules = old_model.get_sparse_layers()
+    shrink,targeted = assign_to_indices(bn_modules)
+    # update mask of current stage
+    if len(args.mask_list) < args.current_stage+1:
+        args.mask_list.append(targeted.clone().detach())
+    else:
+        args.mask_list[-1] = targeted.clone().detach()
+    
+    ch_start = 0
+    for bn_module in bn_modules:
+        with torch.no_grad():
+            ch_len = len(bn_module.weight.data)
+            shrink_mask = shrink[ch_start:ch_start+ch_len] == 1
+            bn_module.weight.data[shrink_mask] -= args.lbd * args.current_lr * 400
+            if args.weight_decay!=1:
+                bn_module.bias.data[shrink_mask] *= 1 - args.current_lr * args.weight_decay * args.bias_decay_mult
+            ch_start += ch_len
     
 def factor_visualization(iter, model, prec):
     scale_factors = torch.tensor([]).cuda()
@@ -665,7 +815,7 @@ def prune_while_training(model: nn.Module, arch: str, prune_mode: str, num_class
     if arch == "resnet56":
         from resprune_gate import prune_resnet
         from models.resnet_expand import resnet56 as resnet50_expand
-        for i in range(len(args.alphas)):
+        for i in range(4):
             masked_model = mask_network(model,i)
             saved_model = prune_resnet(sparse_model=masked_model, pruning_strategy='fixed', prune_type='mask',
                                              sanity_check=False, prune_mode=prune_mode, num_classes=num_classes)
@@ -677,7 +827,7 @@ def prune_while_training(model: nn.Module, arch: str, prune_mode: str, num_class
         from vggprune_gate import prune_vgg
         from models import vgg16_linear
         # todo: update
-        for i in range(args.alphas):
+        for i in range(4):
             masked_model = mask_network(model,i)
             saved_model = prune_vgg(sparse_model=masked_model, pruning_strategy='fixed', prune_type='mask',
                                           sanity_check=False, prune_mode=prune_mode, num_classes=num_classes)
@@ -710,7 +860,7 @@ def train(epoch):
     train_iter = tqdm(train_loader)
     for batch_idx, (data, target) in enumerate(train_iter):
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
-            freeze_mask,net_id,dynamic_model,ch_indices = sample_network(model,batch_idx%len(args.alphas))
+            freeze_mask,net_id,dynamic_model,ch_indices = sample_network(model,batch_idx%4)
             if args.alphas[net_id] == 0:continue
         if args.cuda:
             data, target = data.cuda(), target.cuda()
