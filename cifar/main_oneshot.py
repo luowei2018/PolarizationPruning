@@ -518,7 +518,7 @@ def sample_network(old_model,net_id=None,eval=False):
     _,ch_indices = all_scale_factors.sort(dim=0)
     
     weight_valid_mask = torch.zeros(total_channels).long().cuda()
-    weight_valid_mask[ch_indices[channel_per_layer*(3-net_id):]] = 1
+    weight_valid_mask[ch_indices[channel_per_layer*(num_subnets-net_id):]] = 1
         
     freeze_mask = 1-weight_valid_mask
     
