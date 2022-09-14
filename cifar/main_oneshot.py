@@ -481,8 +481,9 @@ def bn_sparsity(model, loss_type, sparsity, t, alpha,
 args.eps = 1e-10
     
 def sample_network(old_model,net_id=None,eval=False):
+    num_subnets = len(args.alphas)
     if net_id is None:
-        net_id = torch.tensor(0).random_(0,4)
+        net_id = torch.tensor(0).random_(0,num_subnets)
     all_scale_factors = torch.tensor([]).cuda()
     # config old model
     if args.arch == 'resnet56':
@@ -495,7 +496,7 @@ def sample_network(old_model,net_id=None,eval=False):
             if not hasattr(bn_module,'running_dict'):
                 # init running list
                 bn_module.running_dict = {}
-                for nid in range(4):
+                for nid in range(num_subnets):
                     bn_module.running_dict[f"mean{nid}"] = bn_module.running_mean.data.clone().detach()
                     bn_module.running_dict[f"var{nid}"] = bn_module.running_var.data.clone().detach()
             else:
@@ -511,12 +512,12 @@ def sample_network(old_model,net_id=None,eval=False):
     
     # total channels
     total_channels = len(all_scale_factors)
-    channel_per_layer = total_channels//4
+    channel_per_layer = total_channels//num_subnets
     
     _,ch_indices = all_scale_factors.sort(dim=0)
     
     weight_valid_mask = torch.zeros(total_channels).long().cuda()
-    weight_valid_mask[ch_indices[channel_per_layer*(3-net_id):]] = 1
+    weight_valid_mask[ch_indices[channel_per_layer*(num_subnets-1-net_id):]] = 1
         
     freeze_mask = 1-weight_valid_mask
     
@@ -547,12 +548,12 @@ def mask_network(old_model,net_id):
             
     # total channels
     total_channels = len(all_scale_factors)
-    channel_per_layer = total_channels//4
+    channel_per_layer = total_channels//len(args.alphas)
     
     _,ch_indices = all_scale_factors.sort(dim=0)
     
     weight_valid_mask = torch.zeros(total_channels).long().cuda()
-    weight_valid_mask[ch_indices[channel_per_layer*(3-net_id):]] = 1
+    weight_valid_mask[ch_indices[channel_per_layer*(len(args.alphas)-1-net_id):]] = 1
     
     ch_start = 0
     for bn_module in bn_modules:
@@ -563,7 +564,7 @@ def mask_network(old_model,net_id):
         ch_start += ch_len
     return dynamic_model
 
-args.ps_batch = 4
+args.ps_batch = len(args.alphas)
 #optimizer.param_groups[0]['momentum'] = 0
 #optimizer.param_groups[1]['momentum'] = 0
 #optimizer.param_groups[1]['weight_decay'] = 0
@@ -663,7 +664,7 @@ def prune_while_training(model: nn.Module, arch: str, prune_mode: str, num_class
     if arch == "resnet56":
         from resprune_gate import prune_resnet
         from models.resnet_expand import resnet56 as resnet50_expand
-        for i in range(4):
+        for i in range(len(args.alphas)):
             masked_model = mask_network(model,i)
             saved_model = prune_resnet(sparse_model=masked_model, pruning_strategy='fixed', prune_type='mask',
                                              sanity_check=False, prune_mode=prune_mode, num_classes=num_classes)
@@ -675,7 +676,7 @@ def prune_while_training(model: nn.Module, arch: str, prune_mode: str, num_class
         from vggprune_gate import prune_vgg
         from models import vgg16_linear
         # todo: update
-        for i in range(4):
+        for i in range(len(args.alphas)):
             masked_model = mask_network(model,i)
             saved_model = prune_vgg(sparse_model=masked_model, pruning_strategy='fixed', prune_type='mask',
                                           sanity_check=False, prune_mode=prune_mode, num_classes=num_classes)
@@ -708,7 +709,7 @@ def train(epoch):
     train_iter = tqdm(train_loader)
     for batch_idx, (data, target) in enumerate(train_iter):
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
-            freeze_mask,net_id,dynamic_model,ch_indices = sample_network(model,batch_idx%4)
+            freeze_mask,net_id,dynamic_model,ch_indices = sample_network(model,batch_idx%len(args.alphas))
             if args.alphas[net_id] == 0:continue
         if args.cuda:
             data, target = data.cuda(), target.cuda()
