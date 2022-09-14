@@ -572,17 +572,6 @@ args.ps_batch = len(args.alphas)
     
 def update_shared_model(old_model,new_model,mask,batch_idx,ch_indices,net_id):
     def copy_module_grad(old_module,new_module,onmask=None):
-        # copy weights grad
-        if onmask is not None:
-            freeze_mask = onmask == 1
-            keep_mask = onmask == 0
-            if isinstance(new_module, nn.Conv2d):
-                new_module.weight.grad.data[freeze_mask, :, :, :] = 0
-            elif isinstance(new_module, nn.Linear):
-                new_module.weight.grad.data[freeze_mask, :] = 0
-            elif isinstance(new_module,nn.BatchNorm2d) or isinstance(new_module,nn.BatchNorm1d):
-                new_module.weight.grad.data[freeze_mask] = 0
-        copy_param_grad(old_module.weight,new_module.weight)
         # copy running mean/var
         if isinstance(new_module,nn.BatchNorm2d) or isinstance(new_module,nn.BatchNorm1d):
             if args.split_running_stat:
@@ -600,6 +589,18 @@ def update_shared_model(old_model,new_model,mask,batch_idx,ch_indices,net_id):
                 else:
                     old_module.running_mean.data = q * new_module.running_mean.data + (1-q) * old_module.running_mean.data
                     old_module.running_var.data = q * new_module.running_var.data + (1-q) * old_module.running_var.data
+        if args.alphas[net_id] == 0:return
+        # copy weights grad
+        if onmask is not None:
+            freeze_mask = onmask == 1
+            keep_mask = onmask == 0
+            if isinstance(new_module, nn.Conv2d):
+                new_module.weight.grad.data[freeze_mask, :, :, :] = 0
+            elif isinstance(new_module, nn.Linear):
+                new_module.weight.grad.data[freeze_mask, :] = 0
+            elif isinstance(new_module,nn.BatchNorm2d) or isinstance(new_module,nn.BatchNorm1d):
+                new_module.weight.grad.data[freeze_mask] = 0
+        copy_param_grad(old_module.weight,new_module.weight)
         # copy bias grad
         if hasattr(new_module,'bias') and new_module.bias is not None:
             if onmask is not None:
@@ -711,7 +712,6 @@ def train(epoch):
     for batch_idx, (data, target) in enumerate(train_iter):
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
             freeze_mask,net_id,dynamic_model,ch_indices = sample_network(model,batch_idx%len(args.alphas))
-            if args.alphas[net_id] == 0:continue
         if args.cuda:
             data, target = data.cuda(), target.cuda()
         optimizer.zero_grad()
