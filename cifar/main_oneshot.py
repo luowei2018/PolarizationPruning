@@ -118,8 +118,6 @@ parser.add_argument('--alphas', type=float, nargs='+', default=[1,1,1,1],
                     help='Multiplier of each subnet')
 parser.add_argument('--split_running_stat', action='store_true',
                     help='use split running mean/var for different subnets')
-parser.add_argument('--use_running_mask', action='store_true',
-                    help='use mask on running mean/var')
 
 args = parser.parse_args()
 args.cuda = not args.no_cuda and torch.cuda.is_available()
@@ -586,7 +584,7 @@ def update_shared_model(old_model,new_model,mask,batch_idx,ch_indices,net_id):
         # copy running mean/var
         if isinstance(new_module,nn.BatchNorm2d) or isinstance(new_module,nn.BatchNorm1d):
             if args.split_running_stat:
-                if onmask is not None and args.use_running_mask:
+                if onmask is not None:
                     old_module.running_dict[f"mean{net_id}"][keep_mask] = new_module.running_mean.data[keep_mask].clone().detach()
                     old_module.running_dict[f"var{net_id}"][keep_mask] = new_module.running_var.data[keep_mask].clone().detach()
                 else:
