@@ -330,14 +330,12 @@ if args.resume:
         args.start_epoch = checkpoint['epoch']
         best_prec1 = checkpoint['best_prec1']
         if args.split_running_stat:
-            for bn_module, module in model.named_modules():
+            for module_name, bn_module in model.named_modules():
                 if not isinstance(bn_module, nn.BatchNorm2d): continue
                 # set the right running mean/var
                 for nid in range(len(args.alphas)):
                     bn_module.register_buffer(f"mean{nid}",bn_module.running_mean.data.clone().detach())
                     bn_module.register_buffer(f"var{nid}",bn_module.running_var.data.clone().detach())
-        print(model.state_dict().keys())
-        exit(0)
         model.load_state_dict(checkpoint['state_dict'])
         #optimizer.load_state_dict(checkpoint['optimizer'])
 
