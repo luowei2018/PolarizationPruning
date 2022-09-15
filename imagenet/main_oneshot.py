@@ -612,21 +612,18 @@ def main_worker(gpu, ngpus_per_node, args):
     print("rank #{}: dataloader loaded!".format(args.rank))
     
     if args.evaluate:
-        sparse_params = []
+        sparse_modules = []
         bn_modules,conv_modules = model.module.get_sparse_layers_and_convs()
         for bn,conv in zip(bn_modules,conv_modules):
-            sparse_params.append(bn.weight)
-            if hasattr(bn,'bias'):
-                sparse_params.append(bn.bias)
-            sparse_params.append(conv.weight)
-            if hasattr(conv,'bias'):
-                sparse_params.append(conv.bias)
-        sparse_params_set = set(sparse_params)
+            sparse_modules.append(bn)
+            sparse_modules.append(conv)
+        sparse_modules_set = set(sparse_modules)
         for param_name, model_p in model.named_parameters():
             pass
             #if model_p not in sparse_params_set:print(param_name)
         for module_name, module in model.named_modules():
-            print(module_name)
+            if module not in sparse_modules_set:
+                print(module_name)
         exit(0)
         prune_while_training(model, args.arch, args.prune_mode, args.width_multiplier, val_loader, criterion, 0, args)
         return
