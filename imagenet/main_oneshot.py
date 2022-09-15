@@ -486,17 +486,6 @@ def main_worker(gpu, ngpus_per_node, args):
         freeze_gate(model)
 
     # create the optimizer
-    bias_decay_params = []
-    if args.bias_decay:
-        for module_name, sub_module in model.named_modules():
-            if isinstance(sub_module, nn.BatchNorm1d) or \
-                    isinstance(sub_module, nn.BatchNorm2d)or \
-                    isinstance(sub_module, models.common.SparseGate):  
-                for param_name, param in sub_module.named_parameters():
-                    if 'bias' in param_name:
-                        bias_decay_params.append(param)
-        print(f"Apply bias decay")
-    
     if args.no_bn_wd:
         no_wd_params = []
         for module_name, sub_module in model.named_modules():
@@ -504,7 +493,6 @@ def main_worker(gpu, ngpus_per_node, args):
                     isinstance(sub_module, nn.BatchNorm2d) or \
                     isinstance(sub_module, models.common.SparseGate):  # never apply weight decay on SparseGate
                 for param_name, param in sub_module.named_parameters():
-                    if not isinstance(sub_module, models.common.SparseGate) and args.bias_decay and 'bias' in param_name: continue
                     no_wd_params.append(param)
                     #print(f"No weight decay param: module {module_name} param {param_name}")
     else:
@@ -516,15 +504,13 @@ def main_worker(gpu, ngpus_per_node, args):
                     #print(f"No weight decay param: module {module_name} param {param_name}")
 
     no_wd_params_set = set(no_wd_params)
-    bias_decay_params_set = set(bias_decay_params)
     wd_params = []
     for param_name, model_p in model.named_parameters():
-        if model_p not in no_wd_params_set and model_p not in bias_decay_params_set:
+        if model_p not in no_wd_params_set:
             wd_params.append(model_p)
             #print(f"Weight decay param: parameter name {param_name}")
 
-    optimizer = torch.optim.SGD([{'params': list(bias_decay_params), 'weight_decay': args.weight_decay*1000},
-                                 {'params': list(no_wd_params), 'weight_decay': 0.},
+    optimizer = torch.optim.SGD([{'params': list(no_wd_params), 'weight_decay': 0.},
                                  {'params': list(wd_params), 'weight_decay': args.weight_decay}],
                                 args.lr[0],
                                 momentum=args.momentum)
@@ -626,9 +612,19 @@ def main_worker(gpu, ngpus_per_node, args):
     print("rank #{}: dataloader loaded!".format(args.rank))
     
     if args.evaluate:
-        #prec1 = validate(val_loader, model, criterion, epoch=0, args=args, writer=None)
+        sparse_params = []
+        bn_modules,conv_modules = model.get_sparse_layers_and_convs()
+        for bn,conv in zip(bn_modules,conv_modules):
+            sparse_params.append(bn.weight)
+            if hasattr(bn,'bias'):
+                sparse_params.append(bn.bias)
+            sparse_params.append(conv.weight)
+            if hasattr(conv,'bias'):
+                sparse_params.append(conv.bias)
+        sparse_params_set = set(sparse_params)
         for param_name, model_p in model.named_parameters():
-            print(param_name)
+            if model_p not in sparse_params_set:
+                print(param_name)
         exit(0)
         prune_while_training(model, args.arch, args.prune_mode, args.width_multiplier, val_loader, criterion, 0, args)
         return
