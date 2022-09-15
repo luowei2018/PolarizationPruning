@@ -631,8 +631,6 @@ def get_non_sparse_modules(model):
         if module not in sparse_modules_set:
             if isinstance(module, nn.Conv2d) or isinstance(module, nn.BatchNorm2d) or isinstance(module, nn.Linear):
                 non_sparse_modules.append(module)
-                print(module_name)
-    exit(0)
     return non_sparse_modules
 
 def prune_while_training(model: nn.Module, arch: str, prune_mode: str, num_classes: int):
