@@ -470,7 +470,7 @@ def bn_sparsity(model, loss_type, sparsity, t, alpha,
         
 args.eps = 1e-10
     
-def sample_network(old_model,net_id=None):
+def sample_network(old_model,net_id=None,eval=False):
     num_subnets = len(args.alphas)
     if net_id is None:
         net_id = torch.tensor(0).random_(0,num_subnets)
@@ -494,7 +494,8 @@ def sample_network(old_model,net_id=None):
                 bn_module.running_mean.data = bn_module._buffers[f"mean{net_id}"]
                 bn_module.running_var.data = bn_module._buffers[f"var{net_id}"]
     
-    bn_modules = old_model.get_sparse_layers()
+    dynamic_model = copy.deepcopy(old_model)
+    bn_modules = dynamic_model.get_sparse_layers()
     for bn_module in bn_modules:
         all_scale_factors = torch.cat((all_scale_factors,bn_module.weight.data))
     
@@ -518,7 +519,10 @@ def sample_network(old_model,net_id=None):
             bn_module.weight.data[inactive] = 0
             bn_module.bias.data[inactive] = 0
             ch_start += ch_len
-    return freeze_mask,net_id,ch_indices
+    if not eval:
+        return freeze_mask,net_id,dynamic_model,ch_indices
+    else:
+        return dynamic_model
         
 def mask_network(old_model,net_id):
     dynamic_model = copy.deepcopy(old_model)
@@ -550,39 +554,39 @@ def mask_network(old_model,net_id):
 
 args.ps_batch = len(args.alphas)
     
-def update_shared_model(old_model,mask,batch_idx,ch_indices,net_id):
-    def copy_module_grad(old_module,onmask=None):
+def update_shared_model(old_model,new_model,mask,batch_idx,ch_indices,net_id):
+    def copy_module_grad(old_module,new_module,onmask=None):
         # copy weights grad
         if onmask is not None:
             freeze_mask = onmask == 1
             keep_mask = onmask == 0
-            old_module.weight.grad.data[freeze_mask] = 0
+            new_module.weight.grad.data[freeze_mask] = 0
         # copy running mean/var
-        if isinstance(old_module,nn.BatchNorm2d) or isinstance(old_module,nn.BatchNorm1d):
+        if isinstance(new_module,nn.BatchNorm2d) or isinstance(new_module,nn.BatchNorm1d):
             if args.split_running_stat:
                 if onmask is not None:
-                    old_module._buffers[f"mean{net_id}"][keep_mask] = old_module.running_mean.data[keep_mask].clone().detach()
-                    old_module._buffers[f"var{net_id}"][keep_mask] = old_module.running_var.data[keep_mask].clone().detach()
+                    old_module._buffers[f"mean{net_id}"][keep_mask] = new_module.running_mean.data[keep_mask].clone().detach()
+                    old_module._buffers[f"var{net_id}"][keep_mask] = new_module.running_var.data[keep_mask].clone().detach()
                 else:
-                    old_module._buffers[f"mean{net_id}"] = old_module.running_mean.data.clone().detach()
-                    old_module._buffers[f"var{net_id}"] = old_module.running_var.data.clone().detach()
+                    old_module._buffers[f"mean{net_id}"] = new_module.running_mean.data.clone().detach()
+                    old_module._buffers[f"var{net_id}"] = new_module.running_var.data.clone().detach()
             else:
                 if onmask is not None:
-                    old_module.running_mean.data[keep_mask] = old_module.running_mean.data[keep_mask]
-                    old_module.running_var.data[keep_mask] = old_module.running_var.data[keep_mask]
+                    old_module.running_mean.data[keep_mask] = new_module.running_mean.data[keep_mask]
+                    old_module.running_var.data[keep_mask] = new_module.running_var.data[keep_mask]
                 else:
-                    old_module.running_mean.data = old_module.running_mean.data
-                    old_module.running_var.data = old_module.running_var.data
+                    old_module.running_mean.data = new_module.running_mean.data
+                    old_module.running_var.data = new_module.running_var.data
         if args.alphas[net_id] == 0:return
-        copy_param_grad(old_module.weight)
+        copy_param_grad(old_module.weight,new_module.weight)
         # copy bias grad
-        if hasattr(old_module,'bias') and old_module.bias is not None:
+        if hasattr(new_module,'bias') and new_module.bias is not None:
             if onmask is not None:
-                old_module.bias.grad.data[freeze_mask] = 0
-            copy_param_grad(old_module.bias)
+                new_module.bias.grad.data[freeze_mask] = 0
+            copy_param_grad(old_module.bias,new_module.bias)
             
-    def copy_param_grad(old_param):
-        new_grad = old_param.grad.clone().detach() * args.alphas[net_id]
+    def copy_param_grad(old_param,new_param):
+        new_grad = new_param.grad.clone().detach() * args.alphas[net_id]
         if not hasattr(old_param,'grad_tmp') or old_param.grad_tmp is None:
             old_param.grad_tmp = new_grad
         else:
@@ -592,19 +596,21 @@ def update_shared_model(old_model,mask,batch_idx,ch_indices,net_id):
             old_param.grad_tmp = None
             
     bns1,convs1 = old_model.get_sparse_layers_and_convs()
+    bns2,convs2 = new_model.get_sparse_layers_and_convs()
     ch_start = 0
-    for conv1,bn1 in zip(convs1,bns1):
+    for conv1,bn1,conv2,bn2 in zip(convs1,bns1,convs2,bns2):
         ch_len = conv1.weight.data.size(0)
         with torch.no_grad():
             tmp = mask[ch_start:ch_start+ch_len]
-            copy_module_grad(bn1,tmp)
-            copy_module_grad(conv1,tmp)
+            copy_module_grad(bn1,bn2,tmp)
+            copy_module_grad(conv1,conv2,tmp)
         ch_start += ch_len
     
     with torch.no_grad():
         old_non_sparse_modules = get_non_sparse_modules(old_model)
-        for old_module in old_non_sparse_modules:
-            copy_module_grad(old_module)
+        new_non_sparse_modules = get_non_sparse_modules(new_model)
+        for old_module,new_module in zip(old_non_sparse_modules,new_non_sparse_modules):
+            copy_module_grad(old_module,new_module)
             
 def get_non_sparse_modules(model):
     sparse_modules = []
@@ -672,12 +678,15 @@ def train(epoch):
     train_iter = tqdm(train_loader)
     for batch_idx, (data, target) in enumerate(train_iter):
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
-            freeze_mask,net_id,ch_indices = sample_network(model,batch_idx%len(args.alphas))
+            freeze_mask,net_id,dynamic_model,ch_indices = sample_network(model,batch_idx%len(args.alphas))
             if args.alphas[net_id] == 0:continue
         if args.cuda:
             data, target = data.cuda(), target.cuda()
         optimizer.zero_grad()
-        output = model(data)
+        if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
+            output = dynamic_model(data)
+        else:
+            output = model(data)
         if isinstance(output, tuple):
             output, output_aux = output
         loss = F.cross_entropy(output, target)
@@ -707,7 +716,7 @@ def train(epoch):
         if args.loss in {LossType.L1_SPARSITY_REGULARIZATION}:
             updateBN()
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
-            update_shared_model(model,freeze_mask,batch_idx,ch_indices,net_id)
+            update_shared_model(model,dynamic_model,freeze_mask,batch_idx,ch_indices,net_id)
         if args.loss not in {LossType.PROGRESSIVE_SHRINKING} or batch_idx%args.ps_batch==(args.ps_batch-1):
             optimizer.step()
         if args.loss in {LossType.POLARIZATION,
