@@ -336,6 +336,8 @@ if args.resume:
                 for nid in range(len(args.alphas)):
                     bn_module.register_buffer(f"mean{nid}",bn_module.running_mean.data.clone().detach())
                     bn_module.register_buffer(f"var{nid}",bn_module.running_var.data.clone().detach())
+        print(model.state_dict().keys())
+        exit(0)
         model.load_state_dict(checkpoint['state_dict'])
         #optimizer.load_state_dict(checkpoint['optimizer'])
 
