@@ -618,13 +618,6 @@ def update_shared_model(old_model,new_model,mask,batch_idx,ch_indices,net_id):
         new_non_sparse_modules = get_non_sparse_modules(new_model)
         for old_module,new_module in zip(old_non_sparse_modules,new_non_sparse_modules):
             copy_module_grad(old_module,new_module)
-        if args.arch == 'resnet56':
-            copy_module_grad(old_model.conv1,new_model.conv1)
-            copy_module_grad(old_model.bn1,new_model.bn1)
-            copy_module_grad(old_model.linear,new_model.linear)
-        else:
-            assert args.arch == 'vgg16_linear'
-            copy_module_grad(old_model.classifier[1],new_model.classifier[1])
             
 def get_non_sparse_modules(model):
     sparse_modules = []
