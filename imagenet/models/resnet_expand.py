@@ -559,6 +559,26 @@ class ResNetExpand(nn.Module):
                     sparse_modules.append(sub_module.conv3)
 
         return sparse_modules
+        
+    def get_sparse_layers_and_convs(self, sparse1: bool = True, sparse2: bool = True, sparse3: bool = True):
+        sparse_layers = []
+        sparse_convs = []
+        for m_name, sub_module in self.named_modules():
+            # only support bottleneck
+            # do not support ChannelMask!
+            # do not apply sparsity on downsample layers
+            if isinstance(sub_module, Bottleneck):
+                sub_module: Bottleneck
+                if sparse1:
+                    sparse_layers.append(sub_module.bn1)
+                    sparse_convs.append(sub_module.conv1)
+                if sparse2:
+                    sparse_layers.append(sub_module.bn2)
+                    sparse_convs.append(sub_module.conv2)
+                if sparse3:
+                    sparse_layers.append(sub_module.bn3)
+                    sparse_convs.append(sub_module.conv3)
+        return sparse_layers,sparse_convs
 
     def get_output_gate(self) -> List[SparseGate]:
         """

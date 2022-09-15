@@ -667,6 +667,20 @@ class MobileNetV2(nn.Module):
         assert len(sparse_modules) != 0, "Nothing to return"
 
         return sparse_modules
+        
+    def get_sparse_layers_and_convs(self, pw_layer=True, linear_layer=True):
+        sparse_layers = []
+        sparse_convs = []
+        for m_name, sub_module in self.named_modules():
+            if isinstance(sub_module, InvertedResidual):
+                sub_module: InvertedResidual
+                if pw_layer:
+                    sparse_layers.append(sub_module.pw_layer[1])
+                    sparse_convs.append(sub_module.pw_layer[0])
+                if linear_layer:
+                    sparse_layers.append(sub_module.linear_layer[1])
+                    sparse_convs.append(sub_module.linear_layer[0])
+        return sparse_layers,sparse_convs
 
     def get_conv_flops_weight(self,
                               input_size: typing.Tuple[int, int] = (224, 224)) -> List[typing.Tuple[int, int, int]]:
