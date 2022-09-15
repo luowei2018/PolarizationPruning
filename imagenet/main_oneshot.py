@@ -1025,17 +1025,16 @@ def sample_network(old_model,net_id=None,eval=False):
         bn_module = module
         # set the right running mean/var
         if args.split_running_stat:
-            if not hasattr(bn_module,'running_dict'):
+            if not hasattr(bn_module,'mean0'):
                 # init running list
-                bn_module.running_dict = {}
                 for nid in range(num_subnets):
-                    bn_module.running_dict[f"mean{nid}"] = bn_module.running_mean.data.clone().detach()
-                    bn_module.running_dict[f"var{nid}"] = bn_module.running_var.data.clone().detach()
+                    bn_module.register_buffer(f"mean{nid}",bn_module.running_mean.data.clone().detach())
+                    bn_module.register_buffer(f"var{nid}",bn_module.running_var.data.clone().detach())
             else:
                 # choose the right running mean/var for a subnet
                 # updated in the last update
-                bn_module.running_mean.data = bn_module.running_dict[f"mean{net_id}"]
-                bn_module.running_var.data = bn_module.running_dict[f"var{net_id}"]
+                bn_module.running_mean.data = bn_module._buffers[f"mean{net_id}"]
+                bn_module.running_var.data = bn_module._buffers[f"var{net_id}"]
     
     dynamic_model = copy.deepcopy(old_model)
     if args.arch == 'resnet50':
@@ -1098,9 +1097,8 @@ def mask_network(old_model,net_id):
     for bn_module in bn_modules:
         all_scale_factors = torch.cat((all_scale_factors,bn_module.weight.data))
         if args.split_running_stat:
-            assert hasattr(bn_module,'running_dict')
-            bn_module.running_mean.data = bn_module.running_dict[f"mean{net_id}"]
-            bn_module.running_var.data = bn_module.running_dict[f"var{net_id}"]
+            bn_module.running_mean.data = bn_module._buffers[f"mean{net_id}"]
+            bn_module.running_var.data = bn_module._buffers[f"var{net_id}"]
             
     # total channels
     total_channels = len(all_scale_factors)
@@ -1138,11 +1136,11 @@ def update_shared_model(old_model,new_model,mask,batch_idx,ch_indices,net_id):
         if isinstance(new_module,nn.BatchNorm2d) or isinstance(new_module,nn.BatchNorm1d):
             if args.split_running_stat:
                 if onmask is not None:
-                    old_module.running_dict[f"mean{net_id}"][keep_mask] = new_module.running_mean.data[keep_mask].clone().detach()
-                    old_module.running_dict[f"var{net_id}"][keep_mask] = new_module.running_var.data[keep_mask].clone().detach()
+                    old_module._buffers[f"mean{net_id}"][keep_mask] = new_module.running_mean.data[keep_mask].clone().detach()
+                    old_module._buffers[f"var{net_id}"][keep_mask] = new_module.running_var.data[keep_mask].clone().detach()
                 else:
-                    old_module.running_dict[f"mean{net_id}"] = new_module.running_mean.data.clone().detach()
-                    old_module.running_dict[f"var{net_id}"] = new_module.running_var.data.clone().detach()
+                    old_module._buffers[f"mean{net_id}"] = new_module.running_mean.data.clone().detach()
+                    old_module._buffers[f"var{net_id}"] = new_module.running_var.data.clone().detach()
             else:
                 if onmask is not None:
                     old_module.running_mean.data[keep_mask] = new_module.running_mean.data[keep_mask]
