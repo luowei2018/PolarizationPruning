@@ -494,7 +494,7 @@ def sample_network(old_model,net_id=None,eval=False):
                 bn_module.running_mean.data = bn_module._buffers[f"mean{net_id}"]
                 bn_module.running_var.data = bn_module._buffers[f"var{net_id}"]
     
-    dynamic_model = (old_model)
+    dynamic_model = copy.deepcopy(old_model)
     bn_modules = dynamic_model.get_sparse_layers()
     for bn_module in bn_modules:
         all_scale_factors = torch.cat((all_scale_factors,bn_module.weight.data))
@@ -514,8 +514,6 @@ def sample_network(old_model,net_id=None,eval=False):
     for bn_module in bn_modules:
         with torch.no_grad():
             ch_len = len(bn_module.weight.data)
-            bn_module.original_weights = bn_module.weight.data.clone().detach()
-            bn_module.original_biases = bn_module.bias.data.clone().detach()
             inactive = weight_valid_mask[ch_start:ch_start+ch_len]==0
             # set useless channels to 0
             bn_module.weight.data[inactive] = 0
@@ -606,8 +604,6 @@ def update_shared_model(old_model,new_model,mask,batch_idx,ch_indices,net_id):
             tmp = mask[ch_start:ch_start+ch_len]
             copy_module_grad(bn1,bn2,tmp)
             copy_module_grad(conv1,conv2,tmp)
-            bn1.weight.data = bn2.original_weights.clone().detach()
-            bn1.bias.data = bn2.original_biases.clone().detach()
         ch_start += ch_len
     
     with torch.no_grad():
