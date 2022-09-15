@@ -555,6 +555,7 @@ def mask_network(old_model,net_id):
 args.ps_batch = len(args.alphas)
     
 def update_shared_model(old_model,new_model,mask,batch_idx,ch_indices,net_id):
+
     def copy_module_grad(old_module,new_module,onmask=None):
         # copy weights grad
         if onmask is not None:
