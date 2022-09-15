@@ -327,7 +327,7 @@ if args.resume:
             if args.cuda:
                 model.cuda()
 
-        args.start_epoch = checkpoint['epoch']
+        args.start_epoch = 0#checkpoint['epoch']
         best_prec1 = checkpoint['best_prec1']
         if args.split_running_stat:
             for module_name, bn_module in model.named_modules():
