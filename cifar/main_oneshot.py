@@ -104,16 +104,8 @@ parser.add_argument('--width-multiplier', default=1.0, type=float,
                          "Unavailable for other networks. (default 1.0)")
 parser.add_argument('--debug', action='store_true',
                     help='Debug mode.')
-parser.add_argument('--q_factor', type=float, default=1e-5,
-                    help='decay factor (default: 5e-4)')
-parser.add_argument('--bin_mode', default=2, type=int, 
-                    help='Setup location of bins.')
 parser.add_argument('-e', '--evaluate', dest='evaluate', action='store_true',
                     help='evaluate model on validation set')
-parser.add_argument('--bias-decay-mult', type=int, default=1,
-                    help='Apply bias decay on BatchNorm layers')
-parser.add_argument('--log-scale', action='store_true',
-                    help='use log scale')
 parser.add_argument('--alphas', type=float, nargs='+', default=[1,1,1,1],
                     help='Multiplier of each subnet')
 parser.add_argument('--split_running_stat', action='store_true',
@@ -641,7 +633,7 @@ def prune_while_training(model: nn.Module, arch: str, prune_mode: str, num_class
             masked_model = mask_network(model,i)
             saved_model = prune_resnet(sparse_model=masked_model, pruning_strategy='fixed', prune_type='mask',
                                              sanity_check=False, prune_mode=prune_mode, num_classes=num_classes)
-            prec1 = test(saved_model.cuda())
+            prec1 = test(saved_model)
             flop = compute_conv_flops(saved_model, cuda=True)
             saved_prec1s += [prec1]
             saved_flops += [flop]
@@ -653,7 +645,7 @@ def prune_while_training(model: nn.Module, arch: str, prune_mode: str, num_class
             masked_model = mask_network(model,i)
             saved_model = prune_vgg(sparse_model=masked_model, pruning_strategy='fixed', prune_type='mask',
                                           sanity_check=False, prune_mode=prune_mode, num_classes=num_classes)
-            prec1 = test(saved_model.cuda())
+            prec1 = test(saved_model)
             flop = compute_conv_flops(saved_model, cuda=True)
             saved_prec1s += [prec1]
             saved_flops += [flop]
@@ -783,7 +775,6 @@ def save_checkpoint(state, is_best, filepath, backup: bool, backup_path: str, ep
 
 best_prec1 = 0.
 global_step = 0
-prec1_list = []
 
 if args.evaluate:
     prec1,prune_str = prune_while_training(model, arch=args.arch,

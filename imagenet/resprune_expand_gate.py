@@ -112,13 +112,14 @@ def prune_resnet(sparse_model: torch.nn.Module, pruning_strategy: str, sanity_ch
     # note that pruned model could not do forward pass.
     # need to set channel expand.
     pruned_model = copy.deepcopy(sparse_model)
-    pruned_model.cpu()
 
     if pruning_strategy == 'percent':
         global_threshold = _compute_global_threshold(sparse_model, percent)
         pruner = ThresholdPruner(pruning_strategy, threshold=global_threshold)
     elif pruning_strategy == 'random':
         pruner = RandomPruner(ratio=ratio)
+    elif pruning_strategy == 'mask':
+        pruner = lambda weight: 0
     else:
         pruner = ThresholdPruner(pruning_strategy)
 

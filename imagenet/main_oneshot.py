@@ -196,12 +196,12 @@ parser.add_argument('--pretrain', default=None, type=str, metavar='PATH',
                     help='Path to pretrain checkpoint (default: None)')
 parser.add_argument('--target-flops', type=float, default=None,
                     help='Stop when pruned model archive the target FLOPs')
-parser.add_argument('--q_factor', type=float, default=0.0001,
-                    help='decay factor (default: 0.001)')
-parser.add_argument('--bias-decay', action='store_true',
-                    help='Apply bias decay on BatchNorm layers')
 parser.add_argument('--zero-bn', action='store_true',
                     help='Zero all bn layers')
+parser.add_argument('--alphas', type=float, nargs='+', default=[1,1,1,1],
+                    help='Multiplier of each subnet')
+parser.add_argument('--split_running_stat', action='store_true',
+                    help='use split running mean/var for different subnets')
 
 best_prec1 = 0
 
@@ -612,20 +612,8 @@ def main_worker(gpu, ngpus_per_node, args):
     print("rank #{}: dataloader loaded!".format(args.rank))
     
     if args.evaluate:
-        sparse_modules = []
-        bn_modules,conv_modules = model.module.get_sparse_layers_and_convs()
-        for bn,conv in zip(bn_modules,conv_modules):
-            sparse_modules.append(bn)
-            sparse_modules.append(conv)
-        sparse_modules_set = set(sparse_modules)
-        for module_name, module in model.named_modules():
-            if module not in sparse_modules_set:
-                if isinstance(module, nn.Conv2d) or isinstance(module, nn.BatchNorm2d) or isinstance(module, nn.Linear):
-                    print(module_name)
-        for param_name, param in model.named_parameters():
-            print(param_name)
-        exit(0)
-        prune_while_training(model, args.arch, args.prune_mode, args.width_multiplier, val_loader, criterion, 0, args)
+        prec1,prune_str = prune_while_training(model, args.arch, args.prune_mode, args.width_multiplier, val_loader, criterion, 0, args)
+        print(args.save,prune_str,args.alphas)
         return
 
     # restore the learning rate
@@ -648,8 +636,8 @@ def main_worker(gpu, ngpus_per_node, args):
               args.lbd, args=args,
               is_debug=args.debug, writer=writer)
 
-        # evaluate on validation set
-        prec1 = validate(val_loader, model, criterion, epoch, args=args, writer=writer)
+        # prune the network and record FLOPs at each epoch
+        prec1,prune_str = prune_while_training(model, args.arch, args.prune_mode, args.width_multiplier, val_loader, criterion, epoch, args)
 
         writer.add_scalar("train/lr", optimizer.param_groups[0]['lr'], epoch)
 
@@ -673,15 +661,6 @@ def main_worker(gpu, ngpus_per_node, args):
                 epoch=epoch)
 
         writer.flush()
-
-        # prune the network and record FLOPs at each epoch
-        #prune_while_training(model, args.arch, args.prune_mode, args.width_multiplier, val_loader, criterion, epoch, args)
-        
-        # show log quantization result
-        if args.loss in {LossType.LOG_QUANTIZATION}:
-            print('BinCnt:', " ".join(format(x, "05d") for x in args.ista_cnt_bins), 
-                    'Weight err:', " ".join(format(x, ".3f") for x in args.ista_err_bins), 
-                    'Bias err:', args.bias_err)
 
     writer.close()
     print("Best prec@1: {}".format(best_prec1))
@@ -1031,152 +1010,194 @@ def zero_bn(model, gate):
     for m in zero_modules:
         m.weight.data.zero_()
         #m.bias.data.zero_()
-    
-def log_quantization(model, args):
-    #############SETUP###############
-    args.weight_err = torch.tensor([0.0]).cuda(0)
-    args.bias_err = torch.tensor([0.0]).cuda(0)
-    # locations of bins should fit original dist
-    # start can be tuned to find a best one
-    # distance between bins min=2
-    num_bins, bin_start, bin_stride = 4, -6, 2
-    # how centralize the bin is, relax this may improve prec
-    bin_width = 1e-1
-    # locations we want to quantize
-    args.bins = torch.pow(10.,torch.tensor([bin_start+bin_stride*x for x in range(num_bins)])).cuda(0)
-    # trade-off of original distribution and new distribution
-    # big: easy to get new distribution, but may degrade performance
-    # small: maintain good performance but may not affect distribution much
-    decay_factor = args.q_factor # lower this to improve perf
-    # how small/low rank bins get more advantage
-    amp_factors = torch.tensor([2**(num_bins-1-x) for x in range(num_bins)]).cuda()
-    #amp_factors = torch.tensor([0,16,.2,0.0]).cuda()
-    #amp_factors = torch.tensor([16,32,0.0,0.0]).cuda()
-    args.ista_err_bins = [0 for _ in range(num_bins)]
-    args.ista_cnt_bins = [0 for _ in range(num_bins)]
-    
-    #################START###############
-    def get_min_idx(x):
-        args.bins = torch.pow(10.,torch.tensor([bin_start+bin_stride*x for x in range(num_bins)])).to(x.device)
-        dist = torch.abs(torch.log10(torch.abs(x).unsqueeze(-1)/args.bins))
-        _,min_idx = dist.min(dim=-1)
-        return min_idx
+
+def sample_network(old_model,net_id=None,eval=False):
+    num_subnets = len(args.alphas)
+    if net_id is None:
+        net_id = torch.tensor(0).random_(0,num_subnets)
+    all_scale_factors = torch.tensor([]).cuda()
+    # config old model
+    if args.arch == 'resnet56':
+        old_sparse_layers += [old_model.bn1]
         
-    def get_bin_distribution(x):
-        x = torch.clamp(torch.abs(x), min=1e-8) * torch.sign(x)
-        min_idx = get_min_idx(x)
-        all_err = torch.log10(args.bins[min_idx]/torch.abs(x))
-        abs_err = torch.abs(all_err)
-        # calculate total error
-        args.weight_err += abs_err.sum()
-        # calculating err for each bin
-        for i in range(num_bins):
-            if torch.sum(min_idx==i)>0:
-                args.ista_err_bins[i] += abs_err[min_idx==i].sum().cpu().item()
-                args.ista_cnt_bins[i] += torch.numel(abs_err[min_idx==i])
-                
-    def redistribute(x,bin_indices):
-        abs_x = torch.abs(x)
-        sign_x = torch.sign(x)
-        sign_x[sign_x==0] = 1
-        x = torch.clamp(abs_x, min=1e-8) * sign_x
-        tar_bins = args.bins[bin_indices]
-        # amplifier based on rank of bin
-        amp = amp_factors[bin_indices]
-        all_err = torch.log10(tar_bins/torch.abs(x))
-        abs_err = torch.abs(all_err)
-        # more distant larger multiplier
-        # pull force relates to distance and target bin (how off-distribution is it?)
-        # low rank bin gets higher pull force
-        multiplier = 10**(all_err*decay_factor*amp)
-        x[abs_err>bin_width] *= multiplier[abs_err>bin_width]
-        # set small weights to 0?
-        return x
-        
+    for module_name, module in old_model.named_modules():
+        if not isinstance(module, nn.BatchNorm2d): continue
+        bn_module = module
+        # set the right running mean/var
+        if args.split_running_stat:
+            if not hasattr(bn_module,'running_dict'):
+                # init running list
+                bn_module.running_dict = {}
+                for nid in range(num_subnets):
+                    bn_module.running_dict[f"mean{nid}"] = bn_module.running_mean.data.clone().detach()
+                    bn_module.running_dict[f"var{nid}"] = bn_module.running_var.data.clone().detach()
+            else:
+                # choose the right running mean/var for a subnet
+                # updated in the last update
+                bn_module.running_mean.data = bn_module.running_dict[f"mean{net_id}"]
+                bn_module.running_var.data = bn_module.running_dict[f"var{net_id}"]
+    
+    dynamic_model = copy.deepcopy(old_model)
     if args.arch == 'resnet50':
-        bn_modules = model.module.get_sparse_layer(gate=False,
+        bn_modules = dynamic_model.module.get_sparse_layer(gate=False,
                                            sparse1=True,
                                            sparse2=True,
                                            sparse3=True)
     elif args.arch == 'mobilenetv2':
-        bn_modules = model.module.get_sparse_layer(gate=False,
+        bn_modules = dynamic_model.module.get_sparse_layer(gate=False,
                                            pw_layer=True,
                                            linear_layer=True,
                                            with_weight=False)
     else:
         print('Unsupported arch')
         exit(0)
-    
-    all_scale_factors = torch.tensor([]).cuda()
     for bn_module in bn_modules:
-        if bn_module is None:continue
-        with torch.no_grad():
-            get_bin_distribution(bn_module.weight.data)
-            args.bias_err += torch.abs(bn_module.bias.data).sum()
-        all_scale_factors = torch.cat((all_scale_factors,torch.abs(bn_module.weight.data)))
+        all_scale_factors = torch.cat((all_scale_factors,bn_module.weight.data))
+    
     # total channels
     total_channels = len(all_scale_factors)
-    ch_per_bin = total_channels//num_bins
-    _,bin_indices = torch.tensor(args.ista_cnt_bins).sort()
-    remain = torch.ones(total_channels).long().cuda()
-    assigned_binindices = torch.zeros(total_channels).long().cuda()
+    channel_per_layer = total_channels//num_subnets
     
-    for bin_idx in bin_indices[:-1]:
-        dist = torch.abs(torch.log10(args.bins[bin_idx]/all_scale_factors)) 
-        not_assigned = remain.nonzero()
-        # remaining channels importance
-        chan_imp = dist[not_assigned] 
-        tmp,ch_indices = chan_imp.sort(dim=0)
-        selected_in_remain = ch_indices[:ch_per_bin]
-        selected = not_assigned[selected_in_remain]
-        remain[selected] = 0
-        assigned_binindices[selected] = bin_idx
-    assigned_binindices[remain.nonzero()] = bin_indices[-1]
+    _,ch_indices = all_scale_factors.sort(dim=0)
+    
+    weight_valid_mask = torch.zeros(total_channels).long().cuda()
+    weight_valid_mask[ch_indices[channel_per_layer*(num_subnets-1-net_id):]] = 1
         
+    freeze_mask = 1-weight_valid_mask
+    
     ch_start = 0
     for bn_module in bn_modules:
-        if bn_module is None:continue
         with torch.no_grad():
             ch_len = len(bn_module.weight.data)
-            bn_module.weight.data = redistribute(bn_module.weight.data, assigned_binindices[ch_start:ch_start+ch_len])
+            inactive = weight_valid_mask[ch_start:ch_start+ch_len]==0
+            # set useless channels to 0
+            bn_module.weight.data[inactive] = 0
+            bn_module.bias.data[inactive] = 0
             ch_start += ch_len
-    
-    
-def factor_visualization(iter, model, args, prec):
-    scale_factors = torch.tensor([]).cuda()
+    if not eval:
+        return freeze_mask,net_id,dynamic_model,ch_indices
+    else:
+        return dynamic_model
+        
+def mask_network(old_model,net_id):
+    dynamic_model = copy.deepcopy(old_model)
+    all_scale_factors = torch.tensor([]).cuda()
     if args.arch == 'resnet50':
-        bn_modules = model.module.get_sparse_layer(gate=False,
+        bn_modules = dynamic_model.module.get_sparse_layer(gate=False,
                                            sparse1=True,
                                            sparse2=True,
                                            sparse3=True)
     elif args.arch == 'mobilenetv2':
-        bn_modules = model.module.get_sparse_layer(gate=False,
+        bn_modules = dynamic_model.module.get_sparse_layer(gate=False,
                                            pw_layer=True,
                                            linear_layer=True,
                                            with_weight=False)
     else:
         print('Unsupported arch')
         exit(0)
-        
     for bn_module in bn_modules:
-        if bn_module is None:continue
-        scale_factors = torch.cat((scale_factors,torch.abs(bn_module.weight.data.view(-1))))
-    # plot figure
-    save_dir = args.save + 'factor/'
-    if not os.path.exists(save_dir):
-        os.makedirs(save_dir)
-    fig, axs = plt.subplots(ncols=2, figsize=(10,4))
-    # plots
-    scale_factors = torch.clamp(scale_factors,min=1e-20)
-    sns.histplot(scale_factors.detach().cpu().numpy(), ax=axs[0])
-    sns.histplot(torch.log10(scale_factors).detach().cpu().numpy(), ax=axs[1])
-
-    #biases = torch.clamp(biases,min=1e-20)
-    #sns.histplot(biases.detach().cpu().numpy(), ax=axs[2])
-    #sns.histplot(torch.log10(biases).detach().cpu().numpy(), ax=axs[3])
-    fig.savefig(save_dir + f'{iter:03d}_{prec:.3f}.png')
-    plt.close('all')
+        all_scale_factors = torch.cat((all_scale_factors,bn_module.weight.data))
+        if args.split_running_stat:
+            assert hasattr(bn_module,'running_dict')
+            bn_module.running_mean.data = bn_module.running_dict[f"mean{net_id}"]
+            bn_module.running_var.data = bn_module.running_dict[f"var{net_id}"]
+            
+    # total channels
+    total_channels = len(all_scale_factors)
+    channel_per_layer = total_channels//len(args.alphas)
     
+    _,ch_indices = all_scale_factors.sort(dim=0)
+    
+    weight_valid_mask = torch.zeros(total_channels).long().cuda()
+    weight_valid_mask[ch_indices[channel_per_layer*(len(args.alphas)-1-net_id):]] = 1
+    
+    ch_start = 0
+    for bn_module in bn_modules:
+        ch_len = len(bn_module.weight.data)
+        out_channel_mask = weight_valid_mask[ch_start:ch_start+ch_len]==1
+        # for pruning
+        bn_module.out_channel_mask = out_channel_mask.clone().detach()
+        ch_start += ch_len
+    return dynamic_model
+
+args.ps_batch = len(args.alphas)
+    
+def update_shared_model(old_model,new_model,mask,batch_idx,ch_indices,net_id):
+    def copy_module_grad(old_module,new_module,onmask=None):
+        # copy weights grad
+        if onmask is not None:
+            freeze_mask = onmask == 1
+            keep_mask = onmask == 0
+            if isinstance(new_module, nn.Conv2d):
+                new_module.weight.grad.data[freeze_mask, :, :, :] = 0
+            elif isinstance(new_module, nn.Linear):
+                new_module.weight.grad.data[freeze_mask, :] = 0
+            elif isinstance(new_module,nn.BatchNorm2d) or isinstance(new_module,nn.BatchNorm1d):
+                new_module.weight.grad.data[freeze_mask] = 0
+        # copy running mean/var
+        if isinstance(new_module,nn.BatchNorm2d) or isinstance(new_module,nn.BatchNorm1d):
+            if args.split_running_stat:
+                if onmask is not None:
+                    old_module.running_dict[f"mean{net_id}"][keep_mask] = new_module.running_mean.data[keep_mask].clone().detach()
+                    old_module.running_dict[f"var{net_id}"][keep_mask] = new_module.running_var.data[keep_mask].clone().detach()
+                else:
+                    old_module.running_dict[f"mean{net_id}"] = new_module.running_mean.data.clone().detach()
+                    old_module.running_dict[f"var{net_id}"] = new_module.running_var.data.clone().detach()
+            else:
+                if onmask is not None:
+                    old_module.running_mean.data[keep_mask] = new_module.running_mean.data[keep_mask]
+                    old_module.running_var.data[keep_mask] = new_module.running_var.data[keep_mask]
+                else:
+                    old_module.running_mean.data = new_module.running_mean.data
+                    old_module.running_var.data = new_module.running_var.data
+        if args.alphas[net_id] == 0:return
+        copy_param_grad(old_module.weight,new_module.weight)
+        # copy bias grad
+        if hasattr(new_module,'bias') and new_module.bias is not None:
+            if onmask is not None:
+                new_module.bias.grad.data[freeze_mask] = 0
+            copy_param_grad(old_module.bias,new_module.bias)
+            
+    def copy_param_grad(old_param,new_param):
+        new_grad = new_param.grad.clone().detach() * args.alphas[net_id]
+        if not hasattr(old_param,'grad_tmp') or old_param.grad_tmp is None:
+            old_param.grad_tmp = new_grad
+        else:
+            old_param.grad_tmp += new_grad
+        if batch_idx%args.ps_batch == args.ps_batch-1:
+            old_param.grad = old_param.grad_tmp
+            old_param.grad_tmp = None
+            
+    bns1,convs1 = old_model.get_sparse_layers_and_convs()
+    bns2,convs2 = new_model.get_sparse_layers_and_convs()
+    ch_start = 0
+    for conv1,bn1,conv2,bn2 in zip(convs1,bns1,convs2,bns2):
+        ch_len = conv1.weight.data.size(0)
+        with torch.no_grad():
+            tmp = mask[ch_start:ch_start+ch_len]
+            copy_module_grad(bn1,bn2,tmp)
+            copy_module_grad(conv1,conv2,tmp)
+        ch_start += ch_len
+    
+    with torch.no_grad():
+        old_non_sparse_modules = get_non_sparse_modules(old_model)
+        new_non_sparse_modules = get_non_sparse_modules(new_model)
+        for old_module,new_module in zip(old_non_sparse_modules,new_non_sparse_modules):
+            copy_module_grad(old_module,new_module)
+            
+def get_non_sparse_modules(model):
+    sparse_modules = []
+    bn_modules,conv_modules = model.module.get_sparse_layers_and_convs()
+    for bn,conv in zip(bn_modules,conv_modules):
+        sparse_modules.append(bn)
+        sparse_modules.append(conv)
+    sparse_modules_set = set(sparse_modules)
+    non_sparse_modules = []
+    for module_name, module in model.named_modules():
+        if module not in sparse_modules_set:
+            if isinstance(module, nn.Conv2d) or isinstance(module, nn.BatchNorm2d) or isinstance(module, nn.Linear):
+                non_sparse_modules.append(module)
+    return non_sparse_modules
     
 def _compute_polarization_sparsity(sparse_modules: list, lbd, t, alpha, bn_weights_mean, loss_type):
     sparsity_loss = 0
@@ -1226,38 +1247,22 @@ def report_prune_result(model):
 def prune_while_training(model, arch, prune_mode, width_multiplier, val_loader, criterion, epoch, args):
     if isinstance(model, nn.DataParallel) or isinstance(model, nn.parallel.DistributedDataParallel):
         model = model.module
-
-    target_ratios = [.25,.5,.75]#[0.1 + 0.1*x for x in range(9)]
+        
     saved_flops = []
     saved_prec1s = []
 
     if arch == "resnet50":
         from resprune_expand_gate import prune_resnet
-        for ratio in target_ratios:
-            saved_model = prune_resnet(model, pruning_strategy='percent', percent=ratio,
-                                       sanity_check=False, prune_mode=prune_mode)
-            prec1 = validate(val_loader, saved_model.cuda(), criterion, epoch=epoch, args=args, writer=None)
-            flop = compute_conv_flops(saved_model, cuda=True)
-            saved_prec1s += [prec1]
-            saved_flops += [flop]
-    elif arch == 'mobilenetv2':
-        from prune_mobilenetv2 import prune_mobilenet
-        for ratio in target_ratios:
-            saved_model = prune_mobilenet(model, pruning_strategy='percent', percent=ratio,
-                                            sanity_check=False, force_same=False,
-                                            width_multiplier=width_multiplier)
-            flop = compute_conv_flops(saved_model, cuda=True)
-            prec1 = validate(val_loader, saved_model.cuda(), criterion, epoch=epoch, args=args, writer=None)
-            saved_prec1s += [prec1]
-            saved_flops += [flop]
-    else:
-        # not available
+        for i in range(len(args.alphas)):
+            saved_mode
         raise NotImplementedError(f"do not support arch {arch}")
 
     baseline_flops = compute_conv_flops(model, cuda=True)
     
+    prune_str = ''
     for flop,prec1 in zip(saved_flops,saved_prec1s):
-        print(f"FLOPs {flop} (ratio: {flop / baseline_flops:.4f}), prec1: {prec1}")
+        prune_str += f"[{prec1:.4f}({flop / baseline_flops*100:.2f}%)],"
+    return prec1,prune_str
 
 
 def train(train_loader, model, criterion, optimizer, epoch, sparsity, args, is_debug=False,

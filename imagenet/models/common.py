@@ -216,7 +216,10 @@ def prune_conv_layer(conv_layer: nn.Conv2d,
                 raise ValueError(f"Do not support prune_mode {prune_mode}")
 
             # prune and get the pruned mask
-            out_channel_mask = pruner(sparse_weight_out)
+            if hasattr(bn_layer,'out_channel_mask'):
+                out_channel_mask = bn_layer.out_channel_mask.data.cpu().numpy()
+            else:
+                out_channel_mask = pruner(sparse_weight_out)
         elif prune_output_mode == "keep":
             # do not prune the output
             out_channel_mask = np.ones(conv_layer.out_channels)

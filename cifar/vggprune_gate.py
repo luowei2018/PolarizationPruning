@@ -71,7 +71,6 @@ def prune_vgg(num_classes: int, sparse_model: torch.nn.Module, pruning_strategy:
     # note that pruned model could not do forward pass.
     # need to set channel expand.
     pruned_model = copy.deepcopy(sparse_model)
-    pruned_model.cpu()
     if prune_type == 'polarization':
         pruner = lambda weight: search_threshold(weight, pruning_strategy) # find the cut of factors
     elif prune_type == 'ns':
