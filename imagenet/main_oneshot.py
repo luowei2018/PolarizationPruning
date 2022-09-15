@@ -613,7 +613,7 @@ def main_worker(gpu, ngpus_per_node, args):
     
     if args.evaluate:
         sparse_params = []
-        bn_modules,conv_modules = model.get_sparse_layers_and_convs()
+        bn_modules,conv_modules = model.module.get_sparse_layers_and_convs()
         for bn,conv in zip(bn_modules,conv_modules):
             sparse_params.append(bn.weight)
             if hasattr(bn,'bias'):
