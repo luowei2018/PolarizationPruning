@@ -623,8 +623,10 @@ def main_worker(gpu, ngpus_per_node, args):
                 sparse_params.append(conv.bias)
         sparse_params_set = set(sparse_params)
         for param_name, model_p in model.named_parameters():
-            if model_p not in sparse_params_set:
-                print(param_name)
+            pass
+            #if model_p not in sparse_params_set:print(param_name)
+        for module_name, module in model.named_modules():
+            print(module_name)
         exit(0)
         prune_while_training(model, args.arch, args.prune_mode, args.width_multiplier, val_loader, criterion, 0, args)
         return
