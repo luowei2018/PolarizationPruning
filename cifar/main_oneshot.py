@@ -606,8 +606,8 @@ def update_shared_model(old_model,new_model,mask,batch_idx,ch_indices,net_id):
             tmp = mask[ch_start:ch_start+ch_len]
             copy_module_grad(bn1,bn2,tmp)
             copy_module_grad(conv1,conv2,tmp)
-            bn1.weight.data = bn1.original_weights
-            bn1.bias.data = bn1.original_biases
+            bn1.weight.data = bn1.original_weights.clone().detach()
+            bn1.bias.data = bn1.original_biases.clone().detach()
         ch_start += ch_len
     
     with torch.no_grad():
