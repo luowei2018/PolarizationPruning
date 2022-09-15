@@ -1017,9 +1017,6 @@ def sample_network(old_model,net_id=None,eval=False):
         net_id = torch.tensor(0).random_(0,num_subnets)
     all_scale_factors = torch.tensor([]).cuda()
     # config old model
-    if args.arch == 'resnet56':
-        old_sparse_layers += [old_model.bn1]
-        
     for module_name, module in old_model.named_modules():
         if not isinstance(module, nn.BatchNorm2d): continue
         bn_module = module

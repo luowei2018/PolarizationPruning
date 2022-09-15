@@ -329,6 +329,13 @@ if args.resume:
 
         args.start_epoch = checkpoint['epoch']
         best_prec1 = checkpoint['best_prec1']
+        if args.split_running_stat:
+            for bn_module, module in model.named_modules():
+                if not isinstance(bn_module, nn.BatchNorm2d): continue
+                # set the right running mean/var
+                for nid in range(len(args.alphas)):
+                    bn_module.register_buffer(f"mean{nid}",bn_module.running_mean.data.clone().detach())
+                    bn_module.register_buffer(f"var{nid}",bn_module.running_var.data.clone().detach())
         model.load_state_dict(checkpoint['state_dict'])
         #optimizer.load_state_dict(checkpoint['optimizer'])
 
@@ -476,11 +483,9 @@ def sample_network(old_model,net_id=None,eval=False):
         net_id = torch.tensor(0).random_(0,num_subnets)
     all_scale_factors = torch.tensor([]).cuda()
     # config old model
-    if args.arch == 'resnet56':
-        old_sparse_layers = old_model.get_sparse_layers() + [old_model.bn1]
-    else:
-        old_sparse_layers = old_model.get_sparse_layers()
-    for bn_module in old_sparse_layers:
+    for module_name, module in old_model.named_modules():
+        if not isinstance(module, nn.BatchNorm2d): continue
+        bn_module = module
         # set the right running mean/var
         if args.split_running_stat:
             if not hasattr(bn_module,'mean0'):
