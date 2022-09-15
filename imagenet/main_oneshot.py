@@ -627,7 +627,9 @@ def main_worker(gpu, ngpus_per_node, args):
     
     if args.evaluate:
         #prec1 = validate(val_loader, model, criterion, epoch=0, args=args, writer=None)
-        #factor_visualization(0, model, args, prec1)
+        for param_name, model_p in model.named_parameters():
+            print(param_name)
+        exit(0)
         prune_while_training(model, args.arch, args.prune_mode, args.width_multiplier, val_loader, criterion, 0, args)
         return
 
@@ -676,9 +678,6 @@ def main_worker(gpu, ngpus_per_node, args):
                 epoch=epoch)
 
         writer.flush()
-        
-        # visualize scale factors
-        #factor_visualization(epoch, model, args, prec1)
 
         # prune the network and record FLOPs at each epoch
         #prune_while_training(model, args.arch, args.prune_mode, args.width_multiplier, val_loader, criterion, epoch, args)
