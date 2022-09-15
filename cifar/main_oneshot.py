@@ -476,11 +476,9 @@ def sample_network(old_model,net_id=None,eval=False):
         net_id = torch.tensor(0).random_(0,num_subnets)
     all_scale_factors = torch.tensor([]).cuda()
     # config old model
-    if args.arch == 'resnet56':
-        old_sparse_layers = old_model.get_sparse_layers() + [old_model.bn1]
-    else:
-        old_sparse_layers = old_model.get_sparse_layers()
     for bn_module in old_sparse_layers:
+    for module_name, bn_module in old_model.named_modules():
+        if not isinstance(bn_module, nn.BatchNorm2d): continue
         # set the right running mean/var
         if args.split_running_stat:
             if not hasattr(bn_module,'running_dict'):
@@ -562,12 +560,7 @@ def update_shared_model(old_model,new_model,mask,batch_idx,ch_indices,net_id):
         if onmask is not None:
             freeze_mask = onmask == 1
             keep_mask = onmask == 0
-            if isinstance(new_module, nn.Conv2d):
-                new_module.weight.grad.data[freeze_mask, :, :, :] = 0
-            elif isinstance(new_module, nn.Linear):
-                new_module.weight.grad.data[freeze_mask, :] = 0
-            elif isinstance(new_module,nn.BatchNorm2d) or isinstance(new_module,nn.BatchNorm1d):
-                new_module.weight.grad.data[freeze_mask] = 0
+            new_module.weight.grad.data[freeze_mask] = 0
         # copy running mean/var
         if isinstance(new_module,nn.BatchNorm2d) or isinstance(new_module,nn.BatchNorm1d):
             if args.split_running_stat:

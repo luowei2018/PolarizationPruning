@@ -1017,9 +1017,8 @@ def sample_network(old_model,net_id=None,eval=False):
         net_id = torch.tensor(0).random_(0,num_subnets)
     all_scale_factors = torch.tensor([]).cuda()
     # config old model
-    for module_name, module in old_model.named_modules():
-        if not isinstance(module, nn.BatchNorm2d): continue
-        bn_module = module
+    for module_name, bn_module in old_model.named_modules():
+        if not isinstance(bn_module, nn.BatchNorm2d): continue
         # set the right running mean/var
         if args.split_running_stat:
             if not hasattr(bn_module,'mean0'):
