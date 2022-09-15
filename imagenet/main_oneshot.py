@@ -202,6 +202,8 @@ parser.add_argument('--alphas', type=float, nargs='+', default=[1,1,1,1],
                     help='Multiplier of each subnet')
 parser.add_argument('--split_running_stat', action='store_true',
                     help='use split running mean/var for different subnets')
+parser.add_argument('--load_running_stat', action='store_true',
+                    help='load running mean/var for different subnets')
 
 best_prec1 = 0
 
@@ -553,6 +555,13 @@ def main_worker(gpu, ngpus_per_node, args):
         if os.path.isfile(args.resume):
             print("=> loading checkpoint '{}'".format(args.resume))
             checkpoint = torch.load(args.resume)
+            if args.split_running_stat and args.load_running_stat:
+                for module_name, bn_module in model.named_modules():
+                    if not isinstance(bn_module, nn.BatchNorm2d): continue
+                    # set the right running mean/var
+                    for nid in range(len(args.alphas)):
+                        bn_module.register_buffer(f"mean{nid}",bn_module.running_mean.data.clone().detach())
+                        bn_module.register_buffer(f"var{nid}",bn_module.running_var.data.clone().detach())
             model.load_state_dict(checkpoint['state_dict'])
             if not args.load_param_only:
                 args.start_epoch = checkpoint['epoch']

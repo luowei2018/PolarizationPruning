@@ -489,9 +489,7 @@ def sample_network(old_model,net_id=None,eval=False):
         if not isinstance(bn_module, nn.BatchNorm2d): continue
         # set the right running mean/var
         if args.split_running_stat:
-            if not hasattr(bn_module,'running_dict'):
-                # init running list
-                bn_module.running_dict = {}
+            if not hasattr(bn_module,'mean0'):
                 for nid in range(num_subnets):
                     bn_module.register_buffer(f"mean{nid}",bn_module.running_mean.data.clone().detach())
                     bn_module.register_buffer(f"var{nid}",bn_module.running_var.data.clone().detach())
@@ -538,8 +536,8 @@ def mask_network(old_model,net_id):
     for bn_module in bn_modules:
         all_scale_factors = torch.cat((all_scale_factors,bn_module.weight.data))
         if args.split_running_stat:
-            bn_module.running_mean.data = bn_module.running_dict[f"mean{net_id}"]
-            bn_module.running_var.data = bn_module.running_dict[f"var{net_id}"]
+            bn_module.running_mean.data = bn_module._buffers[f"mean{net_id}"]
+            bn_module.running_var.data = bn_module._buffers[f"var{net_id}"]
             
     # total channels
     total_channels = len(all_scale_factors)
