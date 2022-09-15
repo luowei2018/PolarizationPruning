@@ -470,7 +470,7 @@ def bn_sparsity(model, loss_type, sparsity, t, alpha,
         
 args.eps = 1e-10
     
-def sample_network(old_model,net_id=None,eval=False):
+def sample_network(old_model,net_id=None):
     num_subnets = len(args.alphas)
     if net_id is None:
         net_id = torch.tensor(0).random_(0,num_subnets)
@@ -494,7 +494,7 @@ def sample_network(old_model,net_id=None,eval=False):
                 bn_module.running_mean.data = bn_module._buffers[f"mean{net_id}"]
                 bn_module.running_var.data = bn_module._buffers[f"var{net_id}"]
     
-    dynamic_model = copy.deepcopy(old_model)
+    dynamic_model = (old_model)
     bn_modules = dynamic_model.get_sparse_layers()
     for bn_module in bn_modules:
         all_scale_factors = torch.cat((all_scale_factors,bn_module.weight.data))
@@ -519,10 +519,7 @@ def sample_network(old_model,net_id=None,eval=False):
             bn_module.weight.data[inactive] = 0
             bn_module.bias.data[inactive] = 0
             ch_start += ch_len
-    if not eval:
-        return freeze_mask,net_id,dynamic_model,ch_indices
-    else:
-        return dynamic_model
+    return freeze_mask,net_id,dynamic_model,ch_indices
         
 def mask_network(old_model,net_id):
     dynamic_model = copy.deepcopy(old_model)
@@ -555,7 +552,6 @@ def mask_network(old_model,net_id):
 args.ps_batch = len(args.alphas)
     
 def update_shared_model(old_model,new_model,mask,batch_idx,ch_indices,net_id):
-
     def copy_module_grad(old_module,new_module,onmask=None):
         # copy weights grad
         if onmask is not None:
