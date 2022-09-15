@@ -618,12 +618,10 @@ def main_worker(gpu, ngpus_per_node, args):
             sparse_modules.append(bn)
             sparse_modules.append(conv)
         sparse_modules_set = set(sparse_modules)
-        for param_name, model_p in model.named_parameters():
-            pass
-            #if model_p not in sparse_params_set:print(param_name)
         for module_name, module in model.named_modules():
             if module not in sparse_modules_set:
-                print(module_name)
+                if isinstance(m, nn.Conv2d) or isinstance(m, nn.BatchNorm2d) or isinstance(m, nn.Linear):
+                    print(module_name)
         exit(0)
         prune_while_training(model, args.arch, args.prune_mode, args.width_multiplier, val_loader, criterion, 0, args)
         return
