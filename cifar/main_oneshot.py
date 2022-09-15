@@ -329,13 +329,6 @@ if args.resume:
 
         args.start_epoch = 0#checkpoint['epoch']
         best_prec1 = checkpoint['best_prec1']
-        if args.split_running_stat:
-            for module_name, bn_module in model.named_modules():
-                if not isinstance(bn_module, nn.BatchNorm2d): continue
-                # set the right running mean/var
-                for nid in range(len(args.alphas)):
-                    bn_module.register_buffer(f"mean{nid}",bn_module.running_mean.data.clone().detach())
-                    bn_module.register_buffer(f"var{nid}",bn_module.running_var.data.clone().detach())
         model.load_state_dict(checkpoint['state_dict'])
         #optimizer.load_state_dict(checkpoint['optimizer'])
 
@@ -483,21 +476,24 @@ def sample_network(old_model,net_id=None,eval=False):
         net_id = torch.tensor(0).random_(0,num_subnets)
     all_scale_factors = torch.tensor([]).cuda()
     # config old model
-    for module_name, module in old_model.named_modules():
-        if not isinstance(module, nn.BatchNorm2d): continue
-        bn_module = module
+    if args.arch == 'resnet56':
+        old_sparse_layers = old_model.get_sparse_layers() + [old_model.bn1]
+    else:
+        old_sparse_layers = old_model.get_sparse_layers()
+    for bn_module in old_sparse_layers:
         # set the right running mean/var
         if args.split_running_stat:
-            if not hasattr(bn_module,'mean0'):
+            if not hasattr(bn_module,'running_dict'):
                 # init running list
+                bn_module.running_dict = {}
                 for nid in range(num_subnets):
-                    bn_module.register_buffer(f"mean{nid}",bn_module.running_mean.data.clone().detach())
-                    bn_module.register_buffer(f"var{nid}",bn_module.running_var.data.clone().detach())
+                    bn_module.running_dict[f"mean{nid}"] = bn_module.running_mean.data.clone().detach()
+                    bn_module.running_dict[f"var{nid}"] = bn_module.running_var.data.clone().detach()
             else:
                 # choose the right running mean/var for a subnet
                 # updated in the last update
-                bn_module.running_mean.data = bn_module._buffers[f"mean{net_id}"]
-                bn_module.running_var.data = bn_module._buffers[f"var{net_id}"]
+                bn_module.running_mean.data = bn_module.running_dict[f"mean{net_id}"]
+                bn_module.running_var.data = bn_module.running_dict[f"var{net_id}"]
     
     dynamic_model = copy.deepcopy(old_model)
     bn_modules = dynamic_model.get_sparse_layers()
@@ -536,8 +532,9 @@ def mask_network(old_model,net_id):
     for bn_module in bn_modules:
         all_scale_factors = torch.cat((all_scale_factors,bn_module.weight.data))
         if args.split_running_stat:
-            bn_module.running_mean.data = bn_module._buffers[f"mean{net_id}"]
-            bn_module.running_var.data = bn_module._buffers[f"var{net_id}"]
+            assert hasattr(bn_module,'running_dict')
+            bn_module.running_mean.data = bn_module.running_dict[f"mean{net_id}"]
+            bn_module.running_var.data = bn_module.running_dict[f"var{net_id}"]
             
     # total channels
     total_channels = len(all_scale_factors)
@@ -565,16 +562,21 @@ def update_shared_model(old_model,new_model,mask,batch_idx,ch_indices,net_id):
         if onmask is not None:
             freeze_mask = onmask == 1
             keep_mask = onmask == 0
-            new_module.weight.grad.data[freeze_mask] = 0
+            if isinstance(new_module, nn.Conv2d):
+                new_module.weight.grad.data[freeze_mask, :, :, :] = 0
+            elif isinstance(new_module, nn.Linear):
+                new_module.weight.grad.data[freeze_mask, :] = 0
+            elif isinstance(new_module,nn.BatchNorm2d) or isinstance(new_module,nn.BatchNorm1d):
+                new_module.weight.grad.data[freeze_mask] = 0
         # copy running mean/var
         if isinstance(new_module,nn.BatchNorm2d) or isinstance(new_module,nn.BatchNorm1d):
             if args.split_running_stat:
                 if onmask is not None:
-                    old_module._buffers[f"mean{net_id}"][keep_mask] = new_module.running_mean.data[keep_mask].clone().detach()
-                    old_module._buffers[f"var{net_id}"][keep_mask] = new_module.running_var.data[keep_mask].clone().detach()
+                    old_module.running_dict[f"mean{net_id}"][keep_mask] = new_module.running_mean.data[keep_mask].clone().detach()
+                    old_module.running_dict[f"var{net_id}"][keep_mask] = new_module.running_var.data[keep_mask].clone().detach()
                 else:
-                    old_module._buffers[f"mean{net_id}"] = new_module.running_mean.data.clone().detach()
-                    old_module._buffers[f"var{net_id}"] = new_module.running_var.data.clone().detach()
+                    old_module.running_dict[f"mean{net_id}"] = new_module.running_mean.data.clone().detach()
+                    old_module.running_dict[f"var{net_id}"] = new_module.running_var.data.clone().detach()
             else:
                 if onmask is not None:
                     old_module.running_mean.data[keep_mask] = new_module.running_mean.data[keep_mask]
