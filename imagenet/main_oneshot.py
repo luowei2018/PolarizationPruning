@@ -1271,7 +1271,7 @@ def train(train_loader, model, criterion, optimizer, epoch, sparsity, args, is_d
     train_iter = tqdm(train_loader)
     for i, (image, target) in enumerate(train_iter):
         batch_idx = i//num_mini_batch
-        if batch_idx==5:break
+        if args.debug and batch_idx >= 5: break
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
             freeze_mask,net_id,dynamic_model,ch_indices = sample_network(args,model,batch_idx%len(args.alphas))
             if args.alphas[net_id] == 0:continue
@@ -1494,6 +1494,8 @@ def validate(val_loader, model, criterion, epoch, args, writer=None):
                   'Prec@1 {top1.val:.3f} ({top1.avg:.3f}). '
                   'Prec@5 {top5.val:.3f} ({top5.avg:.3f})'.format(
                 batch_time=batch_time, loss=losses, top1=top1, top5=top5))
+            if args.debug and i >= 5:
+                break
     return top1.avg
 
 
