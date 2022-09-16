@@ -1266,11 +1266,10 @@ def train(train_loader, model, criterion, optimizer, epoch, sparsity, args, is_d
 
     end = time.time()
     train_iter = tqdm(train_loader)
-    batch_idx = 0
     for i, (image, target) in enumerate(train_iter):
+        batch_idx = i//num_mini_batch
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
             freeze_mask,net_id,dynamic_model,ch_indices = sample_network(args,model,batch_idx%len(args.alphas))
-            print(batch_idx,i,args.alphas[net_id])
             if args.alphas[net_id] == 0:continue
         # the adjusting only work when epoch is at decay_epoch
         adjust_learning_rate(optimizer, epoch, lr=args.lr, decay_epoch=args.decay_epoch,
@@ -1414,13 +1413,13 @@ def train(train_loader, model, criterion, optimizer, epoch, sparsity, args, is_d
         loss.backward()
            
         # mini batch
+        # only process at the last batch of minibatches
         if (i)%num_mini_batch == num_mini_batch-1:
             if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
                 update_shared_model(args,model,dynamic_model,freeze_mask,batch_idx,ch_indices,net_id)
             if args.loss not in {LossType.PROGRESSIVE_SHRINKING} or batch_idx%args.ps_batch==(args.ps_batch-1):
                 optimizer.step()
                 optimizer.zero_grad()
-            batch_idx += 1
             if args.loss == LossType.L1_SPARSITY_REGULARIZATION:
                 updateBN(model, sparsity,
                          sparsity_on_bn3=args.last_sparsity,
