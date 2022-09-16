@@ -574,8 +574,7 @@ def main_worker(gpu, ngpus_per_node, args):
             print("=> loaded checkpoint '{}' (epoch {} prec1 {})"
                   .format(args.resume, checkpoint['epoch'], best_prec1))
             if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
-                pass
-                #args.teacher_model = copy.deepcopy(model)
+                args.teacher_model = copy.deepcopy(model)
         else:
             raise ValueError("=> no checkpoint found at '{}'".format(args.resume))
             
@@ -1292,16 +1291,16 @@ def train(train_loader, model, criterion, optimizer, epoch, sparsity, args, is_d
 
         # compute output
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
+            soft_logits = args.teacher_model(image)
+            if isinstance(soft_logits, tuple):
+                soft_logits, _ = soft_logits
+            soft_label = F.softmax(soft_logits.detach(), dim=1)
             output = dynamic_model(image)
         else:
             output = model(image)
         if isinstance(output, tuple):
             output, extra_info = output
-        if False and args.loss in {LossType.PROGRESSIVE_SHRINKING}:
-            soft_logits = args.teacher_model(image)
-            if isinstance(soft_logits, tuple):
-                soft_logits, _ = soft_logits
-            soft_label = F.softmax(soft_logits.detach(), dim=1)
+        if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
             loss = cross_entropy_loss_with_soft_target(output, soft_label)
         else:
             loss = criterion(output, target)
