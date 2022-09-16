@@ -566,7 +566,7 @@ def main_worker(gpu, ngpus_per_node, args):
                     for nid in range(len(args.alphas)):
                         bn_module.register_buffer(f"mean{nid}",bn_module.running_mean.data.clone().detach())
                         bn_module.register_buffer(f"var{nid}",bn_module.running_var.data.clone().detach())
-            if hasattr('prec_list'):print(checkpoint['prec_list'])
+            if hasattr(checkpoint,'prec_list'):print(checkpoint['prec_list'])
             model.load_state_dict(checkpoint['state_dict'])
             if not args.load_param_only:
                 args.start_epoch = checkpoint['epoch']
