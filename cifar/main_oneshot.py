@@ -802,7 +802,7 @@ for epoch in range(args.start_epoch, args.epochs):
     train(epoch) # train with regularization
 
     prec1,prune_str = prune_while_training(model, arch=args.arch,prune_mode="default",num_classes=num_classes)
-    print(f"Epoch {epoch}/{args.epochs} learning rate {args.current_lr:.4f}",args.save,prune_str,args.alphas)
+    print(f"Epoch {epoch}/{args.epochs} learning rate {args.current_lr:.4f}",args.arch,args.save,prune_str,args.alphas)
     is_best = prec1 > best_prec1
     best_prec1 = max(prec1, best_prec1)
     save_checkpoint({
