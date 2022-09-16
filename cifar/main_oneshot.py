@@ -486,16 +486,14 @@ def sample_network(old_model,net_id=None,eval=False):
         net_id = torch.tensor(0).random_(0,num_subnets)
     all_scale_factors = torch.tensor([]).cuda()
     # config old model
-    for module_name, bn_module in old_model.named_modules():
+    for bn_module in old_model.modules():
         if not isinstance(bn_module, nn.BatchNorm2d): continue
         # set the right running mean/var
         if args.split_running_stat:
             if not hasattr(bn_module,'mean0'):
-                print(num_subnets)
                 for nid in range(num_subnets):
                     bn_module.register_buffer(f"mean{nid}",bn_module.running_mean.data.clone().detach())
                     bn_module.register_buffer(f"var{nid}",bn_module.running_var.data.clone().detach())
-                print(module_name,bn_module._buffers.keys())
             else:
                 # choose the right running mean/var for a subnet
                 # updated in the last update
