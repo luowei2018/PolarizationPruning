@@ -1080,7 +1080,6 @@ def mask_network(args,old_model,net_id):
     
     weight_valid_mask = torch.zeros(total_channels).long().cuda()
     weight_valid_mask[ch_indices[channel_per_layer*(len(args.alphas)-1-net_id):]] = 1
-    print(weight_valid_mask.sum(),weight_valid_mask.size())
     
     ch_start = 0
     for bn_module in bn_modules:
