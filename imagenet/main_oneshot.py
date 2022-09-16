@@ -648,7 +648,7 @@ def main_worker(gpu, ngpus_per_node, args):
         # train for one epoch
         train(train_loader, model, criterion, optimizer, epoch,
               args.lbd, args=args,
-              is_debug=args.debug, writer=writer)
+              is_debug=args.debug)
 
         # prune the network and record FLOPs at each epoch
         prec1,prune_str,saved_prec1s = prune_while_training(model, args.arch, args.prune_mode, args.width_multiplier, val_loader, criterion, epoch, args)
