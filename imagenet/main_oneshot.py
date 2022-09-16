@@ -1461,7 +1461,7 @@ def validate(val_loader, model, criterion, epoch, args, writer=None):
 
     # switch to evaluate mode
     model.eval()
-
+    print('Evaluating...')
     with torch.no_grad():
         end = time.time()
         val_iter = tqdm(val_loader)
@@ -1485,12 +1485,12 @@ def validate(val_loader, model, criterion, epoch, args, writer=None):
             batch_time.update(time.time() - end)
             end = time.time()
 
-            val_iter.set_description(
-                  'Time {batch_time.val:.3f} ({batch_time.avg:.3f}). '
-                  'Loss {loss.val:.4f} ({loss.avg:.4f}). '
-                  'Prec@1 {top1.val:.3f} ({top1.avg:.3f}). '
-                  'Prec@5 {top5.val:.3f} ({top5.avg:.3f})'.format(
-                batch_time=batch_time, loss=losses, top1=top1, top5=top5))
+            #val_iter.set_description(
+            #      'Time {batch_time.val:.3f} ({batch_time.avg:.3f}). '
+            #      'Loss {loss.val:.4f} ({loss.avg:.4f}). '
+            #      'Prec@1 {top1.val:.3f} ({top1.avg:.3f}). '
+            #      'Prec@5 {top5.val:.3f} ({top5.avg:.3f})'.format(
+            #    batch_time=batch_time, loss=losses, top1=top1, top5=top5))
             if args.debug and i >= 5:
                 break
     return top1.avg
