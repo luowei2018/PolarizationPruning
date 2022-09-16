@@ -487,7 +487,7 @@ def sample_network(old_model,net_id=None,eval=False):
     all_scale_factors = torch.tensor([]).cuda()
     # config old model
     for module_name,bn_module in old_model.named_modules():
-        print(module_name,isinstance(bn_module, nn.BatchNorm2d))
+        print(module_name,isinstance(bn_module, nn.BatchNorm2d),type(bn_module))
         if not isinstance(bn_module, nn.BatchNorm2d): continue
         # set the right running mean/var
         if args.split_running_stat:
