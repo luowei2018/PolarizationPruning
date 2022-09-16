@@ -488,6 +488,7 @@ def sample_network(old_model,net_id=None,eval=False):
     # config old model
     for module_name,bn_module in old_model.named_modules():
         if not isinstance(bn_module, nn.BatchNorm2d): continue
+        print(module_name)
         # set the right running mean/var
         if args.split_running_stat:
             if not hasattr(bn_module,'mean0'):
