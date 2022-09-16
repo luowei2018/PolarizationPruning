@@ -491,6 +491,7 @@ def sample_network(old_model,net_id=None,eval=False):
         # set the right running mean/var
         if args.split_running_stat:
             if not hasattr(bn_module,'mean0'):
+                print(num_subnets)
                 for nid in range(num_subnets):
                     bn_module.register_buffer(f"mean{nid}",bn_module.running_mean.data.clone().detach())
                     bn_module.register_buffer(f"var{nid}",bn_module.running_var.data.clone().detach())
