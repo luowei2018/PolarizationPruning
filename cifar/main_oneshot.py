@@ -610,6 +610,8 @@ def update_shared_model(old_model,new_model,mask,batch_idx,ch_indices,net_id):
         ch_len = conv1.weight.data.size(0)
         with torch.no_grad():
             tmp = mask[ch_start:ch_start+ch_len]
+            assert hasattr(bn1,'mean0')
+            assert hasattr(bn1,'var0')
             copy_module_grad(bn1,bn2,tmp)
             copy_module_grad(conv1,conv2,tmp)
         ch_start += ch_len
