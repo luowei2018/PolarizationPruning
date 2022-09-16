@@ -684,6 +684,7 @@ class MobileNetV2(nn.Module):
                 if linear_layer:
                     sparse_layers.append(sub_module.linear_layer[1])
                     sparse_convs.append(sub_module.linear_layer[0])
+        exit(0)
         return sparse_layers,sparse_convs
 
     def get_conv_flops_weight(self,
