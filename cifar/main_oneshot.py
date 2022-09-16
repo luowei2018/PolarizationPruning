@@ -334,7 +334,7 @@ if args.resume:
         if args.split_running_stat:
             if args.load_running_stat:
                 for module_name, bn_module in model.named_modules():
-                    if not isinstance(bn_module, nn.BatchNorm2d): continue
+                    if not isinstance(bn_module, nn.BatchNorm2d) or not isinstance(bn_module, nn.BatchNorm1d): continue
                     # set the right running mean/var
                     for nid in range(len(args.alphas)):
                         bn_module.register_buffer(f"mean{nid}",bn_module.running_mean.data.clone().detach())
