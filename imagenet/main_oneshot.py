@@ -559,7 +559,7 @@ def main_worker(gpu, ngpus_per_node, args):
             checkpoint = torch.load(args.resume)
             if args.split_running_stat and args.load_running_stat:
                 for module_name, bn_module in model.named_modules():
-                    if not isinstance(bn_module, nn.BatchNorm2d): continue
+                    if not isinstance(bn_module, nn.BatchNorm2d) and not isinstance(bn_module,nn.BatchNorm1d): continue
                     # set the right running mean/var
                     for nid in range(len(args.alphas)):
                         bn_module.register_buffer(f"mean{nid}",bn_module.running_mean.data.clone().detach())
@@ -1031,7 +1031,7 @@ def sample_network(args,old_model,net_id=None,eval=False):
     all_scale_factors = torch.tensor([]).cuda()
     # config old model
     for module_name, bn_module in old_model.named_modules():
-        if not isinstance(bn_module, nn.BatchNorm2d): continue
+        if not isinstance(bn_module, nn.BatchNorm2d) and not isinstance(bn_module,nn.BatchNorm1d): continue
         # set the right running mean/var
         if args.split_running_stat:
             if not hasattr(bn_module,'mean0'):
@@ -1046,19 +1046,7 @@ def sample_network(args,old_model,net_id=None,eval=False):
                 bn_module.running_var.data = bn_module._buffers[f"var{net_id}"]
     
     dynamic_model = copy.deepcopy(old_model)
-    if args.arch == 'resnet50':
-        bn_modules = dynamic_model.module.get_sparse_layer(gate=False,
-                                           sparse1=True,
-                                           sparse2=True,
-                                           sparse3=True)
-    elif args.arch == 'mobilenetv2':
-        bn_modules = dynamic_model.module.get_sparse_layer(gate=False,
-                                           pw_layer=True,
-                                           linear_layer=True,
-                                           with_weight=False)
-    else:
-        print('Unsupported arch')
-        exit(0)
+    bn_modules,_ = dynamic_model.module.get_sparse_layers_and_convs()
     for bn_module in bn_modules:
         all_scale_factors = torch.cat((all_scale_factors,bn_module.weight.data))
     
@@ -1090,19 +1078,7 @@ def sample_network(args,old_model,net_id=None,eval=False):
 def mask_network(args,old_model,net_id):
     dynamic_model = copy.deepcopy(old_model)
     all_scale_factors = torch.tensor([]).cuda()
-    if args.arch == 'resnet50':
-        bn_modules = dynamic_model.module.get_sparse_layer(gate=False,
-                                           sparse1=True,
-                                           sparse2=True,
-                                           sparse3=True)
-    elif args.arch == 'mobilenetv2':
-        bn_modules = dynamic_model.module.get_sparse_layer(gate=False,
-                                           pw_layer=True,
-                                           linear_layer=True,
-                                           with_weight=False)
-    else:
-        print('Unsupported arch')
-        exit(0)
+    bn_modules,_ = dynamic_model.module.get_sparse_layers_and_convs()
     for bn_module in bn_modules:
         all_scale_factors = torch.cat((all_scale_factors,bn_module.weight.data))
         if args.split_running_stat:
@@ -1173,8 +1149,8 @@ def update_shared_model(args,old_model,new_model,mask,batch_idx,ch_indices,net_i
             old_param.grad = old_param.grad_tmp
             old_param.grad_tmp = None
             
-    bns1,convs1 = old_model.get_sparse_layers_and_convs()
-    bns2,convs2 = new_model.get_sparse_layers_and_convs()
+    bns1,convs1 = old_model.module.get_sparse_layers_and_convs()
+    bns2,convs2 = new_model.module.get_sparse_layers_and_convs()
     ch_start = 0
     for conv1,bn1,conv2,bn2 in zip(convs1,bns1,convs2,bns2):
         ch_len = conv1.weight.data.size(0)
@@ -1234,19 +1210,6 @@ def clamp_bn(model, gate, lower_bound=0, upper_bound=1):
 
     for m in clamp_modules:
         m.weight.data.clamp_(lower_bound, upper_bound)
-
-
-def report_prune_result(model):
-    print("*******PRUNING REPORT*******")
-    for k, m in enumerate(model.modules()):
-        if isinstance(m, nn.BatchNorm2d) or isinstance(m, nn.BatchNorm1d):
-            weight_copy = m.weight.data.abs().clone()
-            thre = 0.01
-            mask = weight_copy.gt(thre)
-            mask = mask.float().cuda()
-            print('layer index: {:d} \t total channel: {:d} \t remaining channel: {:d}'.
-                  format(k, mask.shape[0], int(torch.sum(mask))))
-    print("****************************")
     
 
 def prune_while_training(model, arch, prune_mode, width_multiplier, val_loader, criterion, epoch, args):
@@ -1303,7 +1266,7 @@ def train(train_loader, model, criterion, optimizer, epoch, sparsity, args, is_d
 
     end = time.time()
     train_iter = tqdm(train_loader)
-    batch_idx
+    batch_idx = 0
     for i, (image, target) in enumerate(train_iter):
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
             freeze_mask,net_id,dynamic_model,ch_indices = sample_network(args,model,batch_idx%len(args.alphas))
@@ -1475,42 +1438,18 @@ def train(train_loader, model, criterion, optimizer, epoch, sparsity, args, is_d
         end = time.time()
 
         if args.rank == 0 and (i+1)%num_mini_batch == 0:
-            if args.loss not in {LossType.LOG_QUANTIZATION}:
-                train_iter.set_description(
-                      'Epoch: [{epoch:03d}]. '
-                      'Time {batch_time.val:.3f} ({batch_time.avg:.3f}). '
-                      'Data {data_time.val:.3f} ({data_time.avg:.3f}). '
-                      'Loss {loss.val:.4f} ({loss.avg:.4f}). '
-                      'Sparsity Loss {s_loss.val:.4f} ({s_loss.avg:.4f}). '
-                      'Learning rate {lr}. '
-                      'Prec@1 {top1.val:.3f} ({top1.avg:.3f}). '
-                      'Prec@5 {top5.val:.3f} ({top5.avg:.3f})'.format(
-                    epoch=epoch, batch_time=batch_time,
-                    data_time=data_time, loss=losses, s_loss=avg_sparsity_loss,
-                    top1=top1, top5=top5, lr=optimizer.param_groups[0]['lr']))
-            else:
-                weight_err = args.weight_err.cpu().item()
-                bias_err = args.bias_err.cpu().item()
-                train_iter.set_description(
-                      'Epoch: [{epoch:03d}]. '
-                      'Time {batch_time.val:.3f} ({batch_time.avg:.3f}). '
-                      'Data {data_time.val:.3f} ({data_time.avg:.3f}). '
-                      'Loss {loss.val:.4f} ({loss.avg:.4f}). '
-                      'Sparsity Loss {w_loss:.4f} {b_loss:.4f}. '
-                      'Learning rate {lr}. '
-                      'Prec@1 {top1.val:.3f} ({top1.avg:.3f}). '
-                      'Prec@5 {top5.val:.3f} ({top5.avg:.3f})'.format(
-                    epoch=epoch, batch_time=batch_time,
-                    data_time=data_time, loss=losses, w_loss=weight_err, b_loss=bias_err,
-                    top1=top1, top5=top5, lr=optimizer.param_groups[0]['lr']))
-        if is_debug and i >= 5:
-            break
-
-    if writer is not None:
-        writer.add_scalar("train/cross_entropy", losses.avg, epoch)
-        writer.add_scalar("train/sparsity_loss", avg_sparsity_loss.avg, epoch)
-        writer.add_scalar("train/top1", top1.avg.item(), epoch)
-        writer.add_scalar("train/top5", top5.avg.item(), epoch)
+            train_iter.set_description(
+                  'Epoch: [{epoch:03d}]. '
+                  'Time {batch_time.val:.3f} ({batch_time.avg:.3f}). '
+                  'Data {data_time.val:.3f} ({data_time.avg:.3f}). '
+                  'Loss {loss.val:.4f} ({loss.avg:.4f}). '
+                  'Sparsity Loss {s_loss.val:.4f} ({s_loss.avg:.4f}). '
+                  'Learning rate {lr}. '
+                  'Prec@1 {top1.val:.3f} ({top1.avg:.3f}). '
+                  'Prec@5 {top5.val:.3f} ({top5.avg:.3f})'.format(
+                epoch=epoch, batch_time=batch_time,
+                data_time=data_time, loss=losses, s_loss=avg_sparsity_loss,
+                top1=top1, top5=top5, lr=optimizer.param_groups[0]['lr']))
 
 
 def validate(val_loader, model, criterion, epoch, args, writer=None):
@@ -1553,10 +1492,6 @@ def validate(val_loader, model, criterion, epoch, args, writer=None):
                 batch_time=batch_time, loss=losses, top1=top1, top5=top5))
             if args.debug and i >= 5:
                 break
-
-    if writer is not None:
-        writer.add_scalar("val/cross_entropy", losses.avg, epoch)
-        writer.add_scalar("val/top1", top1.avg.item(), epoch)
     return top1.avg
 
 
