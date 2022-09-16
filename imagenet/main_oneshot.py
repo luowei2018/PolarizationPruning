@@ -1088,8 +1088,6 @@ def mask_network(args,old_model,net_id):
         # for pruning
         bn_module.out_channel_mask = out_channel_mask.clone().detach()
         ch_start += ch_len
-    for bn_module in dynamic_model.get_sparse_layers_and_convs()[0]:
-        assert hasattr(bn_module,'out_channel_mask')
     return dynamic_model
     
 def update_shared_model(args,old_model,new_model,mask,batch_idx,ch_indices,net_id):
@@ -1224,7 +1222,7 @@ def prune_while_training(model, arch, prune_mode, width_multiplier, val_loader, 
         from prune_mobilenetv2 import prune_mobilenet
         for i in range(len(args.alphas)):
             masked_model = mask_network(args,model,i)
-            saved_model = prune_mobilenet(model, pruning_strategy='mask', sanity_check=False, force_same=False,
+            saved_model = prune_mobilenet(masked_model, pruning_strategy='mask', sanity_check=False, force_same=False,
                                             width_multiplier=width_multiplier)
             prec1 = validate(val_loader, saved_model, criterion, epoch=epoch, args=args, writer=None)
             flop = compute_conv_flops(saved_model, cuda=True)

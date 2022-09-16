@@ -220,7 +220,6 @@ def prune_conv_layer(conv_layer: nn.Conv2d,
             # prune and get the pruned mask
             if hasattr(bn_layer,'out_channel_mask'):
                 out_channel_mask = bn_layer.out_channel_mask.data.cpu().numpy()
-                print('prune',bn_layer.out_channel_mask.sum(),bn_layer.out_channel_mask.size())
             else:
                 out_channel_mask = pruner(sparse_weight_out)
         elif prune_output_mode == "keep":
