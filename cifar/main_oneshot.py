@@ -499,6 +499,7 @@ def sample_network(old_model,net_id=None,eval=False):
                 # updated in the last update
                 bn_module.running_mean.data = bn_module._buffers[f"mean{net_id}"]
                 bn_module.running_var.data = bn_module._buffers[f"var{net_id}"]
+        assert hasattr(bn_module,'mean0')
     
     dynamic_model = copy.deepcopy(old_model)
     bn_modules = dynamic_model.get_sparse_layers()
@@ -525,7 +526,6 @@ def sample_network(old_model,net_id=None,eval=False):
             bn_module.weight.data[inactive] = 0
             bn_module.bias.data[inactive] = 0
             ch_start += ch_len
-            assert hasattr(bn_module,'mean0')
     if not eval:
         return freeze_mask,net_id,dynamic_model,ch_indices
     else:
