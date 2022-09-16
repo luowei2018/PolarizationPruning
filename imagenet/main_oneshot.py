@@ -521,18 +521,6 @@ def main_worker(gpu, ngpus_per_node, args):
                                 args.lr[0],
                                 momentum=args.momentum)
 
-    if args.debug:
-        # fake polarization to test pruning
-        for name, module in model.named_modules():
-            if isinstance(module, nn.BatchNorm1d) or \
-                    isinstance(module, nn.BatchNorm2d) or \
-                    isinstance(module, models.common.SparseGate):
-                module.weight.data.zero_()
-                one_num = randint(3, 30)
-                module.weight.data[:one_num] = 1.
-
-                print(f"{name} remains {one_num}")
-
     if args.pretrain:
         if os.path.isfile(args.pretrain):
             print("=> loading pre-train checkpoint '{}'".format(args.pretrain))
@@ -1271,7 +1259,7 @@ def train(train_loader, model, criterion, optimizer, epoch, sparsity, args, is_d
     train_iter = tqdm(train_loader)
     for i, (image, target) in enumerate(train_iter):
         batch_idx = i//num_mini_batch
-        if args.debug and batch_idx >= 5: break
+        if args.debug and batch_idx >= 10: break
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
             freeze_mask,net_id,dynamic_model,ch_indices = sample_network(args,model,batch_idx%len(args.alphas))
             if args.alphas[net_id] == 0:continue
@@ -1494,7 +1482,7 @@ def validate(val_loader, model, criterion, epoch, args, writer=None):
                   'Prec@1 {top1.val:.3f} ({top1.avg:.3f}). '
                   'Prec@5 {top5.val:.3f} ({top5.avg:.3f})'.format(
                 batch_time=batch_time, loss=losses, top1=top1, top5=top5))
-            if args.debug and i >= 5:
+            if args.debug and i >= 10:
                 break
     return top1.avg
 
