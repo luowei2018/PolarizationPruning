@@ -1079,7 +1079,7 @@ def sample_network(args,old_model,net_id=None,eval=False):
 def mask_network(args,old_model,net_id):
     dynamic_model = copy.deepcopy(old_model)
     all_scale_factors = torch.tensor([]).cuda()
-    bn_modules,_ = dynamic_model.module.get_sparse_layers_and_convs()
+    bn_modules,_ = dynamic_model.get_sparse_layers_and_convs()
     for bn_module in bn_modules:
         all_scale_factors = torch.cat((all_scale_factors,bn_module.weight.data))
         if args.split_running_stat:
