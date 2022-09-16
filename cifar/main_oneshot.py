@@ -495,8 +495,7 @@ def sample_network(old_model,net_id=None,eval=False):
                 for nid in range(num_subnets):
                     bn_module.register_buffer(f"mean{nid}",bn_module.running_mean.data.clone().detach())
                     bn_module.register_buffer(f"var{nid}",bn_module.running_var.data.clone().detach())
-                    assert hasattr(bn_module,f"mean{nid}")
-                print(module_name,bn_module._buffer.keys())
+                print(module_name,bn_module._buffers.keys())
             else:
                 # choose the right running mean/var for a subnet
                 # updated in the last update
