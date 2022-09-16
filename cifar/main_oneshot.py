@@ -499,11 +499,6 @@ def sample_network(old_model,net_id=None,eval=False):
                 # updated in the last update
                 bn_module.running_mean.data = bn_module._buffers[f"mean{net_id}"]
                 bn_module.running_var.data = bn_module._buffers[f"var{net_id}"]
-        assert hasattr(bn_module,'mean0')
-    for module_name,bn_module in old_model.named_modules():
-        if not isinstance(bn_module, nn.BatchNorm2d): continue
-        print(module_name)
-        assert hasattr(bn_module,'mean0')
     dynamic_model = copy.deepcopy(old_model)
     bn_modules = dynamic_model.get_sparse_layers()
     for bn_module in bn_modules:
