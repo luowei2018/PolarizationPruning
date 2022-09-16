@@ -331,13 +331,14 @@ if args.resume:
 
         args.start_epoch = 0#checkpoint['epoch']
         best_prec1 = checkpoint['best_prec1']
-        if args.split_running_stat and args.load_running_stat:
-            for module_name, bn_module in model.named_modules():
-                if not isinstance(bn_module, nn.BatchNorm2d): continue
-                # set the right running mean/var
-                for nid in range(len(args.alphas)):
-                    bn_module.register_buffer(f"mean{nid}",bn_module.running_mean.data.clone().detach())
-                    bn_module.register_buffer(f"var{nid}",bn_module.running_var.data.clone().detach())
+        if args.split_running_stat:
+            if args.load_running_stat:
+                for module_name, bn_module in model.named_modules():
+                    if not isinstance(bn_module, nn.BatchNorm2d): continue
+                    # set the right running mean/var
+                    for nid in range(len(args.alphas)):
+                        bn_module.register_buffer(f"mean{nid}",bn_module.running_mean.data.clone().detach())
+                        bn_module.register_buffer(f"var{nid}",bn_module.running_var.data.clone().detach())
         model.load_state_dict(checkpoint['state_dict'])
         #optimizer.load_state_dict(checkpoint['optimizer'])
 
@@ -493,6 +494,7 @@ def sample_network(old_model,net_id=None,eval=False):
                 for nid in range(num_subnets):
                     bn_module.register_buffer(f"mean{nid}",bn_module.running_mean.data.clone().detach())
                     bn_module.register_buffer(f"var{nid}",bn_module.running_var.data.clone().detach())
+                print(module_name,bn_module._buffer.keys())
             else:
                 # choose the right running mean/var for a subnet
                 # updated in the last update
