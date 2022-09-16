@@ -639,7 +639,6 @@ def main_worker(gpu, ngpus_per_node, args):
                                  warmup=args.warmup, decay_strategy=args.lr_strategy)
 
     # only master process in each node write to disk
-    writer = SummaryWriter(logdir=args.save, write_to_disk=args.rank % ngpus_per_node == 0)
     args.ps_batch = len(args.alphas)
     for epoch in range(args.start_epoch, args.epochs):
         if args.distributed:
@@ -653,7 +652,7 @@ def main_worker(gpu, ngpus_per_node, args):
         # prune the network and record FLOPs at each epoch
         prec1,prune_str = prune_while_training(model, args.arch, args.prune_mode, args.width_multiplier, val_loader, criterion, epoch, args)
 
-        writer.add_scalar("train/lr", optimizer.param_groups[0]['lr'], epoch)
+        print(args.save,prune_str,args.alphas)
 
         # remember best prec@1 and save checkpoint
         is_best = prec1 > best_prec1
@@ -673,10 +672,7 @@ def main_worker(gpu, ngpus_per_node, args):
                 save_backup=epoch % args.backup_freq == 0,
                 backup_path=args.save,
                 epoch=epoch)
-
-        writer.flush()
-
-    writer.close()
+                
     print("Best prec@1: {}".format(best_prec1))
 
 
@@ -1467,11 +1463,9 @@ def validate(val_loader, model, criterion, epoch, args, writer=None):
 
     # switch to evaluate mode
     model.eval()
-    print('Evaluating...')
     with torch.no_grad():
         end = time.time()
-        val_iter = tqdm(val_loader)
-        for i, (image, target) in enumerate(val_iter):
+        for (image, target) in val_loader:
             image = image.cuda(non_blocking=True)
             target = target.cuda(non_blocking=True)
 
@@ -1490,15 +1484,6 @@ def validate(val_loader, model, criterion, epoch, args, writer=None):
             # measure elapsed time
             batch_time.update(time.time() - end)
             end = time.time()
-
-            #val_iter.set_description(
-            #      'Time {batch_time.val:.3f} ({batch_time.avg:.3f}). '
-            #      'Loss {loss.val:.4f} ({loss.avg:.4f}). '
-            #      'Prec@1 {top1.val:.3f} ({top1.avg:.3f}). '
-            #      'Prec@5 {top5.val:.3f} ({top5.avg:.3f})'.format(
-            #    batch_time=batch_time, loss=losses, top1=top1, top5=top5))
-            if args.debug and i >= 5:
-                break
     return top1.avg
 
 
