@@ -625,6 +625,8 @@ def main_worker(gpu, ngpus_per_node, args):
 
     print("rank #{}: dataloader loaded!".format(args.rank))
     
+    print(args.keep_out,args.last_sparsity)
+    exit(0)
     if args.evaluate:
         prec1,prune_str = prune_while_training(model, args.arch, args.prune_mode, args.width_multiplier, val_loader, criterion, 0, args)
         print(args.save,prune_str,args.alphas)
@@ -1268,8 +1270,6 @@ def train(train_loader, model, criterion, optimizer, epoch, sparsity, args, is_d
     end = time.time()
     train_iter = tqdm(train_loader)
     batch_idx = 0
-    print(args.keep_out,args.last_sparsity)
-    exit(0)
     for i, (image, target) in enumerate(train_iter):
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
             freeze_mask,net_id,dynamic_model,ch_indices = sample_network(args,model,batch_idx%len(args.alphas))
