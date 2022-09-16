@@ -84,7 +84,7 @@ parser.add_argument('-b', '--batch-size', default=128, type=int,
                     metavar='N', help='mini-batch size (default: 256)')
 parser.add_argument('--lr', type=float, nargs='*', default=[1e-1, 1e-2, 1e-3], metavar='LR',
                     help="the learning rate in each stage (default 1e-2, 1e-3)")
-parser.add_argument('--decay-epoch', type=float, nargs='*', default=[30, 60],
+parser.add_argument('--decay-epoch', type=float, nargs='*', default=[],
                     help="the epoch to decay the learning rate (default None)")
 parser.add_argument('--momentum', default=0.9, type=float, metavar='M',
                     help='momentum')
