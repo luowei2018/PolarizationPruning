@@ -487,8 +487,7 @@ def sample_network(old_model,net_id=None,eval=False):
     all_scale_factors = torch.tensor([]).cuda()
     # config old model
     for module_name,bn_module in old_model.named_modules():
-        print(module_name,isinstance(bn_module, nn.BatchNorm2d),type(bn_module))
-        if not isinstance(bn_module, nn.BatchNorm2d): continue
+        if not isinstance(bn_module, nn.BatchNorm2d) and not isinstance(bn_module, nn.BatchNorm1d): continue
         # set the right running mean/var
         if args.split_running_stat:
             if not hasattr(bn_module,'mean0'):
@@ -500,7 +499,7 @@ def sample_network(old_model,net_id=None,eval=False):
                 # updated in the last update
                 bn_module.running_mean.data = bn_module._buffers[f"mean{net_id}"]
                 bn_module.running_var.data = bn_module._buffers[f"var{net_id}"]
-    exit(0)
+                
     dynamic_model = copy.deepcopy(old_model)
     bn_modules = dynamic_model.get_sparse_layers()
     for bn_module in bn_modules:
