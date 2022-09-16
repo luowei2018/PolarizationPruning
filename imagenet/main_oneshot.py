@@ -1288,6 +1288,8 @@ def train(train_loader, model, criterion, optimizer, epoch, sparsity, args, is_d
             output = dynamic_model(image)
         else:
             output = model(image)
+        print(image.size(),output.size())
+        exit(0)
         if isinstance(output, tuple):
             output, extra_info = output
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
