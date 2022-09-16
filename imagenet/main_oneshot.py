@@ -293,8 +293,8 @@ def main():
 
         assert len(args.lr) == 1, "cosine schedule only need one initial learning rate."
 
-        if args.batch_size != 256:
-            print("WARNING: MobileNet v2 default batch size is 256, got {}".format(args.batch_size))
+        #if args.batch_size != 256:
+        #    print("WARNING: MobileNet v2 default batch size is 256, got {}".format(args.batch_size))
         if args.weight_decay != 0.00004:
             print("WARNING: MobileNet v2 default weight decay is 0.00004, got {}".format(args.weight_decay))
 
