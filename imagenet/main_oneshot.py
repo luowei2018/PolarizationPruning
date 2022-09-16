@@ -34,6 +34,7 @@ from vgg import slimmingvgg as vgg11
 from tqdm import tqdm
 import seaborn as sns
 import matplotlib.pyplot as plt
+import copy
 
 model_names = ["resnet50", "mobilenetv2"]
 
@@ -1290,13 +1291,14 @@ def train(train_loader, model, criterion, optimizer, epoch, sparsity, args, is_d
             output = model(image)
         if isinstance(output, tuple):
             output, extra_info = output
-        loss = criterion(output, target)
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
             soft_logits = teacher_model(image)
             if isinstance(soft_logits, tuple):
                 soft_logits, _ = soft_logits
             soft_label = F.softmax(soft_logits.detach(), dim=1)
-            loss += cross_entropy_loss_with_soft_target(output, soft_label)
+            loss = cross_entropy_loss_with_soft_target(output, soft_label)
+        else:
+            loss = criterion(output, target)
         losses.update(loss.data.item(), image.size(0))
 
         # measure accuracy and record loss
