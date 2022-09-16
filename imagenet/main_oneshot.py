@@ -1071,6 +1071,8 @@ def mask_network(args,old_model,net_id):
         if args.split_running_stat:
             bn_module.running_mean.data = bn_module._buffers[f"mean{net_id}"]
             bn_module.running_var.data = bn_module._buffers[f"var{net_id}"]
+    print(len(bn_modules))
+    exit(0)
             
     # total channels
     total_channels = len(all_scale_factors)
