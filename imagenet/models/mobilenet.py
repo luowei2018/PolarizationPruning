@@ -277,6 +277,7 @@ class InvertedResidual(nn.Module):
         the pruner accepts a torch.Tensor as input and return a threshold
         """
         # prune the pixel-wise conv layer
+        assert not self.has_input_mask
         if self.pw:
             pw_layer = self.conv[0]
             in_channel_mask, input_gate_mask = prune_conv_layer(conv_layer=pw_layer[0],

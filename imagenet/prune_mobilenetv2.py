@@ -104,7 +104,7 @@ def prune_mobilenet(sparse_model: Module, pruning_strategy: str,
     elif pruning_strategy == 'random':
         pruner = RandomPruner(ratio=ratio)
     elif pruning_strategy == 'mask':
-        pruner = lambda weight: 0
+        pruner = lambda weight: weight>=0
     else:
         pruner = ThresholdPruner(pruning_strategy)
         

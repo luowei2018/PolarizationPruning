@@ -560,7 +560,7 @@ class ResNetExpand(nn.Module):
 
         return sparse_modules
         
-    def get_sparse_layers_and_convs(self, sparse1: bool = True, sparse2: bool = True, sparse3: bool = True):
+    def get_sparse_layers_and_convs(self, sparse1: bool = True, sparse2: bool = True, sparse3: bool = False):
         sparse_layers = []
         sparse_convs = []
         for m_name, sub_module in self.named_modules():

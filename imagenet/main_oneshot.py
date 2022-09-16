@@ -624,9 +624,6 @@ def main_worker(gpu, ngpus_per_node, args):
     )
 
     print("rank #{}: dataloader loaded!".format(args.rank))
-    
-    print(args.keep_out,args.last_sparsity)
-    exit(0)
     if args.evaluate:
         prec1,prune_str = prune_while_training(model, args.arch, args.prune_mode, args.width_multiplier, val_loader, criterion, 0, args)
         print(args.save,prune_str,args.alphas)

@@ -119,7 +119,7 @@ def prune_resnet(sparse_model: torch.nn.Module, pruning_strategy: str, sanity_ch
     elif pruning_strategy == 'random':
         pruner = RandomPruner(ratio=ratio)
     elif pruning_strategy == 'mask':
-        pruner = lambda weight: 0
+        pruner = lambda weight: weight>=0
     else:
         pruner = ThresholdPruner(pruning_strategy)
 
