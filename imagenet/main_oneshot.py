@@ -1221,7 +1221,7 @@ def prune_while_training(model, arch, prune_mode, width_multiplier, val_loader, 
         
     saved_flops = []
     saved_prec1s = []
-
+    print('Evaluating...')
     if arch == "resnet50":
         from resprune_expand_gate import prune_resnet
         for i in range(len(args.alphas)):
