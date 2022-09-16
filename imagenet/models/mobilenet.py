@@ -675,6 +675,7 @@ class MobileNetV2(nn.Module):
         for m_name, sub_module in self.named_modules():
             if isinstance(sub_module, InvertedResidual):
                 sub_module: InvertedResidual
+                print(m_name,sub_module.pw_layer)
                 if pw_layer:
                     if sub_module.pw_layer[1] is not None:
                         sparse_layers.append(sub_module.pw_layer[1])
