@@ -1057,7 +1057,6 @@ def sample_network(args,old_model,net_id=None,eval=False):
     _,ch_indices = all_scale_factors.sort(dim=0)
     
     weight_valid_mask = torch.zeros(total_channels).long().cuda()
-    print(0%len(args.alphas),net_id,total_channels,channel_per_layer,channel_per_layer*(num_subnets-1-net_id))
     weight_valid_mask[ch_indices[channel_per_layer*(num_subnets-1-net_id):]] = 1
         
     freeze_mask = 1-weight_valid_mask
@@ -1260,7 +1259,8 @@ def train(train_loader, model, criterion, optimizer, epoch, sparsity, args, is_d
     top5 = AverageMeter()
     
     assert args.arch in ['mobilenetv2','resnet50']
-    num_mini_batch = 1024/args.batch_size if args.arch == 'mobilenetv2' else 512/args.batch_size
+    assert 512%args.batch_size==0
+    num_mini_batch = 1024//args.batch_size if args.arch == 'mobilenetv2' else 512//args.batch_size
 
     # switch to train mode
     model.train()
@@ -1269,7 +1269,6 @@ def train(train_loader, model, criterion, optimizer, epoch, sparsity, args, is_d
     train_iter = tqdm(train_loader)
     for i, (image, target) in enumerate(train_iter):
         batch_idx = i//num_mini_batch
-        print(i,batch_idx)
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
             freeze_mask,net_id,dynamic_model,ch_indices = sample_network(args,model,batch_idx%len(args.alphas))
             if args.alphas[net_id] == 0:continue
