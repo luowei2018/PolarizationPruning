@@ -1268,9 +1268,9 @@ def train(train_loader, model, criterion, optimizer, epoch, sparsity, args, is_d
     train_iter = tqdm(train_loader)
     batch_idx = 0
     for i, (image, target) in enumerate(train_iter):
-        print(batch_idx,i,args.alphas[net_id])
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
             freeze_mask,net_id,dynamic_model,ch_indices = sample_network(args,model,batch_idx%len(args.alphas))
+            print(batch_idx,i,args.alphas[net_id])
             if args.alphas[net_id] == 0:continue
         # the adjusting only work when epoch is at decay_epoch
         adjust_learning_rate(optimizer, epoch, lr=args.lr, decay_epoch=args.decay_epoch,
