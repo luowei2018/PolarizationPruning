@@ -247,7 +247,6 @@ class VGG(nn.Module):
         for module_name,submodule in self.named_modules():
             if isinstance(submodule, VGGBlock):
                 submodule: VGGBlock
-                print(module_name,self.gate,submodule.is_batch_norm)
                 if self.gate:
                     sparse_layers.append(submodule.sparse_gate)
                 else:
