@@ -45,6 +45,7 @@ class LossType(Enum):
     L2_POLARIZATION = 6
     POLARIZATION_GRAD = 7  # in this mode, the gradient does not propagate through the mean term
     LOG_QUANTIZATION = 8
+    PROGRESSIVE_SHRINKING = 10
 
     @staticmethod
     def from_string(desc):
@@ -59,6 +60,7 @@ class LossType(Enum):
                 "zol2": LossType.L2_POLARIZATION,
                 "pol_grad": LossType.POLARIZATION_GRAD,
                 "logq": LossType.LOG_QUANTIZATION,
+                "ps": LossType.PROGRESSIVE_SHRINKING,
                 }
 
 
@@ -569,6 +571,8 @@ def main_worker(gpu, ngpus_per_node, args):
                 #optimizer.load_state_dict(checkpoint['optimizer'])
             print("=> loaded checkpoint '{}' (epoch {} prec1 {})"
                   .format(args.resume, checkpoint['epoch'], best_prec1))
+            if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
+                teacher_model = copy.deepcopy(model)
         else:
             raise ValueError("=> no checkpoint found at '{}'".format(args.resume))
             
@@ -635,7 +639,7 @@ def main_worker(gpu, ngpus_per_node, args):
 
     # only master process in each node write to disk
     writer = SummaryWriter(logdir=args.save, write_to_disk=args.rank % ngpus_per_node == 0)
-
+    args.ps_batch = len(args.alphas)
     for epoch in range(args.start_epoch, args.epochs):
         if args.distributed:
             train_sampler.set_epoch(epoch)
@@ -1020,7 +1024,7 @@ def zero_bn(model, gate):
         m.weight.data.zero_()
         #m.bias.data.zero_()
 
-def sample_network(old_model,net_id=None,eval=False):
+def sample_network(args,old_model,net_id=None,eval=False):
     num_subnets = len(args.alphas)
     if net_id is None:
         net_id = torch.tensor(0).random_(0,num_subnets)
@@ -1083,7 +1087,7 @@ def sample_network(old_model,net_id=None,eval=False):
     else:
         return dynamic_model
         
-def mask_network(old_model,net_id):
+def mask_network(args,old_model,net_id):
     dynamic_model = copy.deepcopy(old_model)
     all_scale_factors = torch.tensor([]).cuda()
     if args.arch == 'resnet50':
@@ -1122,10 +1126,8 @@ def mask_network(old_model,net_id):
         bn_module.out_channel_mask = out_channel_mask.clone().detach()
         ch_start += ch_len
     return dynamic_model
-
-args.ps_batch = len(args.alphas)
     
-def update_shared_model(old_model,new_model,mask,batch_idx,ch_indices,net_id):
+def update_shared_model(args,old_model,new_model,mask,batch_idx,ch_indices,net_id):
     def copy_module_grad(old_module,new_module,onmask=None):
         # copy weights grad
         if onmask is not None:
@@ -1257,7 +1259,23 @@ def prune_while_training(model, arch, prune_mode, width_multiplier, val_loader, 
     if arch == "resnet50":
         from resprune_expand_gate import prune_resnet
         for i in range(len(args.alphas)):
-            saved_mode
+            masked_model = mask_network(args,model,i)
+            saved_model = prune_resnet(masked_model, pruning_strategy='mask', sanity_check=False, prune_mode=prune_mode)
+            prec1 = validate(val_loader, saved_model, criterion, epoch=epoch, args=args, writer=None)
+            flop = compute_conv_flops(saved_model, cuda=True)
+            saved_prec1s += [prec1]
+            saved_flops += [flop]
+    elif arch == 'mobilenetv2':
+        from prune_mobilenetv2 import prune_mobilenet
+        for i in range(len(args.alphas)):
+            masked_model = mask_network(args,model,i)
+            saved_model = prune_mobilenet(model, pruning_strategy='mask', sanity_check=False, force_same=False,
+                                            width_multiplier=width_multiplier)
+            flop = compute_conv_flops(saved_model, cuda=True)
+            prec1 = validate(val_loader, saved_model, criterion, epoch=epoch, args=args, writer=None)
+            saved_prec1s += [prec1]
+            saved_flops += [flop]
+    else:
         raise NotImplementedError(f"do not support arch {arch}")
 
     baseline_flops = compute_conv_flops(model, cuda=True)
@@ -1285,7 +1303,11 @@ def train(train_loader, model, criterion, optimizer, epoch, sparsity, args, is_d
 
     end = time.time()
     train_iter = tqdm(train_loader)
+    batch_idx
     for i, (image, target) in enumerate(train_iter):
+        if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
+            freeze_mask,net_id,dynamic_model,ch_indices = sample_network(args,model,batch_idx%len(args.alphas))
+            if args.alphas[net_id] == 0:continue
         # the adjusting only work when epoch is at decay_epoch
         adjust_learning_rate(optimizer, epoch, lr=args.lr, decay_epoch=args.decay_epoch,
                              total_epoch=args.epochs,
@@ -1299,10 +1321,19 @@ def train(train_loader, model, criterion, optimizer, epoch, sparsity, args, is_d
         target = target.cuda(non_blocking=True)
 
         # compute output
-        output = model(image)
+        if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
+            output = dynamic_model(image)
+        else:
+            output = model(image)
         if isinstance(output, tuple):
             output, extra_info = output
         loss = criterion(output, target)
+        if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
+            soft_logits = teacher_model(image)
+            if isinstance(soft_logits, tuple):
+                soft_logits, _ = soft_logits
+            soft_label = F.softmax(soft_logits.detach(), dim=1)
+            loss += cross_entropy_loss_with_soft_target(output, soft_label)
         losses.update(loss.data.item(), image.size(0))
 
         # measure accuracy and record loss
@@ -1418,9 +1449,13 @@ def train(train_loader, model, criterion, optimizer, epoch, sparsity, args, is_d
         loss.backward()
            
         # mini batch
-        if (i+1)%num_mini_batch == 0:
-            optimizer.step()
-            optimizer.zero_grad()
+        if (i)%num_mini_batch == num_mini_batch-1:
+            if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
+                update_shared_model(args,model,dynamic_model,freeze_mask,batch_idx,ch_indices,net_id)
+            if args.loss not in {LossType.PROGRESSIVE_SHRINKING} or batch_idx%args.ps_batch==(args.ps_batch-1):
+                optimizer.step()
+                optimizer.zero_grad()
+            batch_idx += 1
             if args.loss == LossType.L1_SPARSITY_REGULARIZATION:
                 updateBN(model, sparsity,
                          sparsity_on_bn3=args.last_sparsity,
@@ -1428,8 +1463,6 @@ def train(train_loader, model, criterion, optimizer, epoch, sparsity, args, is_d
                          gate=args.gate,
                          exclude_out=args.keep_out)
             # BN_grad_zero(model)
-            if args.loss in {LossType.LOG_QUANTIZATION}:
-                log_quantization(model, args)
             if args.loss in {LossType.POLARIZATION,
                              LossType.POLARIZATION_GRAD,
                              LossType.L2_POLARIZATION} or \

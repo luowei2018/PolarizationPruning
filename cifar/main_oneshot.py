@@ -344,17 +344,12 @@ if args.resume:
 
         print("=> loaded checkpoint '{}' (epoch {}) Prec1: {:f}"
               .format(args.resume, checkpoint['epoch'], best_prec1))
+        if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
+            teacher_model = copy.deepcopy(model)
     else:
         raise ValueError("=> no checkpoint found at '{}'".format(args.resume))
 else:
     checkpoint = None
-    
-if args.loss in {LossType.PROGRESSIVE_SHRINKING,
-                 LossType.LOG_QUANTIZATION}:
-    teacher_model = copy.deepcopy(model)
-    
-if not args.loss in {LossType.LOG_QUANTIZATION}:args.stages = 1
-
 
 def bn_weights(model):
     weights = []
@@ -696,13 +691,12 @@ def train(epoch):
         if isinstance(output, tuple):
             output, output_aux = output
         loss = F.cross_entropy(output, target)
-        if args.loss in {LossType.PROGRESSIVE_SHRINKING,
-                         LossType.LOG_QUANTIZATION}:
+        if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
             soft_logits = teacher_model(data)
             if isinstance(soft_logits, tuple):
                 soft_logits, _ = soft_logits
             soft_label = F.softmax(soft_logits.detach(), dim=1)
-            loss = cross_entropy_loss_with_soft_target(output, soft_label)
+            loss += cross_entropy_loss_with_soft_target(output, soft_label)
         
         # logging
         avg_loss += loss.data.item()
