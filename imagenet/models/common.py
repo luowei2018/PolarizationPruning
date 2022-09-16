@@ -176,6 +176,7 @@ def prune_conv_layer(conv_layer: nn.Conv2d,
                 
             sparse_weight_in: np.ndarray = torch.abs(sparse_layer_in.weight).view(-1).data.cpu().numpy()
             # the in_channel_mask will be overwrote
+            print(type(sparse_weight_in))
             in_channel_mask = pruner(sparse_weight_in)
             
         # should enable for resnet
