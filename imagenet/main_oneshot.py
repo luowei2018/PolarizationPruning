@@ -574,7 +574,8 @@ def main_worker(gpu, ngpus_per_node, args):
             print("=> loaded checkpoint '{}' (epoch {} prec1 {})"
                   .format(args.resume, checkpoint['epoch'], best_prec1))
             if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
-                args.teacher_model = copy.deepcopy(model)
+                pass
+                #args.teacher_model = copy.deepcopy(model)
         else:
             raise ValueError("=> no checkpoint found at '{}'".format(args.resume))
             
@@ -1167,6 +1168,10 @@ def update_shared_model(args,old_model,new_model,mask,batch_idx,ch_indices,net_i
         for old_module,new_module in zip(old_non_sparse_modules,new_non_sparse_modules):
             copy_module_grad(old_module,new_module)
             
+def cross_entropy_loss_with_soft_target(pred, soft_target):
+    logsoftmax = nn.LogSoftmax()
+    return torch.mean(torch.sum(-soft_target * logsoftmax(pred), 1))
+            
 def get_non_sparse_modules(model):
     sparse_modules = []
     bn_modules,conv_modules = model.module.get_sparse_layers_and_convs()
@@ -1292,7 +1297,7 @@ def train(train_loader, model, criterion, optimizer, epoch, sparsity, args, is_d
             output = model(image)
         if isinstance(output, tuple):
             output, extra_info = output
-        if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
+        if False and args.loss in {LossType.PROGRESSIVE_SHRINKING}:
             soft_logits = args.teacher_model(image)
             if isinstance(soft_logits, tuple):
                 soft_logits, _ = soft_logits
