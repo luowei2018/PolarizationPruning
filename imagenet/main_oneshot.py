@@ -35,6 +35,7 @@ from tqdm import tqdm
 import seaborn as sns
 import matplotlib.pyplot as plt
 import copy
+import torch.nn.functional as F
 
 model_names = ["resnet50", "mobilenetv2"]
 
