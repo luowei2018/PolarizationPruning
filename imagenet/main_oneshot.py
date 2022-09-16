@@ -1268,6 +1268,7 @@ def train(train_loader, model, criterion, optimizer, epoch, sparsity, args, is_d
     train_iter = tqdm(train_loader)
     batch_idx = 0
     for i, (image, target) in enumerate(train_iter):
+        print(batch_idx,i,args.alphas[net_id])
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
             freeze_mask,net_id,dynamic_model,ch_indices = sample_network(args,model,batch_idx%len(args.alphas))
             if args.alphas[net_id] == 0:continue
@@ -1290,8 +1291,6 @@ def train(train_loader, model, criterion, optimizer, epoch, sparsity, args, is_d
             output = model(image)
         if isinstance(output, tuple):
             output, extra_info = output
-        print(image.size(),output.size())
-        exit(0)
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
             soft_logits = teacher_model(image)
             if isinstance(soft_logits, tuple):
