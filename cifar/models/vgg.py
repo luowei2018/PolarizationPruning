@@ -251,8 +251,6 @@ class VGG(nn.Module):
                     sparse_layers.append(submodule.sparse_gate)
                 else:
                     if submodule.is_batch_norm:
-                        
-                        assert hasattr(submodule.batch_norm,'mean0')
                         sparse_layers.append(submodule.batch_norm)
                         sparse_convs.append(submodule.conv)
                     else:
