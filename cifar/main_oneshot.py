@@ -525,6 +525,7 @@ def sample_network(old_model,net_id=None,eval=False):
             bn_module.weight.data[inactive] = 0
             bn_module.bias.data[inactive] = 0
             ch_start += ch_len
+            assert hasattr(bn_module,'mean0')
     if not eval:
         return freeze_mask,net_id,dynamic_model,ch_indices
     else:
