@@ -566,6 +566,7 @@ def main_worker(gpu, ngpus_per_node, args):
                     for nid in range(len(args.alphas)):
                         bn_module.register_buffer(f"mean{nid}",bn_module.running_mean.data.clone().detach())
                         bn_module.register_buffer(f"var{nid}",bn_module.running_var.data.clone().detach())
+            if hasattr('prec_list'):print(checkpoint['prec_list'])
             model.load_state_dict(checkpoint['state_dict'])
             if not args.load_param_only:
                 args.start_epoch = checkpoint['epoch']
@@ -626,7 +627,7 @@ def main_worker(gpu, ngpus_per_node, args):
 
     print("rank #{}: dataloader loaded!".format(args.rank))
     if args.evaluate:
-        prec1,prune_str = prune_while_training(model, args.arch, args.prune_mode, args.width_multiplier, val_loader, criterion, 0, args)
+        prec1,prune_str,saved_prec1s = prune_while_training(model, args.arch, args.prune_mode, args.width_multiplier, val_loader, criterion, 0, args)
         print(args.save,prune_str,args.alphas)
         return
 
@@ -650,7 +651,7 @@ def main_worker(gpu, ngpus_per_node, args):
               is_debug=args.debug, writer=writer)
 
         # prune the network and record FLOPs at each epoch
-        prec1,prune_str = prune_while_training(model, args.arch, args.prune_mode, args.width_multiplier, val_loader, criterion, epoch, args)
+        prec1,prune_str,saved_prec1s = prune_while_training(model, args.arch, args.prune_mode, args.width_multiplier, val_loader, criterion, epoch, args)
 
         print(args.save,prune_str,args.alphas)
 
@@ -668,6 +669,7 @@ def main_worker(gpu, ngpus_per_node, args):
                 'state_dict': model.state_dict(),
                 'best_prec1': prec1,
                 'optimizer': optimizer.state_dict(),
+                'prec_list': saved_prec1s,
             }, is_best, args.save,
                 save_backup=epoch % args.backup_freq == 0,
                 backup_path=args.save,
@@ -1247,7 +1249,7 @@ def prune_while_training(model, arch, prune_mode, width_multiplier, val_loader, 
     prune_str = ''
     for flop,prec1 in zip(saved_flops,saved_prec1s):
         prune_str += f"[{prec1:.4f}({flop / baseline_flops*100:.2f}%)],"
-    return prec1,prune_str
+    return prec1,prune_str,saved_prec1s
 
 
 def train(train_loader, model, criterion, optimizer, epoch, sparsity, args, is_debug=False,
