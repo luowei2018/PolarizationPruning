@@ -1070,7 +1070,7 @@ def mask_network(args,old_model,net_id):
         if args.split_running_stat:
             bn_module.running_mean.data = bn_module._buffers[f"mean{net_id}"]
             bn_module.running_var.data = bn_module._buffers[f"var{net_id}"]
-    if net_id == len(args.alphas)-1:return old_model
+    #if net_id == len(args.alphas)-1:return old_model
             
     # total channels
     dynamic_model = copy.deepcopy(old_model)
@@ -1217,7 +1217,7 @@ def prune_while_training(model, arch, prune_mode, width_multiplier, val_loader, 
         
     saved_flops = []
     saved_prec1s = []
-    for i in range(len(args.alphas)):
+    for i in [3]:#range(len(args.alphas)):
         saved_model = mask_network(args,model,i)
         prec1 = validate(val_loader, saved_model, criterion, epoch=epoch, args=args, writer=None)
         flop = compute_conv_flops(saved_model, cuda=True)
