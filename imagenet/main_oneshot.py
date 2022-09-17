@@ -1067,45 +1067,6 @@ def sample_network(args,old_model,net_id=None,eval=False):
             from prune_mobilenetv2 import prune_mobilenet
             dynamic_model = prune_mobilenet(dynamic_model, pruning_strategy='mask', sanity_check=False, force_same=False,width_multiplier=1.0)
         return dynamic_model
-        
-def mask_network(args,old_model,net_id):
-    all_scale_factors = torch.tensor([]).cuda()
-    for module_name, bn_module in old_model.named_modules():
-        if not isinstance(bn_module, nn.BatchNorm2d) and not isinstance(bn_module,nn.BatchNorm1d): continue
-        if args.split_running_stat:
-            bn_module.running_mean.data = bn_module._buffers[f"mean{net_id}"]
-            bn_module.running_var.data = bn_module._buffers[f"var{net_id}"]
-    if net_id == len(args.alphas)-1:return old_model
-        
-    dynamic_model = copy.deepcopy(old_model)
-    bn_modules,_ = dynamic_model.get_sparse_layers_and_convs()
-    for bn_module in bn_modules:
-        all_scale_factors = torch.cat((all_scale_factors,bn_module.weight.data))
-            
-    # total channels
-    total_channels = len(all_scale_factors)
-    channel_per_layer = total_channels//len(args.alphas)
-    
-    _,ch_indices = all_scale_factors.sort(dim=0)
-    
-    weight_valid_mask = torch.zeros(total_channels).long().cuda()
-    weight_valid_mask[ch_indices[channel_per_layer*(len(args.alphas)-1-net_id):]] = 1
-    
-    ch_start = 0
-    for bn_module in bn_modules:
-        ch_len = len(bn_module.weight.data)
-        out_channel_mask = weight_valid_mask[ch_start:ch_start+ch_len]==1
-        # for pruning
-        bn_module.out_channel_mask = out_channel_mask.clone().detach()
-        ch_start += ch_len
-       
-    if args.arch == 'resnet50':
-        from resprune_expand_gate import prune_resnet
-        dynamic_model = prune_resnet(dynamic_model, pruning_strategy='mask', sanity_check=False, prune_mode='default')
-    else:
-        from prune_mobilenetv2 import prune_mobilenet
-        dynamic_model = prune_mobilenet(dynamic_model, pruning_strategy='mask', sanity_check=False, force_same=False,width_multiplier=1.0)
-    return dynamic_model
     
 def update_shared_model(args,old_model,new_model,mask,batch_idx,ch_indices,net_id):
     def copy_module_grad(old_module,new_module,onmask=None):
@@ -1226,11 +1187,10 @@ def prune_while_training(model, arch, prune_mode, width_multiplier, val_loader, 
         
     saved_flops = []
     saved_prec1s = []
-    for i in [2,3]:#range(len(args.alphas)):
-        saved_model = mask_network(args,model,i)
-        #saved_model = sample_network(args,model,net_id=i,eval=True)
-        prec1 = validate(val_loader, saved_model, criterion, epoch=epoch, args=args, writer=None)
-        flop = compute_conv_flops(saved_model, cuda=True)
+    for i in range(len(args.alphas)):
+        pruned_model = sample_network(args,model,net_id=i,eval=True)
+        prec1 = validate(val_loader, pruned_model, criterion, epoch=epoch, args=args, writer=None)
+        flop = compute_conv_flops(pruned_model, cuda=True)
         saved_prec1s += [prec1]
         saved_flops += [flop]
 
