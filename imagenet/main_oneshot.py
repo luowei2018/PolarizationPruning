@@ -1010,6 +1010,8 @@ def zero_bn(model, gate):
         #m.bias.data.zero_()
 
 def sample_network(args,old_model,net_id=None,eval=False):
+    if isinstance(old_model, nn.DataParallel) or isinstance(old_model, nn.parallel.DistributedDataParallel):
+        old_model = old_model.module
     num_subnets = len(args.alphas)
     if net_id is None:
         net_id = torch.tensor(0).random_(0,num_subnets)
@@ -1031,7 +1033,7 @@ def sample_network(args,old_model,net_id=None,eval=False):
                 bn_module.running_var.data = bn_module._buffers[f"var{net_id}"]
     
     dynamic_model = copy.deepcopy(old_model)
-    bn_modules,_ = dynamic_model.module.get_sparse_layers_and_convs()
+    bn_modules,_ = dynamic_model.get_sparse_layers_and_convs()
     for bn_module in bn_modules:
         all_scale_factors = torch.cat((all_scale_factors,bn_module.weight.data))
     
