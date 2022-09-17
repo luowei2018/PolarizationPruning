@@ -1245,8 +1245,12 @@ def train(train_loader, model, criterion, optimizer, epoch, sparsity, args, is_d
     data_time = AverageMeter()
     losses = AverageMeter()
     avg_sparsity_loss = AverageMeter()
-    top1 = AverageMeter()
-    top5 = AverageMeter()
+    if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
+        top1_list = [AverageMeter() for _ in args.alphas]
+        top5_list = [AverageMeter() for _ in args.alphas]
+    else:
+        top1 = AverageMeter()
+        top5 = AverageMeter()
     
     assert args.arch in ['mobilenetv2','resnet50']
     assert 512%args.batch_size==0
@@ -1294,8 +1298,12 @@ def train(train_loader, model, criterion, optimizer, epoch, sparsity, args, is_d
 
         # measure accuracy and record loss
         prec1, prec5 = accuracy(output.data, target, topk=(1, 5))
-        top1.update(prec1[0], image.size(0))
-        top5.update(prec5[0], image.size(0))
+        if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
+            top1_list[net_id].update(prec1[0], image.size(0))
+            top5_list[net_id].update(prec5[0], image.size(0))
+        else:
+            top1.update(prec1[0], image.size(0))
+            top5.update(prec5[0], image.size(0))
 
         # compute gradient and do SGD step
         if args.loss in {LossType.POLARIZATION,
@@ -1431,18 +1439,28 @@ def train(train_loader, model, criterion, optimizer, epoch, sparsity, args, is_d
         end = time.time()
 
         if args.rank == 0 and (i+1)%num_mini_batch == 0:
-            train_iter.set_description(
-                  'Epoch: [{epoch:03d}]. '
-                  'Time {batch_time.val:.3f} ({batch_time.avg:.3f}). '
-                  'Data {data_time.val:.3f} ({data_time.avg:.3f}). '
-                  'Loss {loss.val:.4f} ({loss.avg:.4f}). '
-                  'Sparsity Loss {s_loss.val:.4f} ({s_loss.avg:.4f}). '
-                  'Learning rate {lr}. '
-                  'Prec@1 {top1.val:.3f} ({top1.avg:.3f}). '
-                  'Prec@5 {top5.val:.3f} ({top5.avg:.3f})'.format(
-                epoch=epoch, batch_time=batch_time,
-                data_time=data_time, loss=losses, s_loss=avg_sparsity_loss,
-                top1=top1, top5=top5, lr=optimizer.param_groups[0]['lr']))
+            if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
+                lr=optimizer.param_groups[0]['lr']
+                prec_str = ''
+                for top1,top5 in zip(top1_list,top5_list):
+                    prec_str += f'{top1.val:.3f}({top5.avg:.3f}). '
+                train_iter.set_description(
+                      f'Epoch: [{epoch:03d}]. '
+                      f'Loss {losses.val:.4f} ({losses.avg:.4f}). '
+                      f'LR {lr}. {prec_str}')
+            else:
+                train_iter.set_description(
+                      'Epoch: [{epoch:03d}]. '
+                      'Time {batch_time.val:.3f} ({batch_time.avg:.3f}). '
+                      'Data {data_time.val:.3f} ({data_time.avg:.3f}). '
+                      'Loss {loss.val:.4f} ({loss.avg:.4f}). '
+                      'Sparsity Loss {s_loss.val:.4f} ({s_loss.avg:.4f}). '
+                      'Learning rate {lr}. '
+                      'Prec@1 {top1.val:.3f} ({top1.avg:.3f}). '
+                      'Prec@5 {top5.val:.3f} ({top5.avg:.3f})'.format(
+                    epoch=epoch, batch_time=batch_time,
+                    data_time=data_time, loss=losses, s_loss=avg_sparsity_loss,
+                    top1=top1, top5=top5, lr=optimizer.param_groups[0]['lr']))
 
 
 def validate(val_loader, model, criterion, epoch, args, writer=None):
