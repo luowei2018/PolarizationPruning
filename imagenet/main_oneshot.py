@@ -1220,7 +1220,7 @@ def prune_while_training(model, arch, prune_mode, width_multiplier, val_loader, 
         
     saved_flops = []
     saved_prec1s = []
-    for i in range(len(args.alphas)):
+    for i in [2]:range(len(args.alphas)):
         saved_model = mask_network(args,model,i)
         prec1 = validate(val_loader, saved_model, criterion, epoch=epoch, args=args, writer=None)
         flop = compute_conv_flops(saved_model, cuda=True)
@@ -1263,8 +1263,8 @@ def train(train_loader, model, criterion, optimizer, epoch, sparsity, args, is_d
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
             freeze_mask,net_id,dynamic_model,ch_indices = sample_network(args,model,batch_idx%len(args.alphas))
             if net_id!=2:continue
-            prec1 = validate(train_loader, dynamic_model, criterion, epoch=epoch, args=args, writer=None)
-            print(prec1)
+            validate(train_loader, dynamic_model, criterion, epoch=epoch, args=args, writer=None)
+            prune_while_training(dynamic_model, args.arch, args.prune_mode, args.width_multiplier, train_loader, criterion, 0, args)
             exit(0)
             if args.alphas[net_id] == 0:continue
         # the adjusting only work when epoch is at decay_epoch
