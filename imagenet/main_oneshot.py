@@ -1091,8 +1091,10 @@ def mask_network(args,old_model,net_id):
         ch_start += ch_len
        
     if args.arch == 'resnet50':
+        from resprune_expand_gate import prune_resnet
         dynamic_model = prune_resnet(dynamic_model, pruning_strategy='mask', sanity_check=False, prune_mode='default')
     else:
+        from prune_mobilenetv2 import prune_mobilenet
         dynamic_model = prune_mobilenet(dynamic_model, pruning_strategy='mask', sanity_check=False, force_same=False,width_multiplier=1.0)
     return dynamic_model
     
@@ -1215,24 +1217,12 @@ def prune_while_training(model, arch, prune_mode, width_multiplier, val_loader, 
         
     saved_flops = []
     saved_prec1s = []
-    if arch == "resnet50":
-        from resprune_expand_gate import prune_resnet
-        for i in range(len(args.alphas)):
-            saved_model = mask_network(args,model,i)
-            prec1 = validate(val_loader, saved_model, criterion, epoch=epoch, args=args, writer=None)
-            flop = compute_conv_flops(saved_model, cuda=True)
-            saved_prec1s += [prec1]
-            saved_flops += [flop]
-    elif arch == 'mobilenetv2':
-        from prune_mobilenetv2 import prune_mobilenet
-        for i in range(len(args.alphas)):
-            saved_model = mask_network(args,model,i)
-            prec1 = validate(val_loader, saved_model, criterion, epoch=epoch, args=args, writer=None)
-            flop = compute_conv_flops(saved_model, cuda=True)
-            saved_prec1s += [prec1]
-            saved_flops += [flop]
-    else:
-        raise NotImplementedError(f"do not support arch {arch}")
+    for i in range(len(args.alphas)):
+        saved_model = mask_network(args,model,i)
+        prec1 = validate(val_loader, saved_model, criterion, epoch=epoch, args=args, writer=None)
+        flop = compute_conv_flops(saved_model, cuda=True)
+        saved_prec1s += [prec1]
+        saved_flops += [flop]
 
     baseline_flops = compute_conv_flops(model, cuda=True)
     
