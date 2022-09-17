@@ -1212,8 +1212,11 @@ def prune_while_training(model, arch, prune_mode, width_multiplier, val_loader, 
     if arch == "resnet50":
         from resprune_expand_gate import prune_resnet
         for i in range(len(args.alphas)):
-            masked_model = mask_network(args,model,i)
-            saved_model = prune_resnet(masked_model, pruning_strategy='mask', sanity_check=False, prune_mode=prune_mode)
+            if i==len(args.alphas):
+                saved_model = model
+            else:
+                masked_model = mask_network(args,model,i)
+                saved_model = prune_resnet(masked_model, pruning_strategy='mask', sanity_check=False, prune_mode=prune_mode)
             prec1 = validate(val_loader, saved_model, criterion, epoch=epoch, args=args, writer=None)
             flop = compute_conv_flops(saved_model, cuda=True)
             saved_prec1s += [prec1]
@@ -1221,9 +1224,12 @@ def prune_while_training(model, arch, prune_mode, width_multiplier, val_loader, 
     elif arch == 'mobilenetv2':
         from prune_mobilenetv2 import prune_mobilenet
         for i in range(len(args.alphas)):
-            masked_model = mask_network(args,model,i)
-            saved_model = prune_mobilenet(masked_model, pruning_strategy='mask', sanity_check=False, force_same=False,
-                                            width_multiplier=width_multiplier)
+            if i==len(args.alphas):
+                saved_model = model
+            else:
+                masked_model = mask_network(args,model,i)
+                saved_model = prune_mobilenet(masked_model, pruning_strategy='mask', sanity_check=False, force_same=False,
+                                                width_multiplier=width_multiplier)
             prec1 = validate(val_loader, saved_model, criterion, epoch=epoch, args=args, writer=None)
             flop = compute_conv_flops(saved_model, cuda=True)
             saved_prec1s += [prec1]
