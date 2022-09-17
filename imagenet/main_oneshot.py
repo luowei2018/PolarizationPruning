@@ -1227,8 +1227,8 @@ def prune_while_training(model, arch, prune_mode, width_multiplier, val_loader, 
     saved_flops = []
     saved_prec1s = []
     for i in [2,3]:#range(len(args.alphas)):
-        #saved_model = mask_network(args,model,i)
-        saved_model = sample_network(args,model,net_id=i,eval=True)
+        saved_model = mask_network(args,model,i)
+        #saved_model = sample_network(args,model,net_id=i,eval=True)
         prec1 = validate(val_loader, saved_model, criterion, epoch=epoch, args=args, writer=None)
         flop = compute_conv_flops(saved_model, cuda=True)
         saved_prec1s += [prec1]
