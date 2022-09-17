@@ -1443,7 +1443,7 @@ def train(train_loader, model, criterion, optimizer, epoch, sparsity, args, is_d
                 lr=optimizer.param_groups[0]['lr']
                 prec_str = ''
                 for top1,top5 in zip(top1_list,top5_list):
-                    prec_str += f'{top1.val:.3f}({top5.avg:.3f}). '
+                    prec_str += f'{top1.avg:.3f}({top5.avg:.3f}). '
                 train_iter.set_description(
                       f'Epoch: [{epoch:03d}]. '
                       f'Loss {losses.val:.4f} ({losses.avg:.4f}). '
