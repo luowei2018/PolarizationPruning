@@ -1075,14 +1075,14 @@ def mask_network(args,old_model,net_id):
         if args.split_running_stat:
             bn_module.running_mean.data = bn_module._buffers[f"mean{net_id}"]
             bn_module.running_var.data = bn_module._buffers[f"var{net_id}"]
+    if net_id == len(args.alphas)-1:return old_model
         
-    bn_modules,_ = old_model.get_sparse_layers_and_convs()
+    dynamic_model = copy.deepcopy(old_model)
+    bn_modules,_ = dynamic_model.get_sparse_layers_and_convs()
     for bn_module in bn_modules:
         all_scale_factors = torch.cat((all_scale_factors,bn_module.weight.data))
-    if net_id == len(args.alphas)-1:return old_model
             
     # total channels
-    dynamic_model = copy.deepcopy(old_model)
     total_channels = len(all_scale_factors)
     channel_per_layer = total_channels//len(args.alphas)
     
@@ -1227,8 +1227,8 @@ def prune_while_training(model, arch, prune_mode, width_multiplier, val_loader, 
     saved_flops = []
     saved_prec1s = []
     for i in [2,3]:#range(len(args.alphas)):
-        #saved_model = mask_network(args,model,i)
-        saved_model = sample_network(args,model,net_id=i,eval=True)
+        saved_model = mask_network(args,model,i)
+        #saved_model = sample_network(args,model,net_id=i,eval=True)
         prec1 = validate(val_loader, saved_model, criterion, epoch=epoch, args=args, writer=None)
         flop = compute_conv_flops(saved_model, cuda=True)
         saved_prec1s += [prec1]
