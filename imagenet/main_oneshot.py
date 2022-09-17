@@ -642,6 +642,7 @@ def main_worker(gpu, ngpus_per_node, args):
         prec1,prune_str,saved_prec1s = prune_while_training(model, args.arch, args.prune_mode, args.width_multiplier, val_loader, criterion, epoch, args)
 
         print(args.save,prune_str,args.alphas)
+        exit(0)
 
         # remember best prec@1 and save checkpoint
         is_best = prec1 > best_prec1
@@ -1260,6 +1261,7 @@ def train(train_loader, model, criterion, optimizer, epoch, sparsity, args, is_d
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
             freeze_mask,net_id,dynamic_model,ch_indices = sample_network(args,model,batch_idx%len(args.alphas))
             if args.alphas[net_id] == 0:continue
+        print(i,batch_idx,net_id)
         # the adjusting only work when epoch is at decay_epoch
         adjust_learning_rate(optimizer, epoch, lr=args.lr, decay_epoch=args.decay_epoch,
                              total_epoch=args.epochs,
@@ -1493,8 +1495,8 @@ def validate(val_loader, model, criterion, epoch, args, writer=None):
                   'Prec@1 {top1.val:.3f} ({top1.avg:.3f}). '
                   'Prec@5 {top5.val:.3f} ({top5.avg:.3f})'.format(
                 batch_time=batch_time, loss=losses, top1=top1, top5=top5))
-            if args.debug and i >= 10:
-                break
+            #if args.debug and i >= 10:
+            #    break
     return top1.avg
 
 
