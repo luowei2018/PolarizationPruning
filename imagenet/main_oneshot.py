@@ -1065,12 +1065,15 @@ def sample_network(args,old_model,net_id=None,eval=False):
         
 def mask_network(args,old_model,net_id):
     all_scale_factors = torch.tensor([]).cuda()
-    bn_modules,_ = old_model.get_sparse_layers_and_convs()
-    for bn_module in bn_modules:
-        all_scale_factors = torch.cat((all_scale_factors,bn_module.weight.data))
+    for module_name, bn_module in old_model.named_modules():
+        if not isinstance(bn_module, nn.BatchNorm2d) and not isinstance(bn_module,nn.BatchNorm1d): continue
         if args.split_running_stat:
             bn_module.running_mean.data = bn_module._buffers[f"mean{net_id}"]
             bn_module.running_var.data = bn_module._buffers[f"var{net_id}"]
+        
+    bn_modules,_ = old_model.get_sparse_layers_and_convs()
+    for bn_module in bn_modules:
+        all_scale_factors = torch.cat((all_scale_factors,bn_module.weight.data))
     #if net_id == len(args.alphas)-1:return old_model
             
     # total channels
@@ -1261,7 +1264,6 @@ def train(train_loader, model, criterion, optimizer, epoch, sparsity, args, is_d
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
             freeze_mask,net_id,dynamic_model,ch_indices = sample_network(args,model,batch_idx%len(args.alphas))
             if args.alphas[net_id] == 0:continue
-        print(i,batch_idx,net_id)
         # the adjusting only work when epoch is at decay_epoch
         adjust_learning_rate(optimizer, epoch, lr=args.lr, decay_epoch=args.decay_epoch,
                              total_epoch=args.epochs,
