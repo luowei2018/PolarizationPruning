@@ -634,14 +634,12 @@ def main_worker(gpu, ngpus_per_node, args):
             train_sampler.set_epoch(epoch)
 
         # train for one epoch
-        train(val_loader, model, criterion, optimizer, epoch,
+        train(train_loader, model, criterion, optimizer, epoch,
               args.lbd, args=args,
               is_debug=args.debug)
 
         # prune the network and record FLOPs at each epoch
         prec1,prune_str,saved_prec1s = prune_while_training(model, args.arch, args.prune_mode, args.width_multiplier, val_loader, criterion, epoch, args)
-
-        print(args.save,prune_str,args.alphas)
 
         # remember best prec@1 and save checkpoint
         is_best = prec1 > best_prec1
@@ -1060,6 +1058,12 @@ def sample_network(args,old_model,net_id=None,eval=False):
     if not eval:
         return freeze_mask,net_id,dynamic_model,ch_indices
     else:
+        if args.arch == 'resnet50':
+            from resprune_expand_gate import prune_resnet
+            dynamic_model = prune_resnet(dynamic_model, pruning_strategy='mask', sanity_check=False, prune_mode='default')
+        else:
+            from prune_mobilenetv2 import prune_mobilenet
+            dynamic_model = prune_mobilenet(dynamic_model, pruning_strategy='mask', sanity_check=False, force_same=False,width_multiplier=1.0)
         return dynamic_model
         
 def mask_network(args,old_model,net_id):
@@ -1220,8 +1224,9 @@ def prune_while_training(model, arch, prune_mode, width_multiplier, val_loader, 
         
     saved_flops = []
     saved_prec1s = []
-    for i in [2]:#range(len(args.alphas)):
-        saved_model = mask_network(args,model,i)
+    for i in [2,3]:#range(len(args.alphas)):
+        #saved_model = mask_network(args,model,i)
+        saved_model = sample_network(args,model,net_id=i,eval=True)
         prec1 = validate(val_loader, saved_model, criterion, epoch=epoch, args=args, writer=None)
         flop = compute_conv_flops(saved_model, cuda=True)
         saved_prec1s += [prec1]
@@ -1262,10 +1267,6 @@ def train(train_loader, model, criterion, optimizer, epoch, sparsity, args, is_d
         if args.debug and batch_idx >= 10: break
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
             freeze_mask,net_id,dynamic_model,ch_indices = sample_network(args,model,batch_idx%len(args.alphas))
-            if net_id!=2:continue
-            validate(train_loader, dynamic_model, criterion, epoch=epoch, args=args, writer=None)
-            prune_while_training(model, args.arch, args.prune_mode, args.width_multiplier, train_loader, criterion, 0, args)
-            exit(0)
             if args.alphas[net_id] == 0:continue
         # the adjusting only work when epoch is at decay_epoch
         adjust_learning_rate(optimizer, epoch, lr=args.lr, decay_epoch=args.decay_epoch,
