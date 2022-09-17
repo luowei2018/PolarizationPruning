@@ -1263,7 +1263,8 @@ def train(train_loader, model, criterion, optimizer, epoch, sparsity, args, is_d
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
             freeze_mask,net_id,dynamic_model,ch_indices = sample_network(args,model,batch_idx%len(args.alphas))
             if net_id!=2:continue
-            prune_while_training(dynamic_model, args.arch, args.prune_mode, args.width_multiplier, train_loader, criterion, epoch, args)
+            prec1 = validate(train_loader, dynamic_model, criterion, epoch=epoch, args=args, writer=None)
+            print(prec1)
             exit(0)
             if args.alphas[net_id] == 0:continue
         # the adjusting only work when epoch is at decay_epoch
