@@ -639,10 +639,9 @@ def main_worker(gpu, ngpus_per_node, args):
               is_debug=args.debug)
 
         # prune the network and record FLOPs at each epoch
-        prec1,prune_str,saved_prec1s = prune_while_training(model, args.arch, args.prune_mode, args.width_multiplier, val_loader, criterion, epoch, args)
+        prec1,prune_str,saved_prec1s = prune_while_training(model, args.arch, args.prune_mode, args.width_multiplier, train_loader, criterion, epoch, args)
 
         print(args.save,prune_str,args.alphas)
-        exit(0)
 
         # remember best prec@1 and save checkpoint
         is_best = prec1 > best_prec1
@@ -1074,7 +1073,7 @@ def mask_network(args,old_model,net_id):
     bn_modules,_ = old_model.get_sparse_layers_and_convs()
     for bn_module in bn_modules:
         all_scale_factors = torch.cat((all_scale_factors,bn_module.weight.data))
-    #if net_id == len(args.alphas)-1:return old_model
+    if net_id == len(args.alphas)-1:return old_model
             
     # total channels
     dynamic_model = copy.deepcopy(old_model)
@@ -1221,7 +1220,7 @@ def prune_while_training(model, arch, prune_mode, width_multiplier, val_loader, 
         
     saved_flops = []
     saved_prec1s = []
-    for i in range(len(args.alphas)):
+    for i in [2]:#range(len(args.alphas)):
         saved_model = mask_network(args,model,i)
         prec1 = validate(val_loader, saved_model, criterion, epoch=epoch, args=args, writer=None)
         flop = compute_conv_flops(saved_model, cuda=True)
