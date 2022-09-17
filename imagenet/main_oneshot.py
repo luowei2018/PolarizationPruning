@@ -615,7 +615,7 @@ def main_worker(gpu, ngpus_per_node, args):
 
     print("rank #{}: dataloader loaded!".format(args.rank))
     if args.evaluate:
-        prec1,prune_str,saved_prec1s = prune_while_training(model, args.arch, args.prune_mode, args.width_multiplier, val_loader, criterion, 0, args)
+        prec1,prune_str,saved_prec1s = prune_while_training(model, args.arch, args.prune_mode, args.width_multiplier, train_loader, criterion, 0, args)
         print(args.save,prune_str,args.alphas)
         return
 
@@ -639,7 +639,7 @@ def main_worker(gpu, ngpus_per_node, args):
               is_debug=args.debug)
 
         # prune the network and record FLOPs at each epoch
-        prec1,prune_str,saved_prec1s = prune_while_training(model, args.arch, args.prune_mode, args.width_multiplier, train_loader, criterion, epoch, args)
+        prec1,prune_str,saved_prec1s = prune_while_training(model, args.arch, args.prune_mode, args.width_multiplier, val_loader, criterion, epoch, args)
 
         print(args.save,prune_str,args.alphas)
 
@@ -1220,7 +1220,7 @@ def prune_while_training(model, arch, prune_mode, width_multiplier, val_loader, 
         
     saved_flops = []
     saved_prec1s = []
-    for i in [2]:#range(len(args.alphas)):
+    for i in [2]:range(len(args.alphas)):
         saved_model = mask_network(args,model,i)
         prec1 = validate(val_loader, saved_model, criterion, epoch=epoch, args=args, writer=None)
         flop = compute_conv_flops(saved_model, cuda=True)
