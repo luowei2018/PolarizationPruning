@@ -262,6 +262,7 @@ def prune_conv_layer(conv_layer: nn.Conv2d,
 
         # prune the bn layer
         if fake_prune:
+            assert sparse_layer_out.weight.data[idx_block.tolist()].sum() + sparse_layer_out.bias.data[idx_block.tolist()].sum() == 0
             sparse_layer_out.weight.data[idx_block.tolist()] = 0
             sparse_layer_out.bias.data[idx_block.tolist()] = 0
         else:
