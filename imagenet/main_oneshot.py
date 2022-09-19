@@ -19,7 +19,6 @@ import torch.utils.data.distributed
 import torchvision.datasets as datasets
 import torchvision.transforms as transforms
 import typing
-from tensorboardX import SummaryWriter
 from typing import Dict
 
 import models
@@ -32,8 +31,6 @@ from utils.common import adjust_learning_rate, compute_conv_flops, freeze_gate
 from utils.evaluation import AverageMeter, accuracy
 from vgg import slimmingvgg as vgg11
 from tqdm import tqdm
-import seaborn as sns
-import matplotlib.pyplot as plt
 import copy
 import torch.nn.functional as F
 

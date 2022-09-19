@@ -12,7 +12,6 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
-from tensorboardX import SummaryWriter
 from torchvision import datasets, transforms
 
 import common
@@ -20,8 +19,6 @@ import models
 from common import LossType, compute_conv_flops
 from models.common import SparseGate, Identity
 from models.resnet_expand import BasicBlock
-import seaborn as sns
-import matplotlib.pyplot as plt
 from tqdm import tqdm
 import copy
 
