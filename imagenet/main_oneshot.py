@@ -637,6 +637,7 @@ def main_worker(gpu, ngpus_per_node, args):
 
         # prune the network and record FLOPs at each epoch
         prec1,prune_str,saved_prec1s = prune_while_training(model, args.arch, args.prune_mode, args.width_multiplier, val_loader, criterion, epoch, args)
+        print(f"Epoch {epoch}/{args.epochs}",args.arch,args.save,prune_str,args.alphas)
         if args.debug:
             exit(0)
 
@@ -1196,7 +1197,6 @@ def prune_while_training(model, arch, prune_mode, width_multiplier, val_loader, 
 
     baseline_flops = compute_conv_flops(model, cuda=True)
     
-    print(args.save,prune_str,args.alphas)
     prune_str = ''
     for flop,prec1 in zip(saved_flops,saved_prec1s):
         prune_str += f"[{prec1:.4f}({flop / baseline_flops*100:.2f}%)],"
