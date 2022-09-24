@@ -631,7 +631,7 @@ def main_worker(gpu, ngpus_per_node, args):
             train_sampler.set_epoch(epoch)
 
         # train for one epoch
-        train(val_loader, model, criterion, optimizer, epoch,
+        train(train_loader, model, criterion, optimizer, epoch,
               args.lbd, args=args,
               is_debug=args.debug)
 
