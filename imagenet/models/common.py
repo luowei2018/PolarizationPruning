@@ -252,7 +252,7 @@ def prune_conv_layer(conv_layer: nn.Conv2d,
                 conv_layer.out_channels = conv_layer.in_channels
             else:
                 conv_layer.out_channels = len(idx_out)
-                print(conv_layer.out_channels,out_channel_mask.size)
+                print(conv_layer.out_channels,out_channel_mask.size,conv_layer.out_channel_mask)
 
         # change the property of the conv layer
         conv_layer.weight.data = conv_weight
