@@ -1188,7 +1188,7 @@ def prune_while_training(model, arch, prune_mode, width_multiplier, val_loader, 
         
     saved_flops = []
     saved_prec1s = []
-    for i in range(len(args.alphas)):
+    for i in [0]:#range(len(args.alphas)):
         pruned_model = sample_network(args,model,net_id=i,eval=True)
         prec1 = validate(val_loader, pruned_model, criterion, epoch=epoch, args=args, writer=None)
         flop = compute_conv_flops(pruned_model, cuda=True)
