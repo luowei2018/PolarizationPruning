@@ -1463,8 +1463,8 @@ def validate(val_loader, model, criterion, epoch, args, writer=None):
                   'Prec@1 {top1.val:.3f} ({top1.avg:.3f}). '
                   'Prec@5 {top5.val:.3f} ({top5.avg:.3f})'.format(
                 batch_time=batch_time, loss=losses, top1=top1, top5=top5))
-            #if args.debug and i >= 10:
-            #    break
+            if args.debug and i >= 10:
+                break
     return top1.avg
 
 
