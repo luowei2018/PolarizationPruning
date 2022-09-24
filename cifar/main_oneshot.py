@@ -516,6 +516,8 @@ def sample_network(old_model,net_id=None,eval=False):
             # set useless channels to 0
             bn_module.weight.data[inactive] = 0
             bn_module.bias.data[inactive] = 0
+            out_channel_mask = weight_valid_mask[ch_start:ch_start+ch_len]==1
+            bn_module.out_channel_mask = out_channel_mask.clone().detach()
             ch_start += ch_len
     if not eval:
         return freeze_mask,net_id,dynamic_model,ch_indices
