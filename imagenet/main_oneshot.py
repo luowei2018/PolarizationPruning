@@ -623,7 +623,8 @@ def main_worker(gpu, ngpus_per_node, args):
                                  total_epoch=args.epochs,
                                  train_loader_len=len(train_loader), iteration=0,
                                  warmup=args.warmup, decay_strategy=args.lr_strategy)
-
+    print(torch.rand(1))
+    exit(0)
     # only master process in each node write to disk
     args.ps_batch = len(args.alphas)
     for epoch in range(args.start_epoch, args.epochs):
@@ -631,7 +632,7 @@ def main_worker(gpu, ngpus_per_node, args):
             train_sampler.set_epoch(epoch)
 
         # train for one epoch
-        train(train_loader, model, criterion, optimizer, epoch,
+        train(val_loader, model, criterion, optimizer, epoch,
               args.lbd, args=args,
               is_debug=args.debug)
 
