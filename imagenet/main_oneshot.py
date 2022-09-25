@@ -660,6 +660,7 @@ def main_worker(gpu, ngpus_per_node, args):
                 save_backup=epoch % args.backup_freq == 0,
                 backup_path=args.save,
                 epoch=epoch)
+        exit(0)
                 
     print("Best prec@1: {}".format(best_prec1))
 
