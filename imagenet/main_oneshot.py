@@ -1099,7 +1099,6 @@ def update_shared_model(args,old_model,new_model,mask,batch_idx,ch_indices,net_i
                 else:
                     old_module.running_mean.data = new_module.running_mean.data
                     old_module.running_var.data = new_module.running_var.data
-        if args.alphas[net_id] == 0:return
         copy_param_grad(old_module.weight,new_module.weight)
         # copy bias grad
         if hasattr(new_module,'bias') and new_module.bias is not None:
@@ -1260,11 +1259,16 @@ def train(train_loader, model, criterion, optimizer, epoch, sparsity, args, is_d
             loss = cross_entropy_loss_with_soft_target(output, soft_label)
         else:
             loss = criterion(output, target)
+        if batch_idx%100 == 0:
+            losses.reset()
         losses.update(loss.data.item(), image.size(0))
 
         # measure accuracy and record loss
         prec1, prec5 = accuracy(output.data, target, topk=(1, 5))
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
+            if batch_idx%100 == 0:
+                top1_list[net_id].reset()
+                top5_list[net_id].reset()
             top1_list[net_id].update(prec1[0], image.size(0))
             top5_list[net_id].update(prec5[0], image.size(0))
         else:
