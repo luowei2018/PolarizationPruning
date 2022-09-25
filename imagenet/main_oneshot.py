@@ -598,7 +598,8 @@ def main_worker(gpu, ngpus_per_node, args):
     train_loader = torch.utils.data.DataLoader(
         train_dataset, batch_size=args.batch_size, shuffle=(train_sampler is None),
         num_workers=args.workers, pin_memory=True, sampler=train_sampler,
-        worker_init_fn=worker_init_fn)
+        #worker_init_fn=worker_init_fn,
+        )
 
     val_loader = torch.utils.data.DataLoader(
         datasets.ImageFolder(valdir, transforms.Compose([
@@ -609,7 +610,7 @@ def main_worker(gpu, ngpus_per_node, args):
         ])),
         batch_size=args.batch_size, shuffle=False,
         num_workers=args.workers, pin_memory=True,
-        worker_init_fn=worker_init_fn,
+        #worker_init_fn=worker_init_fn,
     )
 
     print("rank #{}: dataloader loaded!".format(args.rank))
