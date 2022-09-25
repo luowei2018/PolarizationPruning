@@ -1231,7 +1231,7 @@ def train(train_loader, model, criterion, optimizer, epoch, sparsity, args, is_d
         if args.debug and batch_idx >= 10: break
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
             nonzero = torch.nonzero(torch.tensor(args.alphas))
-            net_id = nonzero[batch_idx%len(nonzero)]
+            net_id = int(nonzero[batch_idx%len(nonzero)][0])
             freeze_mask,net_id,dynamic_model,ch_indices = sample_network(args,model,net_id)
             if args.alphas[net_id] == 0:continue
         # the adjusting only work when epoch is at decay_epoch
