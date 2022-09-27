@@ -1116,7 +1116,7 @@ def update_shared_model(args,old_model,new_model,mask,batch_idx,ch_indices,net_i
         else:
             old_param.grad_tmp += new_grad
         if batch_idx%args.ps_batch == args.ps_batch-1:
-            old_param.grad = old_param.grad_tmp
+            old_param.grad = old_param.grad_tmp / sum(args.alphas)
             old_param.grad_tmp = None
             
     bns1,convs1 = old_model.module.get_sparse_layers_and_convs()
