@@ -347,6 +347,14 @@ if args.resume:
         raise ValueError("=> no checkpoint found at '{}'".format(args.resume))
 else:
     checkpoint = None
+    
+if args.split_running_stat:
+    if not args.load_running_stat:
+        for module_name, bn_module in model.named_modules():
+            if not isinstance(bn_module, nn.BatchNorm2d) and not isinstance(bn_module, nn.BatchNorm1d): continue
+            for nid in range(len(args.alphas)):
+                bn_module.register_buffer(f"mean{nid}",bn_module.running_mean.data.clone().detach())
+                bn_module.register_buffer(f"var{nid}",bn_module.running_var.data.clone().detach())
 
 def bn_weights(model):
     weights = []
@@ -482,15 +490,10 @@ def sample_network(old_model,net_id=None,eval=False):
         if not isinstance(bn_module, nn.BatchNorm2d) and not isinstance(bn_module, nn.BatchNorm1d): continue
         # set the right running mean/var
         if args.split_running_stat:
-            if not hasattr(bn_module,'mean0'):
-                for nid in range(num_subnets):
-                    bn_module.register_buffer(f"mean{nid}",bn_module.running_mean.data.clone().detach())
-                    bn_module.register_buffer(f"var{nid}",bn_module.running_var.data.clone().detach())
-            else:
-                # choose the right running mean/var for a subnet
-                # updated in the last update
-                bn_module.running_mean.data = bn_module._buffers[f"mean{net_id}"]
-                bn_module.running_var.data = bn_module._buffers[f"var{net_id}"]
+            # choose the right running mean/var for a subnet
+            # updated in the last update
+            bn_module.running_mean.data = bn_module._buffers[f"mean{net_id}"]
+            bn_module.running_var.data = bn_module._buffers[f"var{net_id}"]
                 
     dynamic_model = copy.deepcopy(old_model)
     bn_modules = dynamic_model.get_sparse_layers()
