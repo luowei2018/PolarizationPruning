@@ -109,6 +109,8 @@ parser.add_argument('--split_running_stat', action='store_true',
                     help='use split running mean/var for different subnets')
 parser.add_argument('--load_running_stat', action='store_true',
                     help='load running mean/var for different subnets')
+parser.add_argument('--OFA', action='store_true',
+                    help='OFA training')
 
 args = parser.parse_args()
 args.cuda = not args.no_cuda and torch.cuda.is_available()
@@ -483,17 +485,21 @@ args.eps = 1e-10
 def sample_network(old_model,net_id=None,eval=False):
     num_subnets = len(args.alphas)
     if net_id is None:
-        net_id = torch.tensor(0).random_(0,num_subnets)
+        if not args.OFA:
+            net_id = torch.tensor(0).random_(0,num_subnets)
+        else:
+            net_id = torch.rand(1)
     all_scale_factors = torch.tensor([]).cuda()
     # config old model
-    for module_name,bn_module in old_model.named_modules():
-        if not isinstance(bn_module, nn.BatchNorm2d) and not isinstance(bn_module, nn.BatchNorm1d): continue
-        # set the right running mean/var
-        if args.split_running_stat:
-            # choose the right running mean/var for a subnet
-            # updated in the last update
-            bn_module.running_mean.data = bn_module._buffers[f"mean{net_id}"]
-            bn_module.running_var.data = bn_module._buffers[f"var{net_id}"]
+    if not args.OFA:
+        for module_name,bn_module in old_model.named_modules():
+            if not isinstance(bn_module, nn.BatchNorm2d) and not isinstance(bn_module, nn.BatchNorm1d): continue
+            # set the right running mean/var
+            if args.split_running_stat:
+                # choose the right running mean/var for a subnet
+                # updated in the last update
+                bn_module.running_mean.data = bn_module._buffers[f"mean{net_id}"]
+                bn_module.running_var.data = bn_module._buffers[f"var{net_id}"]
                 
     dynamic_model = copy.deepcopy(old_model)
     bn_modules = dynamic_model.get_sparse_layers()
@@ -507,7 +513,10 @@ def sample_network(old_model,net_id=None,eval=False):
     _,ch_indices = all_scale_factors.sort(dim=0)
     
     weight_valid_mask = torch.zeros(total_channels).long().cuda()
-    weight_valid_mask[ch_indices[channel_per_layer*(num_subnets-1-net_id):]] = 1
+    if not args.OFA:
+        weight_valid_mask[ch_indices[channel_per_layer*(num_subnets-1-net_id):]] = 1
+    else:
+        weight_valid_mask[ch_indices[int(total_channels*(1 - net_id)):]] = 1
         
     freeze_mask = 1-weight_valid_mask
     
@@ -589,7 +598,9 @@ def update_shared_model(old_model,new_model,mask,batch_idx,ch_indices,net_id):
             copy_param_grad(old_module.bias,new_module.bias)
             
     def copy_param_grad(old_param,new_param):
-        new_grad = new_param.grad.clone().detach() * args.alphas[net_id]
+        new_grad = new_param.grad.clone().detach()
+        if not args.OFA:
+            new_grad *= args.alphas[net_id]
         if not hasattr(old_param,'grad_tmp') or old_param.grad_tmp is None:
             old_param.grad_tmp = new_grad
         else:
@@ -688,8 +699,13 @@ def train(epoch):
     train_iter = tqdm(train_loader)
     for batch_idx, (data, target) in enumerate(train_iter):
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
-            freeze_mask,net_id,dynamic_model,ch_indices = sample_network(model,batch_idx%len(args.alphas))
-            if args.alphas[net_id] == 0:continue
+            if not args.OFA:
+                nonzero = torch.nonzero(torch,tensor(args.alphas))
+                net_id = int(nonzero[batch_idx%len(nonzero)][0])
+                freeze_mask,net_id,dynamic_model,ch_indices = sample_network(model,net_id)
+                if args.alphas[net_id] == 0:continue
+            else:
+                freeze_mask,net_id,dynamic_model,ch_indices = sample_network(model)
         if args.cuda:
             data, target = data.cuda(), target.cuda()
         optimizer.zero_grad()
