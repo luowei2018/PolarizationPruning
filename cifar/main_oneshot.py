@@ -347,7 +347,7 @@ if args.resume:
         raise ValueError("=> no checkpoint found at '{}'".format(args.resume))
 else:
     checkpoint = None
-    
+
 if args.split_running_stat:
     if not args.load_running_stat:
         for module_name, bn_module in model.named_modules():
@@ -629,7 +629,7 @@ def get_non_sparse_modules(model):
                 non_sparse_modules.append(module)
     return non_sparse_modules
 
-def prune_while_training(model: nn.Module, arch: str, prune_mode: str, num_classes: int):
+def prune_while_training(model, arch, prune_mode, num_classes, avg_loss=None):
     model.eval()
     saved_flops = []
     saved_prec1s = []
@@ -662,9 +662,16 @@ def prune_while_training(model: nn.Module, arch: str, prune_mode: str, num_class
 
     baseline_flops = compute_conv_flops(model, cuda=True)
     
-    prune_str = ''
+    prune_str = f'{baseline_flops}. '
     for flop,prec1 in zip(saved_flops,saved_prec1s):
-        prune_str += f"[{prec1:.4f}({flop / baseline_flops*100:.2f}%)],"
+        prune_str += f"[{prec1:.4f}({(1-flop / baseline_flops)*100:.2f}%)],"
+    log_str = ''
+    if avg_loss is not None:
+        log_str += f"{avg_loss:.3f} "
+    for prec1 in saved_prec1s:
+        log_str += f"{prec1:.4f} "
+    with open(os.path.join(args.save,'train.log'),'a+') as f:
+        f.write(log_str+'\n')
     return prec1,prune_str
 
 def cross_entropy_loss_with_soft_target(pred, soft_target):
@@ -730,6 +737,7 @@ def train(epoch):
             'Step: {} Train Epoch: {} [{}/{} ({:.1f}%)]. Loss: {:.6f}'.format(
             global_step, epoch, batch_idx * len(data), len(train_loader.dataset),
                                 100. * batch_idx / len(train_loader), avg_loss / len(train_loader)))
+    return avg_loss / len(train_loader)
 
 
 def test(modelx):
@@ -796,9 +804,9 @@ for epoch in range(args.start_epoch, args.epochs):
 
     args.current_lr = adjust_learning_rate(optimizer, epoch, args.gammas, args.decay_epoch)
 
-    train(epoch) # train with regularization
+    avg_loss = train(epoch) # train with regularization
 
-    prec1,prune_str = prune_while_training(model, arch=args.arch,prune_mode="default",num_classes=num_classes)
+    prec1,prune_str = prune_while_training(model, arch=args.arch,prune_mode="default",num_classes=num_classes,avg_loss=avg_loss)
     print(f"Epoch {epoch}/{args.epochs} learning rate {args.current_lr:.4f}",args.arch,args.save,prune_str,args.alphas)
     is_best = prec1 > best_prec1
     best_prec1 = max(prec1, best_prec1)
