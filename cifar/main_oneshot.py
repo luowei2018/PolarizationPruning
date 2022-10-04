@@ -103,7 +103,7 @@ parser.add_argument('--debug', action='store_true',
                     help='Debug mode.')
 parser.add_argument('-e', '--evaluate', dest='evaluate', action='store_true',
                     help='evaluate model on validation set')
-parser.add_argument('--alphas', type=float, nargs='+', default=[1,1,1,1],
+parser.add_argument('--alphas', type=float, nargs='+', default=[],
                     help='Multiplier of each subnet')
 parser.add_argument('--split_running_stat', action='store_true',
                     help='use split running mean/var for different subnets')
@@ -276,34 +276,6 @@ if args.flops_weighted:
 if args.cuda:
     model.cuda()
 
-# build optim
-if args.bn_wd:
-    no_wd_type = [models.common.SparseGate]
-else:
-    # do not apply weight decay on bn layers
-    no_wd_type = [models.common.SparseGate, nn.BatchNorm2d, nn.BatchNorm1d]
-
-no_wd_params = []  # do not apply weight decay on these parameters
-for module_name, sub_module in model.named_modules():
-    for t in no_wd_type:
-        if isinstance(sub_module, t):
-            for param_name, param in sub_module.named_parameters():
-                if not isinstance(sub_module, models.common.SparseGate): continue
-                no_wd_params.append(param)
-                #print(f"No weight decay param: module {module_name} param {param_name}")
-
-no_wd_params_set = set(no_wd_params)  # apply weight decay on the rest of parameters
-wd_params = []
-for param_name, model_p in model.named_parameters():
-    if model_p not in no_wd_params_set:
-        wd_params.append(model_p)
-        #print(f"Weight decay param: parameter name {param_name}")
-
-optimizer = torch.optim.SGD([{'params': list(no_wd_params), 'weight_decay': 0.},
-                             {'params': list(wd_params), 'weight_decay': args.weight_decay}],
-                            args.lr,
-                            momentum=args.momentum)
-
 if args.debug:
     # fake polarization to test pruning
     for name, module in model.named_modules():
@@ -365,8 +337,37 @@ if args.enhance:
     bns,convs = model.get_sparse_layers_and_convs()
     for conv,bn in zip(convs,bns):
         # add compensate weights
-        conv.register_parameter("comp_weight",torch.zeros_like(conv.weight))
-        init.kaiming_normal_(conv.comp_weight)
+        conv.register_parameter("comp_weight",torch.nn.Parameter((conv.weight.data)))
+        bn.register_parameter("comp_weight",torch.nn.Parameter((bn.weight.data)))
+        bn.register_parameter("comp_bias",torch.nn.Parameter((bn.bias.data)))
+
+# build optim
+if args.bn_wd:
+    no_wd_type = [models.common.SparseGate]
+else:
+    # do not apply weight decay on bn layers
+    no_wd_type = [models.common.SparseGate, nn.BatchNorm2d, nn.BatchNorm1d]
+
+no_wd_params = []  # do not apply weight decay on these parameters
+for module_name, sub_module in model.named_modules():
+    for t in no_wd_type:
+        if isinstance(sub_module, t):
+            for param_name, param in sub_module.named_parameters():
+                if not isinstance(sub_module, models.common.SparseGate): continue
+                no_wd_params.append(param)
+                #print(f"No weight decay param: module {module_name} param {param_name}")
+
+no_wd_params_set = set(no_wd_params)  # apply weight decay on the rest of parameters
+wd_params = []
+for param_name, model_p in model.named_parameters():
+    if model_p not in no_wd_params_set:
+        wd_params.append(model_p)
+        #print(f"Weight decay param: parameter name {param_name}")
+
+optimizer = torch.optim.SGD([{'params': list(no_wd_params), 'weight_decay': 0.},
+                             {'params': list(wd_params), 'weight_decay': args.weight_decay}],
+                            args.lr,
+                            momentum=args.momentum)
 
 def bn_weights(model):
     weights = []
@@ -489,8 +490,6 @@ def bn_sparsity(model, loss_type, sparsity, t, alpha,
             return sparsity_loss
     else:
         raise ValueError()
-        
-args.eps = 1e-10
     
 def sample_network(old_model,net_id=None,eval=False):
     num_subnets = len(args.alphas)
@@ -499,10 +498,12 @@ def sample_network(old_model,net_id=None,eval=False):
             net_id = torch.tensor(0).random_(0,num_subnets)
         else:
             net_id = torch.rand(1)
-    all_scale_factors = torch.tensor([]).cuda()
+
+    dynamic_model = copy.deepcopy(old_model)
+
     # config old model
     if not args.OFA:
-        for module_name,bn_module in old_model.named_modules():
+        for module_name,bn_module in dynamic_model.named_modules():
             if not isinstance(bn_module, nn.BatchNorm2d) and not isinstance(bn_module, nn.BatchNorm1d): continue
             # set the right running mean/var
             if args.split_running_stat:
@@ -510,36 +511,40 @@ def sample_network(old_model,net_id=None,eval=False):
                 # updated in the last update
                 bn_module.running_mean.data = bn_module._buffers[f"mean{net_id}"]
                 bn_module.running_var.data = bn_module._buffers[f"var{net_id}"]
+
     bn_modules,convs = dynamic_model.get_sparse_layers_and_convs()
+    all_scale_factors = torch.tensor([]).cuda()
     for bn_module in bn_modules:
         all_scale_factors = torch.cat((all_scale_factors,bn_module.weight.data))
-    if args.enhance and args.alphas[net_id]==0:
-        for conv in convs:
-            conv.weight_data = conv.weight.data.clone().detach()
-            conv.weight.data = conv.comp_weight.data.clone().detach()
-
-    dynamic_model = copy.deepcopy(old_model)
     
     # total channels
     total_channels = len(all_scale_factors)
-    channel_per_layer = total_channels//num_subnets
     
     _,ch_indices = all_scale_factors.sort(dim=0)
     
     weight_valid_mask = torch.zeros(total_channels).long().cuda()
     if not args.OFA:
-        weight_valid_mask[ch_indices[channel_per_layer*(num_subnets-1-net_id):]] = 1
+        weight_valid_mask[ch_indices[total_channels//num_subnets*(num_subnets-1-net_id):]] = 1
     else:
         weight_valid_mask[ch_indices[int(total_channels*(1 - net_id)):]] = 1
-        
+
+    if args.enhance:
+        enhance_ratio = 0.25
+        args.enhance_valid_mask = torch.zeros(total_channels).long().cuda()
+        args.enhance_valid_mask[ch_indices[int(total_channels*(1 - enhance_ratio)):]] = 1
+
     freeze_mask = 1-weight_valid_mask
     
     ch_start = 0
     for bn_module,conv in zip(bn_modules,convs):
         with torch.no_grad():
             ch_len = len(bn_module.weight.data)
+            if args.enhance and net_id==0:
+                enhance_mask = args.enhance_valid_mask[ch_start:ch_start+ch_len]==1
+                conv.weight.data[enhance_mask] = conv.comp_weight.data[enhance_mask].clone().detach()
+                bn_module.weight.data[enhance_mask] = bn_module.comp_weight.data[enhance_mask].clone().detach()
+                bn_module.bias.data[enhance_mask] = bn_module.comp_bias.data[enhance_mask].clone().detach()
             inactive = weight_valid_mask[ch_start:ch_start+ch_len]==0
-            # set useless channels to 0
             bn_module.weight.data[inactive] = 0
             bn_module.bias.data[inactive] = 0
             out_channel_mask = weight_valid_mask[ch_start:ch_start+ch_len]==1
@@ -556,18 +561,11 @@ def mask_network(old_model,net_id):
     bn_modules,convs = dynamic_model.get_sparse_layers_and_convs()
     for bn_module in bn_modules:
         all_scale_factors = torch.cat((all_scale_factors,bn_module.weight.data))
-    for module_name,bn_module in old_model.named_modules():
+    for module_name,bn_module in dynamic_model.named_modules():
         if not isinstance(bn_module, nn.BatchNorm2d) and not isinstance(bn_module, nn.BatchNorm1d): continue
         if args.split_running_stat:
             bn_module.running_mean.data = bn_module._buffers[f"mean{net_id}"]
             bn_module.running_var.data = bn_module._buffers[f"var{net_id}"]
-    if args.enhance:
-        for conv in convs:
-            if args.alphas[net_id]==0:
-                conv.weight_data = conv.weight.data.clone().detach()
-                conv.weight.data = conv.comp_weight.data.clone().detach()
-            else:
-                conv.weight.data = conv.weight_data
             
     # total channels
     total_channels = len(all_scale_factors)
@@ -584,6 +582,10 @@ def mask_network(old_model,net_id):
         out_channel_mask = weight_valid_mask[ch_start:ch_start+ch_len]==1
         # for pruning
         bn_module.out_channel_mask = out_channel_mask.clone().detach()
+        if args.enhance and net_id==0:
+            conv.weight.data = conv.comp_weight.data.clone().detach()
+            bn_module.weight.data = bn_module.comp_weight.data.clone().detach()
+            bn_module.bias.data = bn_module.comp_bias.data.clone().detach()
         ch_start += ch_len
     return dynamic_model
 
@@ -612,26 +614,33 @@ def update_shared_model(old_model,new_model,mask,batch_idx,ch_indices,net_id):
                 else:
                     old_module.running_mean.data = new_module.running_mean.data
                     old_module.running_var.data = new_module.running_var.data
-        copy_param_grad(old_module.weight,new_module.weight)
+        if args.enhance and hasattr(old_module,'comp_weight') and net_id==0:
+            copy_param_grad(old_module.comp_weight,new_module.weight,False)
+        else:
+            copy_param_grad(old_module.weight,new_module.weight)
         # copy bias grad
         if hasattr(new_module,'bias') and new_module.bias is not None:
             if onmask is not None:
                 new_module.bias.grad.data[freeze_mask] = 0
-            copy_param_grad(old_module.bias,new_module.bias)
+            if args.enhance and hasattr(old_module,'comp_bias') and net_id==0:
+                copy_param_grad(old_module.comp_bias,new_module.bias,False)
+            else:
+                copy_param_grad(old_module.bias,new_module.bias)
             
-    def copy_param_grad(old_param,new_param):
-        if not args.OFA and args.alphas[net_id]==0:return
+    def copy_param_grad(old_param,new_param,cache=True):
         new_grad = new_param.grad.clone().detach()
         if not args.OFA:
             new_grad *= args.alphas[net_id]
-        if not hasattr(old_param,'grad_tmp') or old_param.grad_tmp is None:
-            old_param.grad_tmp = new_grad
+        if cache:
+            if not hasattr(old_param,'grad_tmp') or old_param.grad_tmp is None:
+                old_param.grad_tmp = new_grad
+            else:
+                old_param.grad_tmp += new_grad
+            if batch_idx%args.ps_batch == args.ps_batch-1:
+                old_param.grad = old_param.grad_tmp
+                old_param.grad_tmp = None
         else:
-            old_param.grad_tmp += new_grad
-        if batch_idx%args.ps_batch == args.ps_batch-1:
-            old_param.grad = old_param.grad_tmp
-            old_param.grad_tmp = None
-            
+            old_param.grad = new_grad
     bns1,convs1 = old_model.get_sparse_layers_and_convs()
     bns2,convs2 = new_model.get_sparse_layers_and_convs()
     ch_start = 0
@@ -641,10 +650,7 @@ def update_shared_model(old_model,new_model,mask,batch_idx,ch_indices,net_id):
             tmp = mask[ch_start:ch_start+ch_len]
             copy_module_grad(bn1,bn2,tmp)
             copy_module_grad(conv1,conv2,tmp)
-            if args.enhance and args.alphas[net_id]==0:
-                conv.comp_weight.grad = conv.weight.grad.data.clone().detach()
-                conv.comp_weight.grad.data[tmp == 1] = 0
-                conv.weight.data = conv.weight_data
+                
         ch_start += ch_len
     
     with torch.no_grad():
@@ -728,12 +734,11 @@ def train(epoch):
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
             if not args.OFA:
                 if not args.enhance:
-                    nonzero = torch.nonzero(torch,tensor(args.alphas))
+                    nonzero = torch.nonzero(torch.tensor(args.alphas))
                     net_id = int(nonzero[batch_idx%len(nonzero)][0])
                 else:
                     net_id = batch_idx%len(args.alphas)
                 freeze_mask,net_id,dynamic_model,ch_indices = sample_network(model,net_id)
-                if args.alphas[net_id] == 0 and not args.enhance:continue
             else:
                 freeze_mask,net_id,dynamic_model,ch_indices = sample_network(model)
         if args.cuda:
@@ -843,7 +848,7 @@ if args.evaluate:
                        num_classes=num_classes)
     print(args.save,prune_str,args.alphas)
     exit(0)
-         
+
 for epoch in range(args.start_epoch, args.epochs):
     if args.max_epoch is not None and epoch >= args.max_epoch:
         break
