@@ -1,6 +1,6 @@
 #!/bin/bash
-#SBATCH --job-name="bo_test"
-#SBATCH --output="bo_test.out"
+#SBATCH --job-name="bo_rn50_sr"
+#SBATCH --output="bo_rn50_sr.out"
 #SBATCH --partition=gpuA100x4
 #SBATCH --mem=220G
 #SBATCH --nodes=1
