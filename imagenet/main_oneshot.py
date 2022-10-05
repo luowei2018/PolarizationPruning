@@ -1274,7 +1274,7 @@ def prune_while_training(model, arch, prune_mode, width_multiplier, val_loader, 
 
     baseline_flops = compute_conv_flops(model, cuda=True)
     
-    prune_str = ''
+    prune_str = f'{baseline_flops}. '
     for flop,prec1 in zip(saved_flops,saved_prec1s):
         prune_str += f"[{prec1:.4f}({flop / baseline_flops*100:.2f}%)],"
     return prec1,prune_str,saved_prec1s
