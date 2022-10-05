@@ -1221,7 +1221,7 @@ def train(train_loader, model, criterion, optimizer, epoch, sparsity, args, is_d
         top5 = AverageMeter()
     
     assert args.arch in ['mobilenetv2','resnet50']
-    assert 512%args.batch_size==0
+    assert 1024%args.batch_size==0
     num_mini_batch = 1024//args.batch_size if args.arch == 'mobilenetv2' else 512//args.batch_size
 
     # switch to train mode
