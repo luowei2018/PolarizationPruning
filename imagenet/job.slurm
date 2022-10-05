@@ -4,7 +4,7 @@
 #SBATCH --partition=gpuA100x4
 #SBATCH --mem=220G
 #SBATCH --nodes=1
-#SBATCH --ntasks-per-node=4
+#SBATCH --ntasks-per-node=1
 #SBATCH --cpus-per-task=16   # spread out to use 1 core per numa
 #SBATCH --constraint="scratch"
 #SBATCH --gpus-per-node=4
