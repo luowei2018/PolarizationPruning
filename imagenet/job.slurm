@@ -12,7 +12,7 @@
 #SBATCH --account=bbng-delta-gpu
 #SBATCH --exclusive  # dedicated node for this job
 #SBATCH --no-requeue
-#SBATCH -t 24:00:00
+#SBATCH -t 1:00:00
 module load anaconda3_gpu python
 cd /scratch/bbng/mw34/bo/PolarizationPruning/imagenet/
 conda activate boenv
