@@ -109,6 +109,8 @@ parser.add_argument('--split_running_stat', action='store_true',
                     help='use split running mean/var for different subnets')
 parser.add_argument('--load_running_stat', action='store_true',
                     help='load running mean/var for different subnets')
+parser.add_argument('--load_enhance', action='store_true',
+                    help='load enhancement for different subnets')
 parser.add_argument('--OFA', action='store_true',
                     help='OFA training')
 parser.add_argument('--enhance', action='store_true',
@@ -293,6 +295,24 @@ if args.debug:
 
             print(f"{name} remains {one_num}")
 
+if args.split_running_stat:
+    if not args.load_running_stat:
+        for module_name, bn_module in model.named_modules():
+            if not isinstance(bn_module, nn.BatchNorm2d) and not isinstance(bn_module, nn.BatchNorm1d): continue
+            for nid in range(len(args.alphas)):
+                bn_module.register_buffer(f"mean{nid}",bn_module.running_mean.data.clone().detach())
+                bn_module.register_buffer(f"var{nid}",bn_module.running_var.data.clone().detach())
+
+    if args.enhance and not args.load_enhance:
+        bns,convs = model.get_sparse_layers_and_convs()
+        for conv,bn in zip(convs,bns):
+            # add compensate weights
+            conv.register_parameter("comp_weight",torch.nn.Parameter((conv.weight.data.clone().detach())))
+            if hasattr(conv,"bias") and conv.bias is not None:
+                conv.register_parameter("comp_bias",torch.nn.Parameter((conv.bias.data.clone().detach())))
+            bn.register_parameter("comp_weight",torch.nn.Parameter((bn.weight.data.clone().detach())))
+            bn.register_parameter("comp_bias",torch.nn.Parameter((bn.bias.data.clone().detach())))
+
 if args.resume:
     if os.path.isfile(args.resume):
         print("=> loading checkpoint '{}'".format(args.resume))
@@ -308,14 +328,21 @@ if args.resume:
 
         args.start_epoch = 0#checkpoint['epoch']
         best_prec1 = checkpoint['best_prec1']
-        if args.split_running_stat:
-            if args.load_running_stat:
-                for module_name, bn_module in model.named_modules():
-                    if not isinstance(bn_module, nn.BatchNorm2d) and not isinstance(bn_module, nn.BatchNorm1d): continue
-                    # set the right running mean/var
-                    for nid in range(len(args.alphas)):
-                        bn_module.register_buffer(f"mean{nid}",bn_module.running_mean.data.clone().detach())
-                        bn_module.register_buffer(f"var{nid}",bn_module.running_var.data.clone().detach())
+        if args.load_running_stat:
+            for module_name, bn_module in model.named_modules():
+                if not isinstance(bn_module, nn.BatchNorm2d) and not isinstance(bn_module, nn.BatchNorm1d): continue
+                for nid in range(len(args.alphas)):
+                    bn_module.register_buffer(f"mean{nid}",bn_module.running_mean.data.clone().detach())
+                    bn_module.register_buffer(f"var{nid}",bn_module.running_var.data.clone().detach())
+            if args.enhance and args.load_enhance:
+                bns,convs = model.get_sparse_layers_and_convs()
+                for conv,bn in zip(convs,bns):
+                    # add compensate weights
+                    conv.register_parameter("comp_weight",torch.nn.Parameter((conv.weight.data.clone().detach())))
+                    if hasattr(conv,"bias") and conv.bias is not None:
+                        conv.register_parameter("comp_bias",torch.nn.Parameter((conv.bias.data.clone().detach())))
+                    bn.register_parameter("comp_weight",torch.nn.Parameter((bn.weight.data.clone().detach())))
+                    bn.register_parameter("comp_bias",torch.nn.Parameter((bn.bias.data.clone().detach())))
         model.load_state_dict(checkpoint['state_dict'])
         #optimizer.load_state_dict(checkpoint['optimizer'])
 
@@ -327,25 +354,6 @@ if args.resume:
         raise ValueError("=> no checkpoint found at '{}'".format(args.resume))
 else:
     checkpoint = None
-
-if args.split_running_stat:
-    if not args.load_running_stat:
-        for module_name, bn_module in model.named_modules():
-            if not isinstance(bn_module, nn.BatchNorm2d) and not isinstance(bn_module, nn.BatchNorm1d): continue
-            for nid in range(len(args.alphas)):
-                bn_module.register_buffer(f"mean{nid}",bn_module.running_mean.data.clone().detach())
-                bn_module.register_buffer(f"var{nid}",bn_module.running_var.data.clone().detach())
-
-if args.enhance:
-    import torch.nn.init as init
-    bns,convs = model.get_sparse_layers_and_convs()
-    for conv,bn in zip(convs,bns):
-        # add compensate weights
-        conv.register_parameter("comp_weight",torch.nn.Parameter((conv.weight.data)))
-        if hasattr(conv,"bias") and conv.bias is not None:
-            conv.register_parameter("comp_bias",torch.nn.Parameter((conv.bias.data)))
-        bn.register_parameter("comp_weight",torch.nn.Parameter((bn.weight.data)))
-        bn.register_parameter("comp_bias",torch.nn.Parameter((bn.bias.data)))
 
 # build optim
 if args.bn_wd:
