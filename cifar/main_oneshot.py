@@ -113,6 +113,10 @@ parser.add_argument('--OFA', action='store_true',
                     help='OFA training')
 parser.add_argument('--enhance', action='store_true',
                     help='add a network to enahnce performance')
+parser.add_argument('--isoratio', default=0.25, type=float,
+                    help="The isolation ratio")
+parser.add_argument('--isotarget', type=int, nargs='+', default=[0, 1],
+                    help='Subnets that use isolation.')
 
 args = parser.parse_args()
 args.cuda = not args.no_cuda and torch.cuda.is_available()
@@ -334,8 +338,6 @@ if args.split_running_stat:
 
 if args.enhance:
     import torch.nn.init as init
-    args.enhance_ratio = 0.25
-    args.enhance_target = [0]
     bns,convs = model.get_sparse_layers_and_convs()
     for conv,bn in zip(convs,bns):
         # add compensate weights
@@ -534,7 +536,7 @@ def sample_network(old_model,net_id=None,eval=False):
 
     if args.enhance:
         args.enhance_valid_mask = torch.zeros(total_channels).long().cuda()
-        args.enhance_valid_mask[ch_indices[int(total_channels*(1 - args.enhance_ratio)):]] = 1
+        args.enhance_valid_mask[ch_indices[int(total_channels*(1 - args.isoratio)):]] = 1
 
     freeze_mask = 1-weight_valid_mask
     
@@ -542,7 +544,9 @@ def sample_network(old_model,net_id=None,eval=False):
     for bn_module,conv in zip(bn_modules,convs):
         with torch.no_grad():
             ch_len = len(bn_module.weight.data)
-            if args.enhance and net_id in args.enhance_target:
+            assert bn_module.weight.grad is None
+            assert conv.weight.grad is None
+            if args.enhance and net_id in args.isotarget:
                 # substitute original weights with selected isolated weights
                 enhance_mask = args.enhance_valid_mask[ch_start:ch_start+ch_len]==1
                 conv.weight.data[enhance_mask] = conv.comp_weight.data[enhance_mask].clone().detach()
@@ -591,7 +595,7 @@ def update_shared_model(old_model,new_model,mask,batch_idx,ch_indices,net_id):
         w_grad0 = new_module.weight.grad.clone().detach()
         if subnet_mask is not None:
             w_grad0.data[freeze_mask] = 0
-            if hasattr(old_module,'comp_weight') and net_id in args.enhance_target:
+            if hasattr(old_module,'comp_weight') and net_id in args.isotarget:
                 w_grad1 = w_grad0.clone().detach()
                 # more enhance_mask==1 means less interference on larger subnets
                 w_grad0.data[enhance_mask==1] = 0
@@ -599,30 +603,34 @@ def update_shared_model(old_model,new_model,mask,batch_idx,ch_indices,net_id):
 
         copy_param_grad(old_module.weight,w_grad0)
         # only update grad for specific targets
-        if hasattr(old_module,'comp_weight') and net_id in args.enhance_target and subnet_mask is not None:
+        if hasattr(old_module,'comp_weight') and net_id in args.isotarget and subnet_mask is not None:
             copy_param_grad(old_module.comp_weight,w_grad1)
         if batch_idx%args.ps_batch == args.ps_batch-1:
-            old_module.weight.grad = old_module.weight.grad_tmp
+            old_module.weight.grad = old_module.weight.grad_tmp.clone().detach()
+            old_module.weight.grad_tmp = None
             if hasattr(old_module,'comp_weight'):
-                old_module.comp_weight.grad = old_module.comp_weight.grad_tmp
+                old_module.comp_weight.grad = old_module.comp_weight.grad_tmp.clone().detach()
+                old_module.comp_weight.grad_tmp = None
 
         # bias
         if hasattr(new_module,'bias') and new_module.bias is not None:
             b_grad0 = new_module.bias.grad.clone().detach()
             if subnet_mask is not None:
                 b_grad0.data[freeze_mask] = 0
-                if hasattr(old_module,'comp_bias') and net_id in args.enhance_target:
+                if hasattr(old_module,'comp_bias') and net_id in args.isotarget:
                     b_grad1 = b_grad0.clone().detach()
                     b_grad0.data[enhance_mask==1] = 0
                     b_grad1.data[enhance_mask==0] = 0
 
             copy_param_grad(old_module.bias,b_grad0)
-            if hasattr(old_module,'comp_bias') and net_id in args.enhance_target and subnet_mask is not None:
+            if hasattr(old_module,'comp_bias') and net_id in args.isotarget and subnet_mask is not None:
                 copy_param_grad(old_module.comp_bias,b_grad1)
             if batch_idx%args.ps_batch == args.ps_batch-1:
-                old_module.bias.grad = old_module.bias.grad_tmp
+                old_module.bias.grad = old_module.bias.grad_tmp.clone().detach()
+                old_module.bias.grad_tmp = None
                 if hasattr(old_module,'comp_bias'):
-                    old_module.comp_bias.grad = old_module.comp_bias.grad_tmp
+                    old_module.comp_bias.grad = old_module.comp_bias.grad_tmp.clone().detach()
+                    old_module.comp_bias.grad_tmp = None
             
     def copy_param_grad(old_param,new_grad):
         if not args.OFA:
@@ -724,6 +732,7 @@ def train(epoch):
     total_data = 0
     train_iter = tqdm(train_loader)
     for batch_idx, (data, target) in enumerate(train_iter):
+        optimizer.zero_grad()
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
             if not args.OFA:
                 if not args.enhance:
@@ -736,7 +745,6 @@ def train(epoch):
                 freeze_mask,net_id,dynamic_model,ch_indices = sample_network(model)
         if args.cuda:
             data, target = data.cuda(), target.cuda()
-        optimizer.zero_grad()
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
             output = dynamic_model(data)
         else:
