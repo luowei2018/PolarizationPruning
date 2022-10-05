@@ -1059,7 +1059,7 @@ def sample_network(args,old_model,net_id=None,eval=False):
             net_id = torch.rand(1)
     all_scale_factors = torch.tensor([]).cuda()
     # config old model
-    if not args.OFA
+    if not args.OFA:
         for module_name, bn_module in old_model.named_modules():
             if not isinstance(bn_module, nn.BatchNorm2d) and not isinstance(bn_module,nn.BatchNorm1d): continue
             # set the right running mean/var
