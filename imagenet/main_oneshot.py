@@ -205,6 +205,18 @@ parser.add_argument('--split_running_stat', action='store_true',
                     help='use split running mean/var for different subnets')
 parser.add_argument('--load_running_stat', action='store_true',
                     help='load running mean/var for different subnets')
+parser.add_argument('--OFA', action='store_true',
+                    help='OFA training')
+parser.add_argument('--load_enhance', action='store_true',
+                    help='load enhancement for different subnets')
+parser.add_argument('--enhance', action='store_true',
+                    help='add a network to enahnce performance')
+parser.add_argument('--isoratio', default=0.25, type=float,
+                    help="The isolation ratio")
+parser.add_argument('--isotarget', type=int, nargs='+', default=[0, 1],
+                    help='Subnets that use isolation.')
+parser.add_argument('--ps_batch', default=4, type=int, 
+                    help='super batch size')
 
 best_prec1 = 0
 
@@ -539,6 +551,24 @@ def main_worker(gpu, ngpus_per_node, args):
         args.start_epoch = refine_checkpoint['epoch']
         best_prec1 = refine_checkpoint['best_prec1']
 
+    if args.split_running_stat:
+        if not args.load_running_stat:
+            for module_name, bn_module in model.named_modules():
+                if not isinstance(bn_module, nn.BatchNorm2d) and not isinstance(bn_module, nn.BatchNorm1d): continue
+                for nid in range(len(args.alphas)):
+                    bn_module.register_buffer(f"mean{nid}",bn_module.running_mean.data.clone().detach())
+                    bn_module.register_buffer(f"var{nid}",bn_module.running_var.data.clone().detach())
+
+        if args.enhance and not args.load_enhance:
+            bns,convs = model.get_sparse_layers_and_convs()
+            for conv,bn in zip(convs,bns):
+                # add compensate weights
+                conv.register_parameter("comp_weight",torch.nn.Parameter((conv.weight.data.clone().detach())))
+                if hasattr(conv,"bias") and conv.bias is not None:
+                    conv.register_parameter("comp_bias",torch.nn.Parameter((conv.bias.data.clone().detach())))
+                bn.register_parameter("comp_weight",torch.nn.Parameter((bn.weight.data.clone().detach())))
+                bn.register_parameter("comp_bias",torch.nn.Parameter((bn.bias.data.clone().detach())))
+
     # optionally resume from a checkpoint
     if args.resume:
         if os.path.isfile(args.resume):
@@ -551,6 +581,15 @@ def main_worker(gpu, ngpus_per_node, args):
                     for nid in range(len(args.alphas)):
                         bn_module.register_buffer(f"mean{nid}",bn_module.running_mean.data.clone().detach())
                         bn_module.register_buffer(f"var{nid}",bn_module.running_var.data.clone().detach())
+                if args.enhance and args.load_enhance:
+                    bns,convs = model.get_sparse_layers_and_convs()
+                    for conv,bn in zip(convs,bns):
+                        # add compensate weights
+                        conv.register_parameter("comp_weight",torch.nn.Parameter((conv.weight.data.clone().detach())))
+                        if hasattr(conv,"bias") and conv.bias is not None:
+                            conv.register_parameter("comp_bias",torch.nn.Parameter((conv.bias.data.clone().detach())))
+                        bn.register_parameter("comp_weight",torch.nn.Parameter((bn.weight.data.clone().detach())))
+                        bn.register_parameter("comp_bias",torch.nn.Parameter((bn.bias.data.clone().detach())))
             if hasattr(checkpoint,'prec_list'):print(checkpoint['prec_list'])
             model.load_state_dict(checkpoint['state_dict'])
             if not args.load_param_only:
@@ -628,7 +667,6 @@ def main_worker(gpu, ngpus_per_node, args):
                                  warmup=args.warmup, decay_strategy=args.lr_strategy)
 
     # only master process in each node write to disk
-    args.ps_batch = len(args.alphas)
     for epoch in range(args.start_epoch, args.epochs):
         if args.distributed:
             train_sampler.set_epoch(epoch)
@@ -1015,19 +1053,17 @@ def zero_bn(model, gate):
 def sample_network(args,old_model,net_id=None,eval=False):
     num_subnets = len(args.alphas)
     if net_id is None:
-        net_id = torch.tensor(0).random_(0,num_subnets)
+        if not args.OFA:
+            net_id = torch.tensor(0).random_(0,num_subnets)
+        else:
+            net_id = torch.rand(1)
     all_scale_factors = torch.tensor([]).cuda()
     # config old model
-    for module_name, bn_module in old_model.named_modules():
-        if not isinstance(bn_module, nn.BatchNorm2d) and not isinstance(bn_module,nn.BatchNorm1d): continue
-        # set the right running mean/var
-        if args.split_running_stat:
-            if not hasattr(bn_module,'mean0'):
-                # init running list
-                for nid in range(num_subnets):
-                    bn_module.register_buffer(f"mean{nid}",bn_module.running_mean.data.clone().detach())
-                    bn_module.register_buffer(f"var{nid}",bn_module.running_var.data.clone().detach())
-            else:
+    if not args.OFA
+        for module_name, bn_module in old_model.named_modules():
+            if not isinstance(bn_module, nn.BatchNorm2d) and not isinstance(bn_module,nn.BatchNorm1d): continue
+            # set the right running mean/var
+            if args.split_running_stat:
                 # choose the right running mean/var for a subnet
                 # updated in the last update
                 bn_module.running_mean.data = bn_module._buffers[f"mean{net_id}"]
@@ -1048,7 +1084,14 @@ def sample_network(args,old_model,net_id=None,eval=False):
     _,ch_indices = all_scale_factors.sort(dim=0)
     
     weight_valid_mask = torch.zeros(total_channels).long().cuda()
-    weight_valid_mask[ch_indices[channel_per_layer*(num_subnets-1-net_id):]] = 1
+    if not args.OFA or eval:
+        weight_valid_mask[ch_indices[total_channels//num_subnets*(num_subnets-1-net_id):]] = 1
+    else:
+        weight_valid_mask[ch_indices[int(total_channels*(1 - net_id)):]] = 1
+
+    if args.enhance:
+        args.enhance_valid_mask = torch.zeros(total_channels).long().cuda()
+        args.enhance_valid_mask[ch_indices[int(total_channels*(1 - args.isoratio)):]] = 1
         
     freeze_mask = 1-weight_valid_mask
     
@@ -1075,49 +1118,76 @@ def sample_network(args,old_model,net_id=None,eval=False):
         return dynamic_model
     
 def update_shared_model(args,old_model,new_model,mask,batch_idx,ch_indices,net_id):
-    def copy_module_grad(old_module,new_module,onmask=None):
-        # copy weights grad
-        if onmask is not None:
-            freeze_mask = onmask == 1
-            keep_mask = onmask == 0
-            if isinstance(new_module, nn.Conv2d):
-                new_module.weight.grad.data[freeze_mask, :, :, :] = 0
-            elif isinstance(new_module, nn.Linear):
-                new_module.weight.grad.data[freeze_mask, :] = 0
-            elif isinstance(new_module,nn.BatchNorm2d) or isinstance(new_module,nn.BatchNorm1d):
-                new_module.weight.grad.data[freeze_mask] = 0
+    def copy_module_grad(old_module,new_module,subnet_mask=None,enhance_mask=None):
+        if subnet_mask is not None:
+            freeze_mask = subnet_mask == 1
+            keep_mask = subnet_mask == 0
+
         # copy running mean/var
         if isinstance(new_module,nn.BatchNorm2d) or isinstance(new_module,nn.BatchNorm1d):
             if args.split_running_stat:
-                if onmask is not None:
+                if subnet_mask is not None:
                     old_module._buffers[f"mean{net_id}"][keep_mask] = new_module.running_mean.data[keep_mask].clone().detach()
                     old_module._buffers[f"var{net_id}"][keep_mask] = new_module.running_var.data[keep_mask].clone().detach()
                 else:
                     old_module._buffers[f"mean{net_id}"] = new_module.running_mean.data.clone().detach()
                     old_module._buffers[f"var{net_id}"] = new_module.running_var.data.clone().detach()
             else:
-                if onmask is not None:
+                if subnet_mask is not None:
                     old_module.running_mean.data[keep_mask] = new_module.running_mean.data[keep_mask]
                     old_module.running_var.data[keep_mask] = new_module.running_var.data[keep_mask]
                 else:
                     old_module.running_mean.data = new_module.running_mean.data
                     old_module.running_var.data = new_module.running_var.data
-        copy_param_grad(old_module.weight,new_module.weight)
-        # copy bias grad
+
+        # weight
+        w_grad0 = new_module.weight.grad.clone().detach()
+        if subnet_mask is not None:
+            w_grad0.data[freeze_mask] = 0
+            if hasattr(old_module,'comp_weight') and net_id in args.isotarget:
+                w_grad1 = w_grad0.clone().detach()
+                # more enhance_mask==1 means less interference on larger subnets
+                w_grad0.data[enhance_mask==1] = 0
+                w_grad1.data[enhance_mask==0] = 0
+
+        copy_param_grad(old_module.weight,w_grad0)
+        # only update grad for specific targets
+        if hasattr(old_module,'comp_weight') and net_id in args.isotarget and subnet_mask is not None:
+            copy_param_grad(old_module.comp_weight,w_grad1)
+        if batch_idx%args.ps_batch == args.ps_batch-1:
+            old_module.weight.grad = old_module.weight.grad_tmp.clone().detach() / sum(args.alphas)
+            old_module.weight.grad_tmp = None
+            if hasattr(old_module,'comp_weight'):
+                old_module.comp_weight.grad = old_module.comp_weight.grad_tmp.clone().detach() / sum(args.alphas)
+                old_module.comp_weight.grad_tmp = None
+
+        # bias
         if hasattr(new_module,'bias') and new_module.bias is not None:
-            if onmask is not None:
-                new_module.bias.grad.data[freeze_mask] = 0
-            copy_param_grad(old_module.bias,new_module.bias)
+            b_grad0 = new_module.bias.grad.clone().detach()
+            if subnet_mask is not None:
+                b_grad0.data[freeze_mask] = 0
+                if hasattr(old_module,'comp_bias') and net_id in args.isotarget:
+                    b_grad1 = b_grad0.clone().detach()
+                    b_grad0.data[enhance_mask==1] = 0
+                    b_grad1.data[enhance_mask==0] = 0
+
+            copy_param_grad(old_module.bias,b_grad0)
+            if hasattr(old_module,'comp_bias') and net_id in args.isotarget and subnet_mask is not None:
+                copy_param_grad(old_module.comp_bias,b_grad1)
+            if batch_idx%args.ps_batch == args.ps_batch-1:
+                old_module.bias.grad = old_module.bias.grad_tmp.clone().detach() / sum(args.alphas)
+                old_module.bias.grad_tmp = None
+                if hasattr(old_module,'comp_bias'):
+                    old_module.comp_bias.grad = old_module.comp_bias.grad_tmp.clone().detach() / sum(args.alphas)
+                    old_module.comp_bias.grad_tmp = None
             
-    def copy_param_grad(old_param,new_param):
-        new_grad = new_param.grad.clone().detach() * args.alphas[net_id]
+    def copy_param_grad(old_param,new_grad):
+        if not args.OFA:
+            new_grad *= args.alphas[net_id]
         if not hasattr(old_param,'grad_tmp') or old_param.grad_tmp is None:
             old_param.grad_tmp = new_grad
         else:
             old_param.grad_tmp += new_grad
-        if batch_idx%args.ps_batch == args.ps_batch-1:
-            old_param.grad = old_param.grad_tmp / sum(args.alphas)
-            old_param.grad_tmp = None
             
     bns1,convs1 = old_model.module.get_sparse_layers_and_convs()
     bns2,convs2 = new_model.module.get_sparse_layers_and_convs()
@@ -1125,9 +1195,12 @@ def update_shared_model(args,old_model,new_model,mask,batch_idx,ch_indices,net_i
     for conv1,bn1,conv2,bn2 in zip(convs1,bns1,convs2,bns2):
         ch_len = conv1.weight.data.size(0)
         with torch.no_grad():
-            tmp = mask[ch_start:ch_start+ch_len]
-            copy_module_grad(bn1,bn2,tmp)
-            copy_module_grad(conv1,conv2,tmp)
+            subnet_mask = mask[ch_start:ch_start+ch_len]
+            enhance_mask = None
+            if args.enhance:
+                enhance_mask = args.enhance_valid_mask[ch_start:ch_start+ch_len]
+            copy_module_grad(bn1,bn2,subnet_mask,enhance_mask)
+            copy_module_grad(conv1,conv2,subnet_mask,enhance_mask)
         ch_start += ch_len
     
     with torch.no_grad():
