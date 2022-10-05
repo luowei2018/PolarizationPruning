@@ -1306,10 +1306,15 @@ def train(train_loader, model, criterion, optimizer, epoch, sparsity, args, is_d
         batch_idx = i//num_mini_batch
         if args.debug and batch_idx >= 10: break
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
-            nonzero = torch.nonzero(torch.tensor(args.alphas))
-            net_id = int(nonzero[batch_idx%len(nonzero)][0])
-            freeze_mask,net_id,dynamic_model,ch_indices = sample_network(args,model,net_id)
-            if args.alphas[net_id] == 0:continue
+            if not args.OFA:
+                if not args.enhance:
+                    nonzero = torch.nonzero(torch.tensor(args.alphas))
+                    net_id = int(nonzero[batch_idx%len(nonzero)][0])
+                else:
+                    net_id = batch_idx%len(args.alphas)
+                freeze_mask,net_id,dynamic_model,ch_indices = sample_network(args,model,net_id)
+            else:
+                freeze_mask,net_id,dynamic_model,ch_indices = sample_network(args,model)
         # the adjusting only work when epoch is at decay_epoch
         adjust_learning_rate(optimizer, epoch, lr=args.lr, decay_epoch=args.decay_epoch,
                              total_epoch=args.epochs,
