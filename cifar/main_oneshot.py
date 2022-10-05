@@ -340,7 +340,7 @@ if args.enhance:
     for conv,bn in zip(convs,bns):
         # add compensate weights
         conv.register_parameter("comp_weight",torch.nn.Parameter((conv.weight.data)))
-        if hasattr(conv,"bias"):
+        if hasattr(conv,"bias") and conv.bias is not None:
             conv.register_parameter("comp_bias",torch.nn.Parameter((conv.bias.data)))
         bn.register_parameter("comp_weight",torch.nn.Parameter((bn.weight.data)))
         bn.register_parameter("comp_bias",torch.nn.Parameter((bn.bias.data)))
@@ -546,10 +546,10 @@ def sample_network(old_model,net_id=None,eval=False):
                 # substitute original weights with selected isolated weights
                 enhance_mask = args.enhance_valid_mask[ch_start:ch_start+ch_len]==1
                 conv.weight.data[enhance_mask] = conv.comp_weight.data[enhance_mask].clone().detach()
-                if hasattr(conv,'bias'):
+                if hasattr(conv,'bias') and conv.bias is not None:
                     conv.bias.data[enhance_mask] = conv.comp_bias.data[enhance_mask].clone().detach()
                 bn_module.weight.data[enhance_mask] = bn_module.comp_weight.data[enhance_mask].clone().detach()
-                if hasattr(bn_module,'bias'):
+                if hasattr(bn_module,'bias') and bn.bias is not None:
                     bn_module.bias.data[enhance_mask] = bn_module.comp_bias.data[enhance_mask].clone().detach()
             inactive = weight_valid_mask[ch_start:ch_start+ch_len]==0
             bn_module.weight.data[inactive] = 0
@@ -588,8 +588,8 @@ def update_shared_model(old_model,new_model,mask,batch_idx,ch_indices,net_id):
                     old_module.running_var.data = new_module.running_var.data
 
         # weight
+        w_grad0 = new_module.weight.grad.clone().detach()
         if subnet_mask is not None:
-            w_grad0 = new_module.weight.grad.clone().detach()
             w_grad0.data[freeze_mask] = 0
             if hasattr(old_module,'comp_weight') and net_id in args.enhance_target:
                 w_grad1 = w_grad0.clone().detach()
@@ -599,7 +599,7 @@ def update_shared_model(old_model,new_model,mask,batch_idx,ch_indices,net_id):
 
         copy_param_grad(old_module.weight,w_grad0)
         # only update grad for specific targets
-        if hasattr(old_module,'comp_weight') and net_id in args.enhance_target:
+        if hasattr(old_module,'comp_weight') and net_id in args.enhance_target and subnet_mask is not None:
             copy_param_grad(old_module.comp_weight,w_grad1)
         if batch_idx%args.ps_batch == args.ps_batch-1:
             old_module.weight.grad = old_module.weight.grad_tmp
@@ -608,8 +608,8 @@ def update_shared_model(old_model,new_model,mask,batch_idx,ch_indices,net_id):
 
         # bias
         if hasattr(new_module,'bias') and new_module.bias is not None:
+            b_grad0 = new_module.bias.grad.clone().detach()
             if subnet_mask is not None:
-                b_grad0 = new_module.bias.grad.clone().detach()
                 b_grad0.data[freeze_mask] = 0
                 if hasattr(old_module,'comp_bias') and net_id in args.enhance_target:
                     b_grad1 = b_grad0.clone().detach()
@@ -617,7 +617,7 @@ def update_shared_model(old_model,new_model,mask,batch_idx,ch_indices,net_id):
                     b_grad1.data[enhance_mask==0] = 0
 
             copy_param_grad(old_module.bias,b_grad0)
-            if hasattr(old_module,'comp_bias') and net_id in args.enhance_target:
+            if hasattr(old_module,'comp_bias') and net_id in args.enhance_target and subnet_mask is not None:
                 copy_param_grad(old_module.comp_bias,b_grad1)
             if batch_idx%args.ps_batch == args.ps_batch-1:
                 old_module.bias.grad = old_module.bias.grad_tmp
