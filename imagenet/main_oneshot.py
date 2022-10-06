@@ -1494,6 +1494,7 @@ def train(train_loader, model, criterion, optimizer, epoch, sparsity, args, is_d
                     prec_str += f'{top1.val:.3f}({top1.avg:.3f}). '
                 train_iter.set_description(
                       f'Epoch: [{epoch:03d}]. '
+                      f'Time {batch_time.val:.3f} ({batch_time.avg:.3f}). '
                       f'Loss {losses.val:.4f} ({losses.avg:.4f}). '
                       f'LR {lr}. {prec_str}')
             else:
