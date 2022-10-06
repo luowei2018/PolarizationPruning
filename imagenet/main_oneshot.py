@@ -213,7 +213,7 @@ parser.add_argument('--enhance', action='store_true',
                     help='add a network to enahnce performance')
 parser.add_argument('--isoratio', default=0.25, type=float,
                     help="The isolation ratio")
-parser.add_argument('--isotarget', type=int, nargs='+', default=[0, 1],
+parser.add_argument('--isotarget', type=int, nargs='+', default=[0],
                     help='Subnets that use isolation.')
 parser.add_argument('--ps_batch', default=4, type=int, 
                     help='super batch size')
@@ -1092,7 +1092,8 @@ def sample_network(args,old_model,net_id=None,eval=False):
 
     if args.enhance:
         args.enhance_valid_mask = torch.zeros(total_channels).long().cuda()
-        args.enhance_valid_mask[ch_indices[int(total_channels*(1 - args.isoratio)):]] = 1
+        # args.enhance_valid_mask[ch_indices[int(total_channels*(1 - args.isoratio)):]] = 1
+        args.enhance_valid_mask[ch_indices[total_channels//num_subnets*(num_subnets-1):]] = 1
         
     freeze_mask = 1-weight_valid_mask
     
