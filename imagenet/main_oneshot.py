@@ -1092,8 +1092,8 @@ def sample_network(args,old_model,net_id=None,eval=False):
 
     if args.enhance:
         args.enhance_valid_mask = torch.zeros(total_channels).long().cuda()
-        # args.enhance_valid_mask[ch_indices[int(total_channels*(1 - args.isoratio)):]] = 1
-        args.enhance_valid_mask[ch_indices[total_channels//num_subnets*(num_subnets-1):]] = 1
+        args.enhance_valid_mask[ch_indices[int(total_channels*(1 - args.isoratio)):]] = 1
+        assert torch.equal(args.enhance_valid_mask,weight_valid_mask)
         
     freeze_mask = 1-weight_valid_mask
     
@@ -1101,15 +1101,15 @@ def sample_network(args,old_model,net_id=None,eval=False):
     for bn_module,conv in zip(bn_modules,convs):
         with torch.no_grad():
             ch_len = len(bn_module.weight.data)
-            if args.enhance and net_id in args.isotarget:
-                # substitute original weights with selected isolated weights
-                enhance_mask = args.enhance_valid_mask[ch_start:ch_start+ch_len]==1
-                conv.weight.data[enhance_mask] = conv.comp_weight.data[enhance_mask].clone().detach()
-                if hasattr(conv,'bias') and conv.bias is not None:
-                    conv.bias.data[enhance_mask] = conv.comp_bias.data[enhance_mask].clone().detach()
-                bn_module.weight.data[enhance_mask] = bn_module.comp_weight.data[enhance_mask].clone().detach()
-                if hasattr(bn_module,'bias') and bn_module.bias is not None:
-                    bn_module.bias.data[enhance_mask] = bn_module.comp_bias.data[enhance_mask].clone().detach()
+            # if args.enhance and net_id in args.isotarget:
+            #     # substitute original weights with selected isolated weights
+            #     enhance_mask = args.enhance_valid_mask[ch_start:ch_start+ch_len]==1
+            #     conv.weight.data[enhance_mask] = conv.comp_weight.data[enhance_mask].clone().detach()
+            #     if hasattr(conv,'bias') and conv.bias is not None:
+            #         conv.bias.data[enhance_mask] = conv.comp_bias.data[enhance_mask].clone().detach()
+            #     bn_module.weight.data[enhance_mask] = bn_module.comp_weight.data[enhance_mask].clone().detach()
+            #     if hasattr(bn_module,'bias') and bn_module.bias is not None:
+            #         bn_module.bias.data[enhance_mask] = bn_module.comp_bias.data[enhance_mask].clone().detach()
             inactive = weight_valid_mask[ch_start:ch_start+ch_len]==0
             # set useless channels to 0
             bn_module.weight.data[inactive] = 0
@@ -1155,36 +1155,39 @@ def update_shared_model(args,old_model,new_model,mask,batch_idx,ch_indices,net_i
         w_grad0 = new_module.weight.grad.clone().detach()
         if subnet_mask is not None:
             w_grad0.data[freeze_mask] = 0
-            if hasattr(old_module,'comp_weight') and net_id in args.isotarget:
-                w_grad1 = w_grad0.clone().detach()
-                # more enhance_mask==1 means less interference on larger subnets
-                w_grad0.data[enhance_mask==1] = 0
-                w_grad1.data[enhance_mask==0] = 0
+            # if hasattr(old_module,'comp_weight') and net_id in args.isotarget:
+            #     w_grad1 = w_grad0.clone().detach()
+            #     # more enhance_mask==1 means less interference on larger subnets
+            #     w_grad0.data[enhance_mask==1] = 0
+            #     w_grad1.data[enhance_mask==0] = 0
 
         copy_param_grad(old_module.weight,w_grad0)
         # only update grad for specific targets
         if hasattr(old_module,'comp_weight') and net_id in args.isotarget and subnet_mask is not None:
-            copy_param_grad(old_module.comp_weight,w_grad1)
+            # copy_param_grad(old_module.comp_weight,w_grad1)
+            copy_param_grad(old_module.comp_weight,w_grad0)
         if batch_idx%args.ps_batch == args.ps_batch-1:
             old_module.weight.grad = old_module.weight.grad_tmp.clone().detach() / sum(args.alphas)
             old_module.weight.grad_tmp = None
             if hasattr(old_module,'comp_weight'):
                 old_module.comp_weight.grad = old_module.comp_weight.grad_tmp.clone().detach() / sum(args.alphas)
                 old_module.comp_weight.grad_tmp = None
+        assert batch_idx%args.ps_batch == args.ps_batch-1
 
         # bias
         if hasattr(new_module,'bias') and new_module.bias is not None:
             b_grad0 = new_module.bias.grad.clone().detach()
             if subnet_mask is not None:
                 b_grad0.data[freeze_mask] = 0
-                if hasattr(old_module,'comp_bias') and net_id in args.isotarget:
-                    b_grad1 = b_grad0.clone().detach()
-                    b_grad0.data[enhance_mask==1] = 0
-                    b_grad1.data[enhance_mask==0] = 0
+                # if hasattr(old_module,'comp_bias') and net_id in args.isotarget:
+                #     b_grad1 = b_grad0.clone().detach()
+                #     b_grad0.data[enhance_mask==1] = 0
+                #     b_grad1.data[enhance_mask==0] = 0
 
             copy_param_grad(old_module.bias,b_grad0)
             if hasattr(old_module,'comp_bias') and net_id in args.isotarget and subnet_mask is not None:
-                copy_param_grad(old_module.comp_bias,b_grad1)
+                # copy_param_grad(old_module.comp_bias,b_grad1)
+                copy_param_grad(old_module.comp_bias,b_grad0)
             if batch_idx%args.ps_batch == args.ps_batch-1:
                 old_module.bias.grad = old_module.bias.grad_tmp.clone().detach() / sum(args.alphas)
                 old_module.bias.grad_tmp = None
@@ -1318,11 +1321,12 @@ def train(train_loader, model, criterion, optimizer, epoch, sparsity, args, is_d
         if args.debug and batch_idx >= 10: break
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
             if not args.OFA:
-                if True:#not args.enhance:
+                if not args.enhance:
                     nonzero = torch.nonzero(torch.tensor(args.alphas))
                     net_id = int(nonzero[batch_idx%len(nonzero)][0])
                 else:
                     net_id = batch_idx%len(args.alphas)
+                net_id = 0
                 freeze_mask,net_id,dynamic_model,ch_indices = sample_network(args,model,net_id)
             else:
                 freeze_mask,net_id,dynamic_model,ch_indices = sample_network(args,model)
