@@ -1158,7 +1158,6 @@ def update_shared_model(args,old_model,new_model,mask,batch_idx,ch_indices,net_i
             if hasattr(old_module,'comp_weight') and net_id in args.isotarget:
                 w_grad1 = w_grad0.clone().detach()
                 w_grad0.data[enhance_mask==1] = 0
-                assert w_grad0.data.sum()==0
                 w_grad1.data[enhance_mask==0] = 0
 
         copy_param_grad(old_module.weight,w_grad0)
@@ -1180,7 +1179,6 @@ def update_shared_model(args,old_model,new_model,mask,batch_idx,ch_indices,net_i
                 if hasattr(old_module,'comp_bias') and net_id in args.isotarget:
                     b_grad1 = b_grad0.clone().detach()
                     b_grad0.data[enhance_mask==1] = 0
-                    assert b_grad0.data.sum()==0
                     b_grad1.data[enhance_mask==0] = 0
 
             copy_param_grad(old_module.bias,b_grad0)
