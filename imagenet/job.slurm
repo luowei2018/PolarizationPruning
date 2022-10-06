@@ -1,6 +1,6 @@
 #!/bin/bash
-#SBATCH --job-name="noeh"
-#SBATCH --output="noeh.out"
+#SBATCH --job-name="weh"
+#SBATCH --output="weh.out"
 #SBATCH --partition=gpuA40x4
 #SBATCH --mem=220G
 #SBATCH --nodes=1
@@ -48,5 +48,5 @@ export OMP_NUM_THREADS=16  # if code is not multithreaded, otherwise set to 16 o
 
 
 # single net
-srun python3 -W ignore -u main_oneshot.py /scratch/bbng/mw34/datasets/imagenet -loss ps -b 512 --lbd 8e-5 --t 1.2 --lr-strategy step --lr 1e-3 1e-4 --decay-epoch 40 --epochs 60 --arch resnet50 --workers 16 --world-size 1 --dist-url tcp://localhost:23456 --dist-backend gloo --rank 0 --save ./ps23_01_1_1 --resume original/resnet/model_best.pth.tar --load-param-only --alphas 1 0 0 0 --split_running_stat --ps_batch 1
-# srun python3 -W ignore -u main_oneshot.py /scratch/bbng/mw34/datasets/imagenet -loss ps -b 512 --lbd 8e-5 --t 1.2 --lr-strategy step --lr 1e-3 1e-4 --decay-epoch 40 --epochs 60 --arch resnet50 --workers 16 --world-size 1 --dist-url tcp://localhost:23456 --dist-backend gloo --rank 0 --save ./ps23_01_1_1 --resume original/resnet/model_best.pth.tar --load-param-only --alphas 1 0 0 0 --split_running_stat --ps_batch 1 --enhance
+# srun python3 -W ignore -u main_oneshot.py /scratch/bbng/mw34/datasets/imagenet -loss ps -b 512 --lbd 8e-5 --t 1.2 --lr-strategy step --lr 1e-3 1e-4 --decay-epoch 40 --epochs 60 --arch resnet50 --workers 16 --world-size 1 --dist-url tcp://localhost:23456 --dist-backend gloo --rank 0 --save ./ps23_01_1_1 --resume original/resnet/model_best.pth.tar --load-param-only --alphas 1 0 0 0 --split_running_stat --ps_batch 1
+srun python3 -W ignore -u main_oneshot.py /scratch/bbng/mw34/datasets/imagenet -loss ps -b 512 --lbd 8e-5 --t 1.2 --lr-strategy step --lr 1e-3 1e-4 --decay-epoch 40 --epochs 60 --arch resnet50 --workers 16 --world-size 1 --dist-url tcp://localhost:23456 --dist-backend gloo --rank 0 --save ./ps23_01_1_1 --resume original/resnet/model_best.pth.tar --load-param-only --alphas 1 0 0 0 --split_running_stat --ps_batch 1 --enhance
