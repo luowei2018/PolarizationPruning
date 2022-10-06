@@ -1102,7 +1102,7 @@ def sample_network(args,old_model,net_id=None,eval=False):
         with torch.no_grad():
             ch_len = len(bn_module.weight.data)
             if args.enhance and net_id in args.isotarget:
-                assert torch.equal(conv.weight.data,conv.comp_weight.data) and torch.equal(bn.weight.data,bn.comp_weight.data)
+                assert torch.equal(conv.weight.data,conv.comp_weight.data) and torch.equal(bn_module.weight.data,bn_module.comp_weight.data)
                 # substitute original weights with selected isolated weights
                 enhance_mask = args.enhance_valid_mask[ch_start:ch_start+ch_len]==1
                 conv.weight.data[enhance_mask] = conv.comp_weight.data[enhance_mask].clone().detach()
