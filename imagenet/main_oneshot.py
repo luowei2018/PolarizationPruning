@@ -601,7 +601,7 @@ def main_worker(gpu, ngpus_per_node, args):
                     bn_module.register_buffer(f"var{nid}",bn_module.running_var.data.clone().detach())
 
         if args.enhance and not args.load_enhance:
-            bns,convs = model.get_sparse_layers_and_convs()
+            bns,convs = model.module.get_sparse_layers_and_convs()
             for conv,bn in zip(convs,bns):
                 # add compensate weights
                 conv.register_parameter("comp_weight",torch.nn.Parameter((conv.weight.data.clone().detach())))
@@ -1286,7 +1286,7 @@ def train(train_loader, model, criterion, optimizer, epoch, sparsity, args, is_d
     data_time = AverageMeter()
     losses = AverageMeter()
     avg_sparsity_loss = AverageMeter()
-    if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
+    if args.loss in {LossType.PROGRESSIVE_SHRINKING} and not args.OFA:
         top1_list = [AverageMeter() for _ in args.alphas]
         top5_list = [AverageMeter() for _ in args.alphas]
     else:
@@ -1346,7 +1346,7 @@ def train(train_loader, model, criterion, optimizer, epoch, sparsity, args, is_d
 
         # measure accuracy and record loss
         prec1, prec5 = accuracy(output.data, target, topk=(1, 5))
-        if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
+        if args.loss in {LossType.PROGRESSIVE_SHRINKING} and not args.OFA:
             top1_list[net_id].update(prec1[0], image.size(0))
             top5_list[net_id].update(prec5[0], image.size(0))
         else:
@@ -1487,7 +1487,7 @@ def train(train_loader, model, criterion, optimizer, epoch, sparsity, args, is_d
         end = time.time()
 
         if args.rank == 0 and (i+1)%num_mini_batch == 0:
-            if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
+            if args.loss in {LossType.PROGRESSIVE_SHRINKING} and not args.OFA:
                 lr=optimizer.param_groups[0]['lr']
                 prec_str = ''
                 for top1,top5 in zip(top1_list,top5_list):
