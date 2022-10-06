@@ -601,6 +601,7 @@ def main_worker(gpu, ngpus_per_node, args):
                     bn_module.register_buffer(f"var{nid}",bn_module.running_var.data.clone().detach())
 
         if args.enhance and not args.load_enhance:
+            print('adding comp')
             bns,convs = model.module.get_sparse_layers_and_convs()
             for conv,bn in zip(convs,bns):
                 # add compensate weights
@@ -609,7 +610,6 @@ def main_worker(gpu, ngpus_per_node, args):
                     conv.register_parameter("comp_bias",torch.nn.Parameter((conv.bias.data.clone().detach())))
                 bn.register_parameter("comp_weight",torch.nn.Parameter((bn.weight.data.clone().detach())))
                 bn.register_parameter("comp_bias",torch.nn.Parameter((bn.bias.data.clone().detach())))
-                assert torch.equal(conv.weight.data,conv.comp_weight.data)
 
     cudnn.benchmark = True
 
@@ -1315,6 +1315,9 @@ def train(train_loader, model, criterion, optimizer, epoch, sparsity, args, is_d
 
     # switch to train mode
     model.train()
+    bns,convs = model.module.get_sparse_layers_and_convs()
+    for conv,bn in zip(convs,bns):
+        assert torch.equal(conv.weight.data,conv.comp_weight.data)
 
     end = time.time()
     train_iter = tqdm(train_loader)
