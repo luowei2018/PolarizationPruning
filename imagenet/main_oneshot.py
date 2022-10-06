@@ -1052,10 +1052,6 @@ def zero_bn(model, gate):
         #m.bias.data.zero_()
 
 def sample_network(args,old_model,net_id=None,eval=False):
-
-    bns,convs = old_model.module.get_sparse_layers_and_convs()
-    for conv,bn in zip(convs,bns):
-        assert torch.equal(conv.weight.data,conv.comp_weight.data)
     num_subnets = len(args.alphas)
     if net_id is None:
         if not args.OFA:
@@ -1107,7 +1103,6 @@ def sample_network(args,old_model,net_id=None,eval=False):
             ch_len = len(bn_module.weight.data)
             if args.enhance and net_id in args.isotarget:
                 assert torch.equal(conv.weight.data,conv.comp_weight.data)
-                assert torch.equal(bn_module.weight.data,bn_module.comp_weight.data)
                 # substitute original weights with selected isolated weights
                 enhance_mask = args.enhance_valid_mask[ch_start:ch_start+ch_len]==1
                 conv.weight.data[enhance_mask] = conv.comp_weight.data[enhance_mask].clone().detach()
@@ -1319,7 +1314,9 @@ def train(train_loader, model, criterion, optimizer, epoch, sparsity, args, is_d
 
     # switch to train mode
     model.train()
-
+    bns,convs = model.module.get_sparse_layers_and_convs()
+    for conv,bn in zip(convs,bns):
+        assert torch.equal(conv.weight.data,conv.comp_weight.data)
     end = time.time()
     train_iter = tqdm(train_loader)
     for i, (image, target) in enumerate(train_iter):
