@@ -1,7 +1,7 @@
 #!/bin/bash
-#SBATCH --job-name="bo_mbn2_original"
-#SBATCH --output="bo_mbn2_original.out"
-#SBATCH --partition=gpuA100x4
+#SBATCH --job-name="m2orig"
+#SBATCH --output="m2orig.out"
+#SBATCH --partition=gpuA40x4
 #SBATCH --mem=220G
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
