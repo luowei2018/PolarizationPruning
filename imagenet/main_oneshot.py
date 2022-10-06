@@ -1052,6 +1052,10 @@ def zero_bn(model, gate):
         #m.bias.data.zero_()
 
 def sample_network(args,old_model,net_id=None,eval=False):
+
+    bns,convs = old_model.module.get_sparse_layers_and_convs()
+    for conv,bn in zip(convs,bns):
+        assert torch.equal(conv.weight.data,conv.comp_weight.data)
     num_subnets = len(args.alphas)
     if net_id is None:
         if not args.OFA:
@@ -1315,9 +1319,6 @@ def train(train_loader, model, criterion, optimizer, epoch, sparsity, args, is_d
 
     # switch to train mode
     model.train()
-    bns,convs = model.module.get_sparse_layers_and_convs()
-    for conv,bn in zip(convs,bns):
-        assert torch.equal(conv.weight.data,conv.comp_weight.data)
 
     end = time.time()
     train_iter = tqdm(train_loader)
@@ -1333,6 +1334,10 @@ def train(train_loader, model, criterion, optimizer, epoch, sparsity, args, is_d
                 else:
                     net_id = batch_idx%len(args.alphas)
                 net_id = 0
+
+                bns,convs = model.module.get_sparse_layers_and_convs()
+                for conv,bn in zip(convs,bns):
+                    assert torch.equal(conv.weight.data,conv.comp_weight.data)
                 freeze_mask,net_id,dynamic_model,ch_indices = sample_network(args,model,net_id)
             else:
                 freeze_mask,net_id,dynamic_model,ch_indices = sample_network(args,model)
