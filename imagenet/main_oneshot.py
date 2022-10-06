@@ -1060,7 +1060,7 @@ def sample_network(args,old_model,net_id=None,eval=False):
     dynamic_model = copy.deepcopy(old_model)
     # config old model
     if not args.OFA:
-        for module_name, bn_module in old_model.named_modules():
+        for module_name, bn_module in dynamic_model.named_modules():
             if not isinstance(bn_module, nn.BatchNorm2d) and not isinstance(bn_module,nn.BatchNorm1d): continue
             # set the right running mean/var
             if args.split_running_stat:
@@ -1069,7 +1069,7 @@ def sample_network(args,old_model,net_id=None,eval=False):
                 bn_module.running_mean.data = bn_module._buffers[f"mean{net_id}"]
                 bn_module.running_var.data = bn_module._buffers[f"var{net_id}"]
     
-    if isinstance(old_model, nn.DataParallel) or isinstance(old_model, nn.parallel.DistributedDataParallel):
+    if isinstance(dynamic_model, nn.DataParallel) or isinstance(dynamic_model, nn.parallel.DistributedDataParallel):
         bn_modules,convs = dynamic_model.module.get_sparse_layers_and_convs()
     else:
         bn_modules,convs = dynamic_model.get_sparse_layers_and_convs()
