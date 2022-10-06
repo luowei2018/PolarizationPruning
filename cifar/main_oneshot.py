@@ -552,8 +552,6 @@ def sample_network(old_model,net_id=None,eval=False):
     for bn_module,conv in zip(bn_modules,convs):
         with torch.no_grad():
             ch_len = len(bn_module.weight.data)
-            assert bn_module.weight.grad is None
-            assert conv.weight.grad is None
             if args.enhance and net_id in args.isotarget:
                 # substitute original weights with selected isolated weights
                 enhance_mask = args.enhance_valid_mask[ch_start:ch_start+ch_len]==1
