@@ -1057,7 +1057,7 @@ def sample_network(args,old_model,net_id=None,eval=False):
             net_id = torch.tensor(0).random_(0,num_subnets)
         else:
             net_id = torch.rand(1)
-    all_scale_factors = torch.tensor([]).cuda()
+    dynamic_model = copy.deepcopy(old_model)
     # config old model
     if not args.OFA:
         for module_name, bn_module in old_model.named_modules():
@@ -1069,11 +1069,11 @@ def sample_network(args,old_model,net_id=None,eval=False):
                 bn_module.running_mean.data = bn_module._buffers[f"mean{net_id}"]
                 bn_module.running_var.data = bn_module._buffers[f"var{net_id}"]
     
-    dynamic_model = copy.deepcopy(old_model)
     if isinstance(old_model, nn.DataParallel) or isinstance(old_model, nn.parallel.DistributedDataParallel):
-        bn_modules,_ = dynamic_model.module.get_sparse_layers_and_convs()
+        bn_modules,convs = dynamic_model.module.get_sparse_layers_and_convs()
     else:
-        bn_modules,_ = dynamic_model.get_sparse_layers_and_convs()
+        bn_modules,convs = dynamic_model.get_sparse_layers_and_convs()
+    all_scale_factors = torch.tensor([]).cuda()
     for bn_module in bn_modules:
         all_scale_factors = torch.cat((all_scale_factors,bn_module.weight.data))
     
@@ -1096,7 +1096,7 @@ def sample_network(args,old_model,net_id=None,eval=False):
     freeze_mask = 1-weight_valid_mask
     
     ch_start = 0
-    for bn_module in bn_modules:
+    for bn_module,conv in zip(bn_modules,convs):
         with torch.no_grad():
             ch_len = len(bn_module.weight.data)
             if args.enhance and net_id in args.isotarget:
