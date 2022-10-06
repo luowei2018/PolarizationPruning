@@ -1165,6 +1165,7 @@ def update_shared_model(args,old_model,new_model,mask,batch_idx,ch_indices,net_i
         # only update grad for specific targets
         if hasattr(old_module,'comp_weight') and net_id in args.isotarget and subnet_mask is not None:
             copy_param_grad(old_module.comp_weight,w_grad1)
+        print(net_id,hasattr(old_module,'comp_weight'), net_id in args.isotarget, subnet_mask is not None)
         if batch_idx%args.ps_batch == args.ps_batch-1:
             old_module.weight.grad = old_module.weight.grad_tmp.clone().detach() / sum(args.alphas)
             old_module.weight.grad_tmp = None
