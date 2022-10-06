@@ -1165,7 +1165,6 @@ def update_shared_model(args,old_model,new_model,mask,batch_idx,ch_indices,net_i
         # only update grad for specific targets
         if hasattr(old_module,'comp_weight') and net_id in args.isotarget and subnet_mask is not None:
             copy_param_grad(old_module.comp_weight,w_grad1)
-        print(net_id,hasattr(old_module,'comp_weight'), net_id in args.isotarget, subnet_mask is not None)
         if batch_idx%args.ps_batch == args.ps_batch-1:
             old_module.weight.grad = old_module.weight.grad_tmp.clone().detach() / sum(args.alphas)
             old_module.weight.grad_tmp = None
@@ -1319,7 +1318,7 @@ def train(train_loader, model, criterion, optimizer, epoch, sparsity, args, is_d
         if args.debug and batch_idx >= 10: break
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
             if not args.OFA:
-                if not args.enhance:
+                if True:#not args.enhance:
                     nonzero = torch.nonzero(torch.tensor(args.alphas))
                     net_id = int(nonzero[batch_idx%len(nonzero)][0])
                 else:
@@ -1327,7 +1326,6 @@ def train(train_loader, model, criterion, optimizer, epoch, sparsity, args, is_d
                 freeze_mask,net_id,dynamic_model,ch_indices = sample_network(args,model,net_id)
             else:
                 freeze_mask,net_id,dynamic_model,ch_indices = sample_network(args,model)
-            print(net_id,args.OFA,args.enhance,args.alphas)
         # the adjusting only work when epoch is at decay_epoch
         adjust_learning_rate(optimizer, epoch, lr=args.lr, decay_epoch=args.decay_epoch,
                              total_epoch=args.epochs,
