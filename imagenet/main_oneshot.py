@@ -548,6 +548,7 @@ def main_worker(gpu, ngpus_per_node, args):
                 args.start_epoch = checkpoint['epoch']
                 best_prec1 = checkpoint['best_prec1']
                 #optimizer.load_state_dict(checkpoint['optimizer'])
+            args.start_epoch = 128
             print("=> loaded checkpoint '{}' (epoch {} prec1 {})"
                   .format(args.resume, checkpoint['epoch'], best_prec1))
             if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
