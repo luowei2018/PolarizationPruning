@@ -1327,6 +1327,7 @@ def train(train_loader, model, criterion, optimizer, epoch, sparsity, args, is_d
                 freeze_mask,net_id,dynamic_model,ch_indices = sample_network(args,model,net_id)
             else:
                 freeze_mask,net_id,dynamic_model,ch_indices = sample_network(args,model)
+            print(net_id,args.OFA,args.enhance,args.alphas)
         # the adjusting only work when epoch is at decay_epoch
         adjust_learning_rate(optimizer, epoch, lr=args.lr, decay_epoch=args.decay_epoch,
                              total_epoch=args.epochs,
