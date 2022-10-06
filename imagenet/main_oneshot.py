@@ -1101,15 +1101,15 @@ def sample_network(args,old_model,net_id=None,eval=False):
     for bn_module,conv in zip(bn_modules,convs):
         with torch.no_grad():
             ch_len = len(bn_module.weight.data)
-            # if args.enhance and net_id in args.isotarget:
-            #     # substitute original weights with selected isolated weights
-            #     enhance_mask = args.enhance_valid_mask[ch_start:ch_start+ch_len]==1
-            #     conv.weight.data[enhance_mask] = conv.comp_weight.data[enhance_mask].clone().detach()
-            #     if hasattr(conv,'bias') and conv.bias is not None:
-            #         conv.bias.data[enhance_mask] = conv.comp_bias.data[enhance_mask].clone().detach()
-            #     bn_module.weight.data[enhance_mask] = bn_module.comp_weight.data[enhance_mask].clone().detach()
-            #     if hasattr(bn_module,'bias') and bn_module.bias is not None:
-            #         bn_module.bias.data[enhance_mask] = bn_module.comp_bias.data[enhance_mask].clone().detach()
+            if args.enhance and net_id in args.isotarget:
+                # substitute original weights with selected isolated weights
+                enhance_mask = args.enhance_valid_mask[ch_start:ch_start+ch_len]==1
+                conv.weight.data[enhance_mask] = conv.comp_weight.data[enhance_mask].clone().detach()
+                if hasattr(conv,'bias') and conv.bias is not None:
+                    conv.bias.data[enhance_mask] = conv.comp_bias.data[enhance_mask].clone().detach()
+                bn_module.weight.data[enhance_mask] = bn_module.comp_weight.data[enhance_mask].clone().detach()
+                if hasattr(bn_module,'bias') and bn_module.bias is not None:
+                    bn_module.bias.data[enhance_mask] = bn_module.comp_bias.data[enhance_mask].clone().detach()
             inactive = weight_valid_mask[ch_start:ch_start+ch_len]==0
             # set useless channels to 0
             bn_module.weight.data[inactive] = 0
@@ -1172,7 +1172,6 @@ def update_shared_model(args,old_model,new_model,mask,batch_idx,ch_indices,net_i
             if hasattr(old_module,'comp_weight'):
                 old_module.comp_weight.grad = old_module.comp_weight.grad_tmp.clone().detach() / sum(args.alphas)
                 old_module.comp_weight.grad_tmp = None
-        assert batch_idx%args.ps_batch == args.ps_batch-1
 
         # bias
         if hasattr(new_module,'bias') and new_module.bias is not None:
