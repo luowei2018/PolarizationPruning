@@ -609,6 +609,7 @@ def main_worker(gpu, ngpus_per_node, args):
                     conv.register_parameter("comp_bias",torch.nn.Parameter((conv.bias.data.clone().detach())))
                 bn.register_parameter("comp_weight",torch.nn.Parameter((bn.weight.data.clone().detach())))
                 bn.register_parameter("comp_bias",torch.nn.Parameter((bn.bias.data.clone().detach())))
+                assert torch.equal(conv.weight.data,conv.comp_weight.data)
 
     cudnn.benchmark = True
 
