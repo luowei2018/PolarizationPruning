@@ -1085,7 +1085,7 @@ def sample_network(args,old_model,net_id=None,eval=False):
     _,ch_indices = all_scale_factors.sort(dim=0)
     
     weight_valid_mask = torch.zeros(total_channels).long().cuda()
-    if not args.OFA or eval:
+    if args.OFA or eval:
         weight_valid_mask[ch_indices[total_channels//num_subnets*(num_subnets-1-net_id):]] = 1
     else:
         weight_valid_mask[ch_indices[int(total_channels*(1 - net_id)):]] = 1
@@ -1324,7 +1324,7 @@ def train(train_loader, model, criterion, optimizer, epoch, sparsity, args, is_d
                     net_id = batch_idx%len(args.alphas)
                 freeze_mask,net_id,dynamic_model,ch_indices = sample_network(args,model,net_id)
             else:
-                freeze_mask,net_id,dynamic_model,ch_indices = sample_network(args,model)
+                freeze_mask,net_id,dynamic_model,ch_indices = sample_network(args,model,batch_idx%4)
         # the adjusting only work when epoch is at decay_epoch
         adjust_learning_rate(optimizer, epoch, lr=args.lr, decay_epoch=args.decay_epoch,
                              total_epoch=args.epochs,
@@ -1350,8 +1350,6 @@ def train(train_loader, model, criterion, optimizer, epoch, sparsity, args, is_d
             output, extra_info = output
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
             loss = cross_entropy_loss_with_soft_target(output, soft_label)
-            if args.OFA:
-                loss += criterion(output, target)
         else:
             loss = criterion(output, target)
         losses.update(loss.data.item(), image.size(0))
