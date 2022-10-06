@@ -1102,7 +1102,6 @@ def sample_network(args,old_model,net_id=None,eval=False):
         with torch.no_grad():
             ch_len = len(bn_module.weight.data)
             if args.enhance and net_id in args.isotarget:
-                assert torch.equal(conv.weight.data,conv.comp_weight.data) and torch.equal(bn_module.weight.data,bn_module.comp_weight.data)
                 # substitute original weights with selected isolated weights
                 enhance_mask = args.enhance_valid_mask[ch_start:ch_start+ch_len]==1
                 conv.weight.data[enhance_mask] = conv.comp_weight.data[enhance_mask].clone().detach()
@@ -1156,16 +1155,16 @@ def update_shared_model(args,old_model,new_model,mask,batch_idx,ch_indices,net_i
         w_grad0 = new_module.weight.grad.clone().detach()
         if subnet_mask is not None:
             w_grad0.data[freeze_mask] = 0
-            # if hasattr(old_module,'comp_weight') and net_id in args.isotarget:
-            #     w_grad1 = w_grad0.clone().detach()
-            #     w_grad0.data[enhance_mask==1] = 0
-            #     w_grad1.data[enhance_mask==0] = 0
+            if hasattr(old_module,'comp_weight') and net_id in args.isotarget:
+                w_grad1 = w_grad0.clone().detach()
+                w_grad0.data[enhance_mask==1] = 0
+                assert w_grad0.data.sum()==0
+                w_grad1.data[enhance_mask==0] = 0
 
         copy_param_grad(old_module.weight,w_grad0)
         # only update grad for specific targets
         if hasattr(old_module,'comp_weight') and net_id in args.isotarget and subnet_mask is not None:
-            # copy_param_grad(old_module.comp_weight,w_grad1)
-            copy_param_grad(old_module.comp_weight,w_grad0)
+            copy_param_grad(old_module.comp_weight,w_grad1)
         if batch_idx%args.ps_batch == args.ps_batch-1:
             old_module.weight.grad = old_module.weight.grad_tmp.clone().detach() / sum(args.alphas)
             old_module.weight.grad_tmp = None
@@ -1178,15 +1177,15 @@ def update_shared_model(args,old_model,new_model,mask,batch_idx,ch_indices,net_i
             b_grad0 = new_module.bias.grad.clone().detach()
             if subnet_mask is not None:
                 b_grad0.data[freeze_mask] = 0
-                # if hasattr(old_module,'comp_bias') and net_id in args.isotarget:
-                #     b_grad1 = b_grad0.clone().detach()
-                #     b_grad0.data[enhance_mask==1] = 0
-                #     b_grad1.data[enhance_mask==0] = 0
+                if hasattr(old_module,'comp_bias') and net_id in args.isotarget:
+                    b_grad1 = b_grad0.clone().detach()
+                    b_grad0.data[enhance_mask==1] = 0
+                    assert b_grad0.data.sum()==0
+                    b_grad1.data[enhance_mask==0] = 0
 
             copy_param_grad(old_module.bias,b_grad0)
             if hasattr(old_module,'comp_bias') and net_id in args.isotarget and subnet_mask is not None:
-                # copy_param_grad(old_module.comp_bias,b_grad1)
-                copy_param_grad(old_module.comp_bias,b_grad0)
+                copy_param_grad(old_module.comp_bias,b_grad1)
             if batch_idx%args.ps_batch == args.ps_batch-1:
                 old_module.bias.grad = old_module.bias.grad_tmp.clone().detach() / sum(args.alphas)
                 old_module.bias.grad_tmp = None
