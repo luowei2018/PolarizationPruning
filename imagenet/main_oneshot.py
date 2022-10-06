@@ -1057,6 +1057,7 @@ def sample_network(args,old_model,net_id=None,eval=False):
             net_id = torch.tensor(0).random_(0,num_subnets)
         else:
             net_id = torch.rand(1)
+
     dynamic_model = copy.deepcopy(old_model)
     # config old model
     if not args.OFA:
