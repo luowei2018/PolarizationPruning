@@ -500,36 +500,6 @@ def main_worker(gpu, ngpus_per_node, args):
     if args.fix_gate:
         freeze_gate(model)
 
-    # create the optimizer
-    if args.no_bn_wd:
-        no_wd_params = []
-        for module_name, sub_module in model.named_modules():
-            if isinstance(sub_module, nn.BatchNorm1d) or \
-                    isinstance(sub_module, nn.BatchNorm2d) or \
-                    isinstance(sub_module, models.common.SparseGate):  # never apply weight decay on SparseGate
-                for param_name, param in sub_module.named_parameters():
-                    no_wd_params.append(param)
-                    #print(f"No weight decay param: module {module_name} param {param_name}")
-    else:
-        no_wd_params = []
-        for module_name, sub_module in model.named_modules():
-            if isinstance(sub_module, models.common.SparseGate):  # never apply weight decay on SparseGate
-                for param_name, param in sub_module.named_parameters():
-                    no_wd_params.append(param)
-                    #print(f"No weight decay param: module {module_name} param {param_name}")
-
-    no_wd_params_set = set(no_wd_params)
-    wd_params = []
-    for param_name, model_p in model.named_parameters():
-        if model_p not in no_wd_params_set:
-            wd_params.append(model_p)
-            #print(f"Weight decay param: parameter name {param_name}")
-
-    optimizer = torch.optim.SGD([{'params': list(no_wd_params), 'weight_decay': 0.},
-                                 {'params': list(wd_params), 'weight_decay': args.weight_decay}],
-                                args.lr[0],
-                                momentum=args.momentum)
-
     if args.pretrain:
         if os.path.isfile(args.pretrain):
             print("=> loading pre-train checkpoint '{}'".format(args.pretrain))
@@ -610,6 +580,36 @@ def main_worker(gpu, ngpus_per_node, args):
                     conv.register_parameter("comp_bias",torch.nn.Parameter((conv.bias.data.clone().detach())))
                 bn.register_parameter("comp_weight",torch.nn.Parameter((bn.weight.data.clone().detach())))
                 bn.register_parameter("comp_bias",torch.nn.Parameter((bn.bias.data.clone().detach())))
+
+    # create the optimizer
+    if args.no_bn_wd:
+        no_wd_params = []
+        for module_name, sub_module in model.named_modules():
+            if isinstance(sub_module, nn.BatchNorm1d) or \
+                    isinstance(sub_module, nn.BatchNorm2d) or \
+                    isinstance(sub_module, models.common.SparseGate):  # never apply weight decay on SparseGate
+                for param_name, param in sub_module.named_parameters():
+                    no_wd_params.append(param)
+                    #print(f"No weight decay param: module {module_name} param {param_name}")
+    else:
+        no_wd_params = []
+        for module_name, sub_module in model.named_modules():
+            if isinstance(sub_module, models.common.SparseGate):  # never apply weight decay on SparseGate
+                for param_name, param in sub_module.named_parameters():
+                    no_wd_params.append(param)
+                    #print(f"No weight decay param: module {module_name} param {param_name}")
+
+    no_wd_params_set = set(no_wd_params)
+    wd_params = []
+    for param_name, model_p in model.named_parameters():
+        if model_p not in no_wd_params_set:
+            wd_params.append(model_p)
+            #print(f"Weight decay param: parameter name {param_name}")
+
+    optimizer = torch.optim.SGD([{'params': list(no_wd_params), 'weight_decay': 0.},
+                                 {'params': list(wd_params), 'weight_decay': args.weight_decay}],
+                                args.lr[0],
+                                momentum=args.momentum)
 
     cudnn.benchmark = True
 
@@ -1215,7 +1215,6 @@ def update_shared_model(args,old_model,new_model,mask,batch_idx,ch_indices,net_i
             copy_module_grad(bn1,bn2,subnet_mask,enhance_mask)
             assert torch.equal(bn1.weight.grad,bn1.comp_weight.grad)
             copy_module_grad(conv1,conv2,subnet_mask,enhance_mask)
-            assert torch.equal(conv1.weight.grad,conv1.comp_weight.grad)
         ch_start += ch_len
     
     with torch.no_grad():
@@ -1314,9 +1313,6 @@ def train(train_loader, model, criterion, optimizer, epoch, sparsity, args, is_d
 
     # switch to train mode
     model.train()
-    bns,convs = model.module.get_sparse_layers_and_convs()
-    for conv,bn in zip(convs,bns):
-        assert torch.equal(conv.weight.data,conv.comp_weight.data)
     end = time.time()
     train_iter = tqdm(train_loader)
     for i, (image, target) in enumerate(train_iter):
