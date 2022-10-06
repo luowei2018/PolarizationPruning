@@ -559,7 +559,7 @@ def sample_network(old_model,net_id=None,eval=False):
                 if hasattr(conv,'bias') and conv.bias is not None:
                     conv.bias.data[enhance_mask] = conv.comp_bias.data[enhance_mask].clone().detach()
                 bn_module.weight.data[enhance_mask] = bn_module.comp_weight.data[enhance_mask].clone().detach()
-                if hasattr(bn_module,'bias') and bn.bias is not None:
+                if hasattr(bn_module,'bias') and bn_module.bias is not None:
                     bn_module.bias.data[enhance_mask] = bn_module.comp_bias.data[enhance_mask].clone().detach()
             inactive = weight_valid_mask[ch_start:ch_start+ch_len]==0
             bn_module.weight.data[inactive] = 0
