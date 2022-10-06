@@ -1321,6 +1321,7 @@ def train(train_loader, model, criterion, optimizer, epoch, sparsity, args, is_d
         batch_idx = i//num_mini_batch
         if args.debug and batch_idx >= 10: break
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
+            print(i,batch_idx)
             if not args.OFA:
                 if not args.enhance:
                     nonzero = torch.nonzero(torch.tensor(args.alphas))
