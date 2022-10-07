@@ -301,12 +301,12 @@ if args.debug:
             print(f"{name} remains {one_num}")
 
 if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
-    args.teacher_model = copy.deepcopy(model)
+    teacher_model = copy.deepcopy(model)
     if args.arch == 'resnet56':
         teacher_path = './original/resnet/model_best.pth.tar'
     else:
         teacher_path = './original/vgg/model_best.pth.tar'
-    args.teacher_model.load_state_dict(torch.load(teacher_path)['state_dict'])
+    teacher_model.load_state_dict(torch.load(teacher_path)['state_dict'])
 
 if args.resume:
     if os.path.isfile(args.resume):
@@ -652,10 +652,10 @@ def update_shared_model(old_model,new_model,mask,batch_idx,ch_indices,net_id):
         if hasattr(old_module,'comp_weight') and net_id in args.isotarget and subnet_mask is not None:
             copy_param_grad(old_module.comp_weight,w_grad1)
         if batch_idx%args.ps_batch == args.ps_batch-1:
-            old_module.weight.grad = old_module.weight.grad_tmp.clone().detach()
+            old_module.weight.grad = old_module.weight.grad_tmp.clone().detach() / sum(args.alphas)
             old_module.weight.grad_tmp = None
             if hasattr(old_module,'comp_weight'):
-                old_module.comp_weight.grad = old_module.comp_weight.grad_tmp.clone().detach()
+                old_module.comp_weight.grad = old_module.comp_weight.grad_tmp.clone().detach() / sum(args.alphas)
                 old_module.comp_weight.grad_tmp = None
 
         # bias
@@ -672,10 +672,10 @@ def update_shared_model(old_model,new_model,mask,batch_idx,ch_indices,net_id):
             if hasattr(old_module,'comp_bias') and net_id in args.isotarget and subnet_mask is not None:
                 copy_param_grad(old_module.comp_bias,b_grad1)
             if batch_idx%args.ps_batch == args.ps_batch-1:
-                old_module.bias.grad = old_module.bias.grad_tmp.clone().detach()
+                old_module.bias.grad = old_module.bias.grad_tmp.clone().detach() / sum(args.alphas)
                 old_module.bias.grad_tmp = None
                 if hasattr(old_module,'comp_bias'):
-                    old_module.comp_bias.grad = old_module.comp_bias.grad_tmp.clone().detach()
+                    old_module.comp_bias.grad = old_module.comp_bias.grad_tmp.clone().detach() / sum(args.alphas)
                     old_module.comp_bias.grad_tmp = None
             
     def copy_param_grad(old_param,new_grad):
@@ -910,7 +910,7 @@ for epoch in range(args.start_epoch, args.epochs):
     print(f"Epoch {epoch}/{args.epochs} learning rate {args.current_lr:.4f}",args.arch,args.save,prune_str,args.alphas)
     is_best = prec1 > best_prec1
     best_prec1 = max(prec1, best_prec1)
-    avg_prec1 = mean(saved_prec1s)
+    avg_prec1 = sum(saved_prec1s)/len(saved_prec1s)
     is_avg_best = avg_prec1 > best_avg_prec1
     best_avg_prec1 = max(avg_prec1, best_avg_prec1)
     save_checkpoint({

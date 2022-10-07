@@ -693,7 +693,7 @@ def main_worker(gpu, ngpus_per_node, args):
 
         # remember best prec@1 and save checkpoint
         is_best = prec1 > best_prec1
-        avg_prec1 = mean(saved_prec1s)
+        avg_prec1 = sum(saved_prec1s)/len(saved_prec1s)
         is_avg_best = avg_prec1 > best_avg_prec1
         best_avg_prec1 = max(avg_prec1, best_avg_prec1)
         best_prec1 = max(prec1, best_prec1)
