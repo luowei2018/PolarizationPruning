@@ -554,9 +554,9 @@ def main_worker(gpu, ngpus_per_node, args):
             if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
                 # args.teacher_model = copy.deepcopy(model)
                 if args.arch == 'resnet50':
-                    teacher_path = './original/resnet/model_best.pth'
+                    teacher_path = './original/resnet/model_best.pth.tar'
                 else:
-                    teacher_path = './original/mobilenetv2/model_best.pth'
+                    teacher_path = './original/mobilenetv2/model_best.pth.tar'
                 args.teacher_model = torch.load(teacher_path)
         else:
             raise ValueError("=> no checkpoint found at '{}'".format(args.resume))
