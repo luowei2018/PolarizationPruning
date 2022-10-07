@@ -521,6 +521,14 @@ def main_worker(gpu, ngpus_per_node, args):
         args.start_epoch = refine_checkpoint['epoch']
         best_prec1 = refine_checkpoint['best_prec1']
 
+    if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
+        args.teacher_model = copy.deepcopy(model)
+        if args.arch == 'resnet50':
+            teacher_path = './original/resnet/model_best.pth.tar'
+        else:
+            teacher_path = './original/mobilenetv2/model_best.pth.tar'
+        args.teacher_model.load_state_dict(torch.load(teacher_path)['state_dict'])
+
     # optionally resume from a checkpoint
     if args.resume:
         if os.path.isfile(args.resume):
@@ -550,13 +558,6 @@ def main_worker(gpu, ngpus_per_node, args):
                 #optimizer.load_state_dict(checkpoint['optimizer'])
             print("=> loaded checkpoint '{}' (epoch {} prec1 {})"
                   .format(args.resume, checkpoint['epoch'], best_prec1))
-            if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
-                # args.teacher_model = copy.deepcopy(model)
-                if args.arch == 'resnet50':
-                    teacher_path = './original/resnet/model_best.pth.tar'
-                else:
-                    teacher_path = './original/mobilenetv2/model_best.pth.tar'
-                args.teacher_model = torch.load(teacher_path)
         else:
             raise ValueError("=> no checkpoint found at '{}'".format(args.resume))
             
