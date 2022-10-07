@@ -219,6 +219,7 @@ parser.add_argument('--ps_batch', default=4, type=int,
                     help='super batch size')
 
 best_prec1 = 0
+best_avg_prec1 = 0
 
 
 def fix_seed(seed):
@@ -692,6 +693,9 @@ def main_worker(gpu, ngpus_per_node, args):
 
         # remember best prec@1 and save checkpoint
         is_best = prec1 > best_prec1
+        avg_prec1 = mean(saved_prec1s)
+        is_avg_best = avg_prec1 > best_avg_prec1
+        best_avg_prec1 = max(avg_prec1, best_avg_prec1)
         best_prec1 = max(prec1, best_prec1)
         if args.rank % ngpus_per_node == 0:
             save_checkpoint({
@@ -708,7 +712,8 @@ def main_worker(gpu, ngpus_per_node, args):
             }, is_best, args.save,
                 save_backup=epoch % args.backup_freq == 0,
                 backup_path=args.save,
-                epoch=epoch)
+                epoch=epoch,
+                is_avg_best=is_avg_best)
                 
     print("Best prec@1: {}".format(best_prec1))
 
@@ -1601,10 +1606,12 @@ def validate(val_loader, model, criterion, epoch, args, writer=None):
     return top1.avg
 
 
-def save_checkpoint(state, is_best, filepath, save_backup, backup_path, epoch, name='checkpoint.pth.tar'):
+def save_checkpoint(state, is_best, filepath, save_backup, backup_path, epoch, name='checkpoint.pth.tar', is_avg_best=False):
     torch.save(state, os.path.join(filepath, name))
     if is_best:
         shutil.copyfile(os.path.join(filepath, name), os.path.join(filepath, 'model_best.pth.tar'))
+    if is_avg_best:
+        shutil.copyfile(os.path.join(filepath, name), os.path.join(filepath, 'model_avg_best.pth.tar'))
     if save_backup:
         shutil.copyfile(os.path.join(filepath, name),
                         os.path.join(backup_path, 'checkpoint_{}.pth.tar'.format(epoch)))

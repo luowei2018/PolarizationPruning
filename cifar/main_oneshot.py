@@ -124,6 +124,11 @@ args = parser.parse_args()
 args.cuda = not args.no_cuda and torch.cuda.is_available()
 args.loss = LossType.from_string(args.loss)
 args.decay_epoch = sorted([int(args.epochs * i if i < 1 else i) for i in args.decay_epoch])
+
+best_prec1 = 0.
+global_step = 0
+best_avg_prec1 = 0.
+
 if not args.seed:
     args.seed = random.randint(500, 1000)
 
@@ -295,6 +300,14 @@ if args.debug:
 
             print(f"{name} remains {one_num}")
 
+if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
+    args.teacher_model = copy.deepcopy(model)
+    if args.arch == 'resnet56':
+        teacher_path = './original/resnet/model_best.pth.tar'
+    else:
+        teacher_path = './original/vgg/model_best.pth.tar'
+    args.teacher_model.load_state_dict(torch.load(teacher_path)['state_dict'])
+
 if args.resume:
     if os.path.isfile(args.resume):
         print("=> loading checkpoint '{}'".format(args.resume))
@@ -329,8 +342,6 @@ if args.resume:
 
         print("=> loaded checkpoint '{}' (epoch {}) Prec1: {:f}"
               .format(args.resume, checkpoint['epoch'], best_prec1))
-        if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
-            teacher_model = copy.deepcopy(model)
     else:
         raise ValueError("=> no checkpoint found at '{}'".format(args.resume))
 else:
@@ -755,7 +766,7 @@ def prune_while_training(model, arch, prune_mode, num_classes, avg_loss=None, fa
         log_str += f"{prec1:.4f} "
     with open(os.path.join(args.save,'train.log'),'a+') as f:
         f.write(log_str+'\n')
-    return prec1,prune_str
+    return prec1,prune_str,saved_prec1s
 
 def cross_entropy_loss_with_soft_target(pred, soft_target):
     logsoftmax = nn.LogSoftmax()
@@ -850,12 +861,14 @@ def test(modelx):
     return float(correct) / float(len(test_loader.dataset))
 
 
-def save_checkpoint(state, is_best, filepath, backup: bool, backup_path: str, epoch: int, max_backup: int):
+def save_checkpoint(state, is_best, filepath, backup: bool, backup_path: str, epoch: int, max_backup: int, is_avg_best: bool=False):
     state['args'] = args
 
     torch.save(state, os.path.join(filepath, 'checkpoint.pth.tar'))
     if is_best:
         shutil.copyfile(os.path.join(filepath, 'checkpoint.pth.tar'), os.path.join(filepath, 'model_best.pth.tar'))
+    if is_avg_best:
+        shutil.copyfile(os.path.join(filepath, 'checkpoint.pth.tar'), os.path.join(filepath, 'model_avg_best.pth.tar'))
     if backup and backup_path is not None:
         shutil.copyfile(os.path.join(filepath, 'checkpoint.pth.tar'),
                         os.path.join(backup_path, 'checkpoint_{}.pth.tar'.format(epoch)))
@@ -879,12 +892,9 @@ def save_checkpoint(state, is_best, filepath, backup: bool, backup_path: str, ep
                     break
 
 
-best_prec1 = 0.
-global_step = 0
-
 if args.evaluate:
     for fake_prune in [True,False]:
-        prec1,prune_str = prune_while_training(model, arch=args.arch, prune_mode="default", num_classes=num_classes, fake_prune=fake_prune, check_size=fake_prune)
+        prec1,prune_str,_ = prune_while_training(model, arch=args.arch, prune_mode="default", num_classes=num_classes, fake_prune=fake_prune, check_size=fake_prune)
         print(prec1,prune_str)
     exit(0)
 
@@ -896,10 +906,13 @@ for epoch in range(args.start_epoch, args.epochs):
 
     avg_loss = train(epoch) # train with regularization
 
-    prec1,prune_str = prune_while_training(model, arch=args.arch,prune_mode="default",num_classes=num_classes,avg_loss=avg_loss,fake_prune=True)
+    prec1,prune_str,saved_prec1s = prune_while_training(model, arch=args.arch,prune_mode="default",num_classes=num_classes,avg_loss=avg_loss,fake_prune=True)
     print(f"Epoch {epoch}/{args.epochs} learning rate {args.current_lr:.4f}",args.arch,args.save,prune_str,args.alphas)
     is_best = prec1 > best_prec1
     best_prec1 = max(prec1, best_prec1)
+    avg_prec1 = mean(saved_prec1s)
+    is_avg_best = avg_prec1 > best_avg_prec1
+    best_avg_prec1 = max(avg_prec1, best_avg_prec1)
     save_checkpoint({
         'epoch': epoch + 1,
         'state_dict': model.state_dict(),
@@ -908,7 +921,8 @@ for epoch in range(args.start_epoch, args.epochs):
         backup_path=args.backup_path,
         backup=epoch % args.backup_freq == 0,
         epoch=epoch,
-        max_backup=args.max_backup
+        max_backup=args.max_backup,
+        is_avg_best=is_avg_best
     )
     
 print("Best accuracy: " + str(best_prec1))
