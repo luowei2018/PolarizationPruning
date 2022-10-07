@@ -596,40 +596,6 @@ def sample_network(old_model,net_id=None,eval=False,check_size=False):
 
             torch.save({'state_dict':ckpt,'indices':ch_indices}, os.path.join(args.save, 'static.pth.tar'))
 
-        sub_model = copy.deepcopy(old_model)
-        ch_start = 0
-        bn_modules,convs = sub_model.get_sparse_layers_and_convs()   
-        for bn_module,conv in zip(bn_modules,convs):
-            ch_len = len(bn_module.weight.data)
-            active = weight_valid_mask[ch_start:ch_start+ch_len]==1
-            conv.weight.data = conv.weight.data[active]
-            if hasattr(conv,'bias'):
-                conv.bias.data = conv.bias.data[active]
-            bn_module.weight.data = bn_module.weight.data[active]
-            bn_module.bias.data = bn_module.bias.data[active]
-            ch_start += ch_len
-
-        ckpt = static_model.state_dict()
-        if args.load_running_stat:
-            key_of_running_stat = []
-            useless_stat = []
-            for i in range(len(args.alphas)):
-                if i==net_id:continue
-                useless_stat.append(f'mean{i}')
-                useless_stat.append(f'var{i}')
-            for k in ckpt.keys():
-                if 'running_mean' in k or 'running_var' in k:
-                    key_of_running_stat.append(k)
-                else:
-                    for stat in useless_stat:
-                        if stat in k:
-                            key_of_running_stat.append(k)
-            for k in key_of_running_stat:
-                del ckpt[k]
-
-        torch.save(ckpt, os.path.join(args.save, f'sub{net_id}.pth.tar'))
-
-
     if not eval:
         return freeze_mask,net_id,dynamic_model,ch_indices
     else:

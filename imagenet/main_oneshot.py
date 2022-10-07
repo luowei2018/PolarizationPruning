@@ -656,7 +656,7 @@ def main_worker(gpu, ngpus_per_node, args):
     print("rank #{}: dataloader loaded!".format(args.rank))
     if args.evaluate:
         for fake_prune in [True,False]:
-            prec1,prune_str,saved_prec1s = prune_while_training(model, args.arch, args.prune_mode, args.width_multiplier, val_loader, criterion, 0, args, fake_prune=fake_prune)
+            prec1,prune_str,saved_prec1s = prune_while_training(model, args.arch, args.prune_mode, args.width_multiplier, val_loader, criterion, 0, args, fake_prune=fake_prune, check_size=fake_prune)
             print(args.save,prune_str,args.alphas)
         return
 
@@ -1052,7 +1052,7 @@ def zero_bn(model, gate):
         m.weight.data.zero_()
         #m.bias.data.zero_()
 
-def sample_network(args,old_model,net_id=None,eval=False,fake_prune=True):
+def sample_network(args,old_model,net_id=None,eval=False,fake_prune=True,check_size=False):
     num_subnets = len(args.alphas)
     if net_id is None:
         if not args.OFA:
@@ -1118,6 +1118,36 @@ def sample_network(args,old_model,net_id=None,eval=False,fake_prune=True):
             out_channel_mask = weight_valid_mask[ch_start:ch_start+ch_len]==1
             bn_module.out_channel_mask = out_channel_mask.clone().detach()
             ch_start += ch_len
+
+    if check_size:
+        if net_id == 0:
+            static_model = copy.deepcopy(old_model)
+
+            ch_start = 0
+            bn_modules,convs = static_model.get_sparse_layers_and_convs()
+            for bn_module,conv in zip(bn_modules,convs):
+                ch_len = len(bn_module.weight.data)
+                if args.load_enhance and net_id in args.isotarget:
+                    enhance_mask = args.enhance_valid_mask[ch_start:ch_start+ch_len]==1
+                    conv.comp_weight.data = conv.comp_weight.data[enhance_mask]
+                    if hasattr(conv,'bias') and conv.bias is not None:
+                        conv.comp_bias.data = conv.comp_bias.data[enhance_mask]
+                    bn_module.comp_weight.data = bn_module.comp_weight.data[enhance_mask]
+                    if hasattr(bn_module,'bias') and bn_module.bias is not None:
+                        bn_module.comp_bias.data = bn_module.comp_bias.data[enhance_mask]
+                ch_start += ch_len
+
+            ckpt = static_model.state_dict()
+            if args.load_running_stat:
+                key_of_running_stat = []
+                for k in ckpt.keys():
+                    if 'running_mean' in k or 'running_var' in k:
+                        key_of_running_stat.append(k)
+                for k in key_of_running_stat:
+                    del ckpt[k]
+
+            torch.save({'state_dict':ckpt,'indices':ch_indices}, os.path.join(args.save, 'static.pth.tar'))
+
     if not eval:
         return freeze_mask,net_id,dynamic_model,ch_indices
     else:
@@ -1270,14 +1300,14 @@ def clamp_bn(model, gate, lower_bound=0, upper_bound=1):
         m.weight.data.clamp_(lower_bound, upper_bound)
     
 
-def prune_while_training(model, arch, prune_mode, width_multiplier, val_loader, criterion, epoch, args, fake_prune=True):
+def prune_while_training(model, arch, prune_mode, width_multiplier, val_loader, criterion, epoch, args, fake_prune=True, check_size=False):
     if isinstance(model, nn.DataParallel) or isinstance(model, nn.parallel.DistributedDataParallel):
         model = model.module
         
     saved_flops = []
     saved_prec1s = []
     for i in range(len(args.alphas)):
-        pruned_model = sample_network(args,model,net_id=i,eval=True,fake_prune=fake_prune)
+        pruned_model = sample_network(args,model,net_id=i,eval=True,fake_prune=fake_prune,check_size=check_size)
         prec1 = validate(val_loader, pruned_model, criterion, epoch=epoch, args=args, writer=None)
         flop = compute_conv_flops(pruned_model, cuda=True)
         saved_prec1s += [prec1]
