@@ -269,7 +269,7 @@ class InvertedResidual(nn.Module):
         self.pw = False
         pass
 
-    def do_pruning(self, in_channel_mask: np.ndarray, pruner: Pruner, fake_prune: bool):
+    def do_pruning(self, in_channel_mask: np.ndarray, pruner: Pruner, fake_prune: bool=True):
         """
         Prune the block in place
         :param in_channel_mask: a 0-1 vector indicates whether the corresponding channel should be pruned (0) or not (1)
