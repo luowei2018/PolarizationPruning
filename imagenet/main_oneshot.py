@@ -552,7 +552,12 @@ def main_worker(gpu, ngpus_per_node, args):
             print("=> loaded checkpoint '{}' (epoch {} prec1 {})"
                   .format(args.resume, checkpoint['epoch'], best_prec1))
             if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
-                args.teacher_model = copy.deepcopy(model)
+                # args.teacher_model = copy.deepcopy(model)
+                if args.arch == 'resnet50':
+                    teacher_path = './original/resnet/model_best.pth'
+                else:
+                    teacher_path = './original/mobilenetv2/model_best.pth'
+                args.teacher_model = torch.load(teacher_path)
         else:
             raise ValueError("=> no checkpoint found at '{}'".format(args.resume))
             
