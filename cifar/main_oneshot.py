@@ -326,7 +326,6 @@ if args.resume:
                     bn.register_parameter("comp_weight",torch.nn.Parameter((bn.weight.data.clone().detach())))
                     bn.register_parameter("comp_bias",torch.nn.Parameter((bn.bias.data.clone().detach())))
         model.load_state_dict(checkpoint['state_dict'])
-        #optimizer.load_state_dict(checkpoint['optimizer'])
 
         print("=> loaded checkpoint '{}' (epoch {}) Prec1: {:f}"
               .format(args.resume, checkpoint['epoch'], best_prec1))
@@ -505,7 +504,7 @@ def bn_sparsity(model, loss_type, sparsity, t, alpha,
     else:
         raise ValueError()
     
-def sample_network(old_model,net_id=None,eval=False):
+def sample_network(old_model,net_id=None,eval=False,check_size=False):
     num_subnets = len(args.alphas)
     if net_id is None:
         if not args.OFA:
@@ -567,6 +566,70 @@ def sample_network(old_model,net_id=None,eval=False):
             out_channel_mask = weight_valid_mask[ch_start:ch_start+ch_len]==1
             bn_module.out_channel_mask = out_channel_mask.clone().detach()
             ch_start += ch_len
+    # prune additional memory, save ckpt, check size, delete
+    if check_size:
+        if net_id == 0:
+            static_model = copy.deepcopy(old_model)
+
+            ch_start = 0
+            bn_modules,convs = static_model.get_sparse_layers_and_convs()
+            for bn_module,conv in zip(bn_modules,convs):
+                ch_len = len(bn_module.weight.data)
+                if args.load_enhance and net_id in args.isotarget:
+                    enhance_mask = args.enhance_valid_mask[ch_start:ch_start+ch_len]==1
+                    conv.comp_weight.data = conv.comp_weight.data[enhance_mask]
+                    if hasattr(conv,'bias') and conv.bias is not None:
+                        conv.comp_bias.data = conv.comp_bias.data[enhance_mask]
+                    bn_module.comp_weight.data = bn_module.comp_weight.data[enhance_mask]
+                    if hasattr(bn_module,'bias') and bn_module.bias is not None:
+                        bn_module.comp_bias.data = bn_module.comp_bias.data[enhance_mask]
+                ch_start += ch_len
+
+            ckpt = static_model.state_dict()
+            if args.load_running_stat:
+                key_of_running_stat = []
+                for k in ckpt.keys():
+                    if 'running_mean' in k or 'running_var' in k:
+                        key_of_running_stat.append(k)
+                for k in key_of_running_stat:
+                    del ckpt[k]
+
+            torch.save({'state_dict':ckpt,'indices':ch_indices}, os.path.join(args.save, 'static.pth.tar'))
+
+        sub_model = copy.deepcopy(old_model)
+        ch_start = 0
+        bn_modules,convs = sub_model.get_sparse_layers_and_convs()   
+        for bn_module,conv in zip(bn_modules,convs):
+            ch_len = len(bn_module.weight.data)
+            active = weight_valid_mask[ch_start:ch_start+ch_len]==1
+            conv.weight.data = conv.weight.data[active]
+            if hasattr(conv,'bias'):
+                conv.bias.data = conv.bias.data[active]
+            bn_module.weight.data = bn_module.weight.data[active]
+            bn_module.bias.data = bn_module.bias.data[active]
+            ch_start += ch_len
+
+        ckpt = static_model.state_dict()
+        if args.load_running_stat:
+            key_of_running_stat = []
+            useless_stat = []
+            for i in range(len(args.alphas)):
+                if i==net_id:continue
+                useless_stat.append(f'mean{i}')
+                useless_stat.append(f'var{i}')
+            for k in ckpt.keys():
+                if 'running_mean' in k or 'running_var' in k:
+                    key_of_running_stat.append(k)
+                else:
+                    for stat in useless_stat:
+                        if stat in k:
+                            key_of_running_stat.append(k)
+            for k in key_of_running_stat:
+                del ckpt[k]
+
+        torch.save(ckpt, os.path.join(args.save, f'sub{net_id}.pth.tar'))
+
+
     if not eval:
         return freeze_mask,net_id,dynamic_model,ch_indices
     else:
@@ -666,7 +729,7 @@ def update_shared_model(old_model,new_model,mask,batch_idx,ch_indices,net_id):
         for old_module,new_module in zip(old_non_sparse_modules,new_non_sparse_modules):
             copy_module_grad(old_module,new_module)
             
-def get_non_sparse_modules(model):
+def get_non_sparse_modules(model,get_name=False):
     sparse_modules = []
     bn_modules,conv_modules = model.get_sparse_layers_and_convs()
     for bn,conv in zip(bn_modules,conv_modules):
@@ -677,10 +740,13 @@ def get_non_sparse_modules(model):
     for module_name, module in model.named_modules():
         if module not in sparse_modules_set:
             if isinstance(module, nn.Conv2d) or isinstance(module, nn.BatchNorm2d) or isinstance(module, nn.Linear):
-                non_sparse_modules.append(module)
+                if not get_name:
+                    non_sparse_modules.append(module)
+                else:
+                    non_sparse_modules.append((module_name,module))
     return non_sparse_modules
 
-def prune_while_training(model, arch, prune_mode, num_classes, avg_loss=None):
+def prune_while_training(model, arch, prune_mode, num_classes, avg_loss=None, fake_prune=True, check_size=True):
     model.eval()
     saved_flops = []
     saved_prec1s = []
@@ -688,11 +754,11 @@ def prune_while_training(model, arch, prune_mode, num_classes, avg_loss=None):
         from resprune_gate import prune_resnet
         from models.resnet_expand import resnet56 as resnet50_expand
         for i in range(len(args.alphas)):
-            masked_model = sample_network(model,i,eval=True)
-            saved_model = prune_resnet(sparse_model=masked_model, pruning_strategy='fixed', prune_type='mask',
-                                             sanity_check=False, prune_mode=prune_mode, num_classes=num_classes)
-            prec1 = test(saved_model)
-            flop = compute_conv_flops(saved_model, cuda=True)
+            masked_model = sample_network(model,i,eval=True,check_size=check_size)
+            pruned_model = prune_resnet(sparse_model=masked_model, pruning_strategy='fixed', prune_type='mask',
+                                             sanity_check=False, prune_mode=prune_mode, num_classes=num_classes, fake_prune=fake_prune)
+            prec1 = test(pruned_model)
+            flop = compute_conv_flops(pruned_model, cuda=True)
             saved_prec1s += [prec1]
             saved_flops += [flop]
     elif arch == 'vgg16_linear':
@@ -700,11 +766,11 @@ def prune_while_training(model, arch, prune_mode, num_classes, avg_loss=None):
         from models import vgg16_linear
         # todo: update
         for i in range(len(args.alphas)):
-            masked_model = sample_network(model,i,eval=True)
-            saved_model = prune_vgg(sparse_model=masked_model, pruning_strategy='fixed', prune_type='mask',
-                                          sanity_check=False, prune_mode=prune_mode, num_classes=num_classes)
-            prec1 = test(saved_model)
-            flop = compute_conv_flops(saved_model, cuda=True)
+            masked_model = sample_network(model,i,eval=True,check_size=check_size)
+            pruned_model = prune_vgg(sparse_model=masked_model, pruning_strategy='fixed', prune_type='mask',
+                                          sanity_check=False, prune_mode=prune_mode, num_classes=num_classes, fake_prune=fake_prune)
+            prec1 = test(pruned_model)
+            flop = compute_conv_flops(pruned_model, cuda=True)
             saved_prec1s += [prec1]
             saved_flops += [flop]
     else:
@@ -802,8 +868,9 @@ def test(modelx):
     modelx.eval()
     test_loss = 0
     correct = 0
+    test_iter = tqdm(test_loader)
     with torch.no_grad():
-        for data, target in test_loader:
+        for batch_idx, (data, target) in enumerate(test_iter):
             if args.cuda:
                 data, target = data.cuda(), target.cuda()
             output = modelx(data)
@@ -850,10 +917,9 @@ best_prec1 = 0.
 global_step = 0
 
 if args.evaluate:
-    prec1,prune_str = prune_while_training(model, arch=args.arch,
-                       prune_mode="default",
-                       num_classes=num_classes)
-    print(args.save,prune_str,args.alphas)
+    for fake_prune in [True,False]:
+        prec1,prune_str = prune_while_training(model, arch=args.arch, prune_mode="default", num_classes=num_classes, fake_prune=fake_prune, check_size=fake_prune)
+        print(prec1,prune_str)
     exit(0)
 
 for epoch in range(args.start_epoch, args.epochs):
@@ -864,7 +930,7 @@ for epoch in range(args.start_epoch, args.epochs):
 
     avg_loss = train(epoch) # train with regularization
 
-    prec1,prune_str = prune_while_training(model, arch=args.arch,prune_mode="default",num_classes=num_classes,avg_loss=avg_loss)
+    prec1,prune_str = prune_while_training(model, arch=args.arch,prune_mode="default",num_classes=num_classes,avg_loss=avg_loss,fake_prune=True)
     print(f"Epoch {epoch}/{args.epochs} learning rate {args.current_lr:.4f}",args.arch,args.save,prune_str,args.alphas)
     is_best = prec1 > best_prec1
     best_prec1 = max(prec1, best_prec1)
@@ -872,7 +938,6 @@ for epoch in range(args.start_epoch, args.epochs):
         'epoch': epoch + 1,
         'state_dict': model.state_dict(),
         'best_prec1': prec1,
-        'optimizer': optimizer.state_dict(),
     }, is_best, filepath=args.save,
         backup_path=args.backup_path,
         backup=epoch % args.backup_freq == 0,

@@ -56,7 +56,7 @@ def _check_model_same(model1: torch.nn.Module, model2: torch.nn.Module) -> float
 
 
 def prune_vgg(num_classes: int, sparse_model: torch.nn.Module, pruning_strategy: str, sanity_check: bool,
-              prune_mode: str, prune_type: str = 'polarization', l1_norm_ratio=None):
+              prune_mode: str, prune_type: str = 'polarization', l1_norm_ratio=None, fake_prune=True):
     """
     :param sparse_model: The model trained with sparsity regularization
     :param pruning_strategy: same as `models.common.search_threshold`
@@ -89,10 +89,12 @@ def prune_vgg(num_classes: int, sparse_model: torch.nn.Module, pruning_strategy:
         raise ValueError(f"Unsupport prune type: {prune_type}")
     
     pruned_model.prune_model(pruner=pruner,
-                             prune_mode=prune_mode)
+                             prune_mode=prune_mode,
+                             fake_prune=fake_prune)
     #print("Pruning finished. cfg:")
     #print(pruned_model.config())
-    return pruned_model
+    if fake_prune:
+        return pruned_model
 
     if sanity_check:
         # sanity check: check if pruned model is as same as sparse model
@@ -123,7 +125,7 @@ def prune_vgg(num_classes: int, sparse_model: torch.nn.Module, pruning_strategy:
         print(f"Max diff between Saved model and Pruned model: {max_diff}\n")
         assert max_diff < 1e-5, f"Test failed: Max diff should be less than 1e-5, got {max_diff}"
 
-    return saved_model
+    return saved_model.cuda()
 
 
 def main():

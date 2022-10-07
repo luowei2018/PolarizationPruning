@@ -155,7 +155,8 @@ def prune_conv_layer(conv_layer: Union[nn.Conv2d, nn.Linear],
                      pruner: Callable[[np.ndarray], float],
                      prune_mode: str,
                      sparse_layer_in: typing.Optional[SparseGate] = None,
-                     prune_on="factor") -> typing.Tuple[np.ndarray, np.ndarray]:
+                     prune_on="factor",
+                     fake_prune=True) -> typing.Tuple[np.ndarray, np.ndarray]:
     """
     Note: if the sparse_layer is SparseGate, the gate will be replaced by BatchNorm
     scaling factor. The value of the gate will be set to all ones.
@@ -180,7 +181,6 @@ def prune_conv_layer(conv_layer: Union[nn.Conv2d, nn.Linear],
         Note: `in_channel_mask` is CONFLICT with `sparse_layer_in`!
     :return out_channel_mask
     """
-    fake_prune = True
     assert isinstance(conv_layer, nn.Conv2d) or isinstance(conv_layer, nn.Linear), f"conv_layer got {conv_layer}"
 
     assert isinstance(sparse_layer, nn.BatchNorm2d) or \
