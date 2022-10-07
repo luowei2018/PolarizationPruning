@@ -121,7 +121,8 @@ def prune_conv_layer(conv_layer: nn.Conv2d,
                      prune_output_mode: str,
                      pruner: Pruner,
                      prune_mode: str,
-                     sparse_layer_in: typing.Optional[Union[nn.BatchNorm2d, SparseGate]], ) -> typing.Tuple[
+                     sparse_layer_in: typing.Optional[Union[nn.BatchNorm2d, SparseGate]], 
+                     fake_prune: bool=True) -> typing.Tuple[
     np.ndarray, np.ndarray]:
     """
     Note: if the sparse_layer is SparseGate, the gate will be replaced by BatchNorm
@@ -150,7 +151,6 @@ def prune_conv_layer(conv_layer: nn.Conv2d,
     """
     # only use fake prune for resnet50 since it by default uses input_gate
     # there is inconsistency
-    fake_prune = True
     assert isinstance(conv_layer, nn.Conv2d), f"conv_layer got {conv_layer}"
 
     assert isinstance(sparse_layer_out, nn.BatchNorm2d) or isinstance(sparse_layer_out,

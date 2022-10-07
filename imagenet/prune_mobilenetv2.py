@@ -45,13 +45,14 @@ def _get_parser():
     return parser
 
 
-def _prune_mobilenetv2_inplace(sparse_model: torch.nn.Module, pruner: Pruner):
+def _prune_mobilenetv2_inplace(sparse_model: torch.nn.Module, pruner: Pruner, fake_prune: bool=True):
     in_channel = sparse_model.input_channel
     for module_name, sub_module in sparse_model.named_modules():
         if isinstance(sub_module, InvertedResidual):
             in_mask = np.ones(in_channel)
             in_channel = sub_module.do_pruning(in_channel_mask=in_mask,
-                                               pruner=pruner)
+                                               pruner=pruner,
+                                               fake_prune=fake_prune)
 
 
 def compute_global_threshold(model, percent: float) -> int:
@@ -76,7 +77,7 @@ def compute_global_threshold(model, percent: float) -> int:
 
 
 def prune_mobilenet(sparse_model: Module, pruning_strategy: str,
-                    sanity_check: bool, force_same: bool, width_multiplier: float, ratio=None, percent:float=None):
+                    sanity_check: bool, force_same: bool, width_multiplier: float, ratio=None, percent:float=None, fake_prune: bool = True):
     """
 
     :param sparse_model: the large model with sparsity
@@ -109,9 +110,11 @@ def prune_mobilenet(sparse_model: Module, pruning_strategy: str,
         pruner = ThresholdPruner(pruning_strategy)
         
     _prune_mobilenetv2_inplace(pruned_model,
-                               pruner=pruner)
+                               pruner=pruner,
+                               fake_prune=fake_prune)
     pruned_model.eval()
-    return pruned_model
+    if fake_prune:
+        return pruned_model,None,None
 
     # save pruned model
     # extract idx of ChannelExpand and ChannelSelection layers
@@ -159,7 +162,7 @@ def prune_mobilenet(sparse_model: Module, pruning_strategy: str,
                     continue
                 raise AssertionError(f"saved_model should not contains any SparseGate modules, got {name}")
 
-    return saved_model, pruned_model, expand_idx
+    return saved_model.cuda(), pruned_model, expand_idx
 
 
 def build_new_model(state_dict, cfg, expand_idx, width_multiplier, gate=False):

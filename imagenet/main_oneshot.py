@@ -656,8 +656,9 @@ def main_worker(gpu, ngpus_per_node, args):
 
     print("rank #{}: dataloader loaded!".format(args.rank))
     if args.evaluate:
-        prec1,prune_str,saved_prec1s = prune_while_training(model, args.arch, args.prune_mode, args.width_multiplier, val_loader, criterion, 0, args)
-        print(args.save,prune_str,args.alphas)
+        for fake_prune in [True,False]:
+            prec1,prune_str,saved_prec1s = prune_while_training(model, args.arch, args.prune_mode, args.width_multiplier, val_loader, criterion, 0, args, fake_prune=fake_prune)
+            print(args.save,prune_str,args.alphas)
         return
 
     # restore the learning rate
@@ -679,7 +680,7 @@ def main_worker(gpu, ngpus_per_node, args):
               is_debug=args.debug)
 
         # prune the network and record FLOPs at each epoch
-        prec1,prune_str,saved_prec1s = prune_while_training(model, args.arch, args.prune_mode, args.width_multiplier, val_loader, criterion, epoch, args)
+        prec1,prune_str,saved_prec1s = prune_while_training(model, args.arch, args.prune_mode, args.width_multiplier, val_loader, criterion, epoch, args, fake_prune=True)
         print(f"Epoch {epoch}/{args.epochs}",args.arch,args.save,prune_str,args.alphas)
         if args.debug:
             exit(0)
@@ -1052,7 +1053,7 @@ def zero_bn(model, gate):
         m.weight.data.zero_()
         #m.bias.data.zero_()
 
-def sample_network(args,old_model,net_id=None,eval=False):
+def sample_network(args,old_model,net_id=None,eval=False,fake_prune=True):
     num_subnets = len(args.alphas)
     if net_id is None:
         if not args.OFA:
@@ -1123,10 +1124,10 @@ def sample_network(args,old_model,net_id=None,eval=False):
     else:
         if args.arch == 'resnet50':
             from resprune_expand_gate import prune_resnet
-            dynamic_model = prune_resnet(dynamic_model, pruning_strategy='mask', sanity_check=False, prune_mode='default')
+            dynamic_model = prune_resnet(dynamic_model, pruning_strategy='mask', sanity_check=False, prune_mode='default',fake_prune=fake_prune)
         else:
             from prune_mobilenetv2 import prune_mobilenet
-            dynamic_model = prune_mobilenet(dynamic_model, pruning_strategy='mask', sanity_check=False, force_same=False,width_multiplier=1.0)
+            dynamic_model,_,_ = prune_mobilenet(dynamic_model, pruning_strategy='mask', sanity_check=False, force_same=False,width_multiplier=1.0,fake_prune=fake_prune)
         return dynamic_model
     
 def update_shared_model(args,old_model,new_model,mask,batch_idx,ch_indices,net_id):
@@ -1270,14 +1271,14 @@ def clamp_bn(model, gate, lower_bound=0, upper_bound=1):
         m.weight.data.clamp_(lower_bound, upper_bound)
     
 
-def prune_while_training(model, arch, prune_mode, width_multiplier, val_loader, criterion, epoch, args):
+def prune_while_training(model, arch, prune_mode, width_multiplier, val_loader, criterion, epoch, args, fake_prune=True):
     if isinstance(model, nn.DataParallel) or isinstance(model, nn.parallel.DistributedDataParallel):
         model = model.module
         
     saved_flops = []
     saved_prec1s = []
     for i in range(len(args.alphas)):
-        pruned_model = sample_network(args,model,net_id=i,eval=True)
+        pruned_model = sample_network(args,model,net_id=i,eval=True,fake_prune=fake_prune)
         prec1 = validate(val_loader, pruned_model, criterion, epoch=epoch, args=args, writer=None)
         flop = compute_conv_flops(pruned_model, cuda=True)
         saved_prec1s += [prec1]

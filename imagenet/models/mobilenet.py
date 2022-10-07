@@ -269,7 +269,7 @@ class InvertedResidual(nn.Module):
         self.pw = False
         pass
 
-    def do_pruning(self, in_channel_mask: np.ndarray, pruner: Pruner):
+    def do_pruning(self, in_channel_mask: np.ndarray, pruner: Pruner, fake_prune: bool=True):
         """
         Prune the block in place
         :param in_channel_mask: a 0-1 vector indicates whether the corresponding channel should be pruned (0) or not (1)
@@ -287,7 +287,8 @@ class InvertedResidual(nn.Module):
                                                                 in_channel_mask=None if self.has_input_mask else in_channel_mask,
                                                                 pruner=pruner,
                                                                 prune_output_mode="prune",
-                                                                prune_mode='default')
+                                                                prune_mode='default',
+                                                                fake_prune=fake_prune)
             if not np.any(in_channel_mask) or not np.any(input_gate_mask):
                 # no channel left
                 self._prune_whole_layer()
@@ -317,7 +318,8 @@ class InvertedResidual(nn.Module):
                                               in_channel_mask=in_channel_mask,
                                               pruner=pruner,
                                               prune_output_mode="same",
-                                              prune_mode='default')
+                                              prune_mode='default',
+                                              fake_prune=fake_prune)
 
         # prune input of the dw-linear layer (the last layer)
         out_channel_mask, _ = prune_conv_layer(conv_layer=self.conv[-4],
@@ -329,7 +331,8 @@ class InvertedResidual(nn.Module):
                                                in_channel_mask=in_channel_mask,
                                                pruner=pruner,
                                                prune_output_mode="prune",
-                                               prune_mode='default')
+                                               prune_mode='default',
+                                               fake_prune=fake_prune)
 
         # update output_channel
         self.output_channel = int(out_channel_mask.astype(np.int).sum())
