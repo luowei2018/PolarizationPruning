@@ -1350,219 +1350,217 @@ def train(train_loader, model, criterion, optimizer, epoch, sparsity, args, is_d
 
     # switch to train mode
     model.eval()
-    
-    with torch.no_grad():
+    end = time.time()
+    train_iter = tqdm(train_loader)
+    for i, (image, target) in enumerate(train_iter):
+        batch_idx = i//num_mini_batch
+        if args.debug and batch_idx >= 10: break
+        if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
+            if not args.OFA:
+                if not args.enhance:
+                    nonzero = torch.nonzero(torch.tensor(args.alphas))
+                    net_id = int(nonzero[batch_idx%len(nonzero)][0])
+                else:
+                    net_id = batch_idx%len(args.alphas)
+                freeze_mask,net_id,dynamic_model,ch_indices = sample_network(args,model,net_id)
+            else:
+                freeze_mask,net_id,dynamic_model,ch_indices = sample_network(args,model)
+        # the adjusting only work when epoch is at decay_epoch
+        adjust_learning_rate(optimizer, epoch, lr=args.lr, decay_epoch=args.decay_epoch,
+                             total_epoch=args.epochs,
+                             train_loader_len=len(train_loader), iteration=i,
+                             warmup=args.warmup, decay_strategy=args.lr_strategy)
+
+        # measure data loading time
+        data_time.update(time.time() - end)
+
+        image = image.cuda(non_blocking=True)
+        target = target.cuda(non_blocking=True)
+
+        # compute output
+        if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
+            soft_logits = args.teacher_model(image)
+            if isinstance(soft_logits, tuple):
+                soft_logits, _ = soft_logits
+            soft_label = F.softmax(soft_logits.detach(), dim=1)
+            output = dynamic_model(image)
+        else:
+            output = model(image)
+        if isinstance(output, tuple):
+            output, extra_info = output
+        if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
+            loss = cross_entropy_loss_with_soft_target(output, soft_label)
+        else:
+            loss = criterion(output, target)
+        losses.update(loss.data.item(), image.size(0))
+
+        # measure accuracy and record loss
+        prec1, prec5 = accuracy(output.data, target, topk=(1, 5))
+        if args.loss in {LossType.PROGRESSIVE_SHRINKING} and not args.OFA:
+            top1_list[net_id].update(prec1[0], image.size(0))
+            top5_list[net_id].update(prec5[0], image.size(0))
+        else:
+            top1.update(prec1[0], image.size(0))
+            top5.update(prec5[0], image.size(0))
+
+        # compute gradient and do SGD step
+        if args.loss in {LossType.POLARIZATION,
+                         LossType.POLARIZATION_GRAD,
+                         LossType.L2_POLARIZATION}:
+            if args.fc_sparsity == "unified" and args.bn3_sparsity == 'unified':
+                # default behaviour
+                sparsity_loss = bn_sparsity(model, args.loss, args.lbd, args.t, args.alpha,
+                                            sparsity_on_bn3=args.last_sparsity,
+                                            arch=args.arch,
+                                            gate=args.gate,
+                                            keep_out=args.keep_out,
+                                            flops_weighted=args.flops_weighted,
+                                            weight_min=args.weight_min,
+                                            weight_max=args.weight_max,
+                                            weighted_mean=args.weighted_mean,
+                                            bn3_argument={'lbd': args.bn3_lbd,
+                                                          't': args.bn3_t,
+                                                          'alpha': args.bn3_alpha},
+                                            layerwise=args.layerwise)
+
+            elif args.fc_sparsity == "separate":
+                # use average value for CNN and FC separately
+                # note: the separate option is only available for VGG-like network (CNN with more than one fc layers)
+
+                # handle different cases for dp warpper
+                feature_module = model.features if hasattr(model, "features") else model.module.features
+                classifier_module = model.classifier if hasattr(model, "classifier") else model.module.classifier
+
+                sparsity_loss_feature = bn_sparsity(feature_module,
+                                                    args.loss, args.lbd, args.t, args.alpha,
+                                                    sparsity_on_bn3=args.last_sparsity,
+                                                    arch=args.arch,
+                                                    gate=args.gate,
+                                                    keep_out=args.keep_out,
+                                                    bn3_argument=None)
+                sparsity_loss_classifier = bn_sparsity(classifier_module,
+                                                       args.loss, args.lbd, args.t, args.alpha,
+                                                       sparsity_on_bn3=args.last_sparsity,
+                                                       arch=args.arch,
+                                                       gate=args.gate,
+                                                       keep_out=args.keep_out,
+                                                       bn3_argument=None)
+                sparsity_loss = sparsity_loss_feature + sparsity_loss_classifier
+            elif args.fc_sparsity == "single":
+                # apply bn_sparsity for each FC layer
+
+                # handle different cases for dp warpper
+                feature_module = model.features if hasattr(model, "features") else model.module.features
+                classifier_module = model.classifier if hasattr(model, "classifier") else model.module.classifier
+
+                sparsity_loss_feature = bn_sparsity(feature_module,
+                                                    args.loss, args.lbd, args.t, args.alpha,
+                                                    sparsity_on_bn3=args.last_sparsity,
+                                                    arch=args.arch,
+                                                    gate=args.gate,
+                                                    keep_out=args.keep_out,
+                                                    bn3_argument=None)
+                sparsity_loss_classifier = 0.
+                for name, submodule in classifier_module.named_modules():
+                    if isinstance(submodule, nn.BatchNorm1d):
+                        sparsity_loss_classifier += bn_sparsity(submodule,
+                                                                args.loss, args.lbd, args.t, args.alpha,
+                                                                sparsity_on_bn3=args.last_sparsity,
+                                                                arch=args.arch,
+                                                                gate=args.gate,
+                                                                keep_out=args.keep_out,
+                                                                bn3_argument=None)
+                sparsity_loss = sparsity_loss_feature + sparsity_loss_classifier
+            elif args.bn3_sparsity == 'separate':
+                # use different mean for bn3 layers
+                # only for ResNet-50
+
+                # sparsity on bn1 and bn2 layers
+                sparsity_loss = bn_sparsity(model, args.loss, args.lbd, args.t, args.alpha,
+                                            sparsity_on_bn3=False,
+                                            arch=args.arch,
+                                            gate=args.gate,
+                                            keep_out=args.keep_out,
+                                            bn3_only=False,
+                                            bn3_argument=None,
+                                            flops_weighted=args.flops_weighted,
+                                            weighted_mean=args.weighted_mean,
+                                            weight_min=args.weight_min,
+                                            weight_max=args.weight_max, )
+                # sparsity on bn3 layers
+                sparsity_loss += bn_sparsity(model, args.loss,
+                                             # this 3 arguments will be ignored
+                                             sparsity=0., t=args.t, alpha=args.alpha,
+                                             sparsity_on_bn3=True,
+                                             bn3_only=True,
+                                             arch=args.arch,
+                                             gate=args.gate,
+                                             keep_out=args.keep_out,
+                                             flops_weighted=args.flops_weighted,
+                                             weighted_mean=args.weighted_mean,
+                                             weight_min=args.weight_min,
+                                             weight_max=args.weight_max,
+                                             bn3_argument={'lbd': args.bn3_lbd,
+                                                           't': args.bn3_t,
+                                                           'alpha': args.bn3_alpha})
+            else:
+                raise NotImplementedError(f"do not support --fc-sparsity as {args.fc_sparsity}")
+            loss += sparsity_loss
+            avg_sparsity_loss.update(sparsity_loss.data.item(), image.size(0))
+        
+        optimizer.zero_grad()
+        loss /= num_mini_batch
+        loss.backward()
+           
+        # # mini batch
+        # # only process at the last batch of minibatches
+        # if (i)%num_mini_batch == num_mini_batch-1:
+        #     if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
+        #         update_shared_model(args,model,dynamic_model,freeze_mask,batch_idx,ch_indices,net_id)
+        #     if args.loss not in {LossType.PROGRESSIVE_SHRINKING} or batch_idx%args.ps_batch==(args.ps_batch-1):
+        #         optimizer.step()
+        #     if args.loss == LossType.L1_SPARSITY_REGULARIZATION:
+        #         updateBN(model, sparsity,
+        #                  sparsity_on_bn3=args.last_sparsity,
+        #                  is_mobilenet=args.arch == "mobilenetv2",
+        #                  gate=args.gate,
+        #                  exclude_out=args.keep_out)
+        #     # BN_grad_zero(model)
+        #     if args.loss in {LossType.POLARIZATION,
+        #                      LossType.POLARIZATION_GRAD,
+        #                      LossType.L2_POLARIZATION} or \
+        #             (args.loss == LossType.L1_SPARSITY_REGULARIZATION and args.gate):
+        #         # if enable gate, do not clamp bn, clamp gate to [0, 1]
+        #         clamp_bn(model, gate=args.gate, upper_bound=args.clamp)
+
+        # measure elapsed time
+        batch_time.update(time.time() - end)
         end = time.time()
-        train_iter = tqdm(train_loader)
-        for i, (image, target) in enumerate(train_iter):
-            batch_idx = i//num_mini_batch
-            if args.debug and batch_idx >= 10: break
-            if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
-                if not args.OFA:
-                    if not args.enhance:
-                        nonzero = torch.nonzero(torch.tensor(args.alphas))
-                        net_id = int(nonzero[batch_idx%len(nonzero)][0])
-                    else:
-                        net_id = batch_idx%len(args.alphas)
-                    freeze_mask,net_id,dynamic_model,ch_indices = sample_network(args,model,net_id)
-                else:
-                    freeze_mask,net_id,dynamic_model,ch_indices = sample_network(args,model)
-            # the adjusting only work when epoch is at decay_epoch
-            adjust_learning_rate(optimizer, epoch, lr=args.lr, decay_epoch=args.decay_epoch,
-                                 total_epoch=args.epochs,
-                                 train_loader_len=len(train_loader), iteration=i,
-                                 warmup=args.warmup, decay_strategy=args.lr_strategy)
 
-            # measure data loading time
-            data_time.update(time.time() - end)
-
-            image = image.cuda(non_blocking=True)
-            target = target.cuda(non_blocking=True)
-
-            # compute output
-            if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
-                soft_logits = args.teacher_model(image)
-                if isinstance(soft_logits, tuple):
-                    soft_logits, _ = soft_logits
-                soft_label = F.softmax(soft_logits.detach(), dim=1)
-                output = dynamic_model(image)
-            else:
-                output = model(image)
-            if isinstance(output, tuple):
-                output, extra_info = output
-            if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
-                loss = cross_entropy_loss_with_soft_target(output, soft_label)
-            else:
-                loss = criterion(output, target)
-            losses.update(loss.data.item(), image.size(0))
-
-            # measure accuracy and record loss
-            prec1, prec5 = accuracy(output.data, target, topk=(1, 5))
+        if args.rank == 0 and (i+1)%num_mini_batch == 0:
             if args.loss in {LossType.PROGRESSIVE_SHRINKING} and not args.OFA:
-                top1_list[net_id].update(prec1[0], image.size(0))
-                top5_list[net_id].update(prec5[0], image.size(0))
+                lr=optimizer.param_groups[0]['lr']
+                prec_str = ''
+                for top1,top5 in zip(top1_list,top5_list):
+                    prec_str += f'{top1.val:.3f}({top1.avg:.3f}). '
+                train_iter.set_description(
+                      f'Epoch: [{epoch:03d}]. '
+                      f'Time {batch_time.val:.3f} ({batch_time.avg:.3f}). '
+                      f'Loss {losses.val:.4f} ({losses.avg:.4f}). '
+                      f'LR {lr}. {prec_str}')
             else:
-                top1.update(prec1[0], image.size(0))
-                top5.update(prec5[0], image.size(0))
-
-            # compute gradient and do SGD step
-            if args.loss in {LossType.POLARIZATION,
-                             LossType.POLARIZATION_GRAD,
-                             LossType.L2_POLARIZATION}:
-                if args.fc_sparsity == "unified" and args.bn3_sparsity == 'unified':
-                    # default behaviour
-                    sparsity_loss = bn_sparsity(model, args.loss, args.lbd, args.t, args.alpha,
-                                                sparsity_on_bn3=args.last_sparsity,
-                                                arch=args.arch,
-                                                gate=args.gate,
-                                                keep_out=args.keep_out,
-                                                flops_weighted=args.flops_weighted,
-                                                weight_min=args.weight_min,
-                                                weight_max=args.weight_max,
-                                                weighted_mean=args.weighted_mean,
-                                                bn3_argument={'lbd': args.bn3_lbd,
-                                                              't': args.bn3_t,
-                                                              'alpha': args.bn3_alpha},
-                                                layerwise=args.layerwise)
-
-                elif args.fc_sparsity == "separate":
-                    # use average value for CNN and FC separately
-                    # note: the separate option is only available for VGG-like network (CNN with more than one fc layers)
-
-                    # handle different cases for dp warpper
-                    feature_module = model.features if hasattr(model, "features") else model.module.features
-                    classifier_module = model.classifier if hasattr(model, "classifier") else model.module.classifier
-
-                    sparsity_loss_feature = bn_sparsity(feature_module,
-                                                        args.loss, args.lbd, args.t, args.alpha,
-                                                        sparsity_on_bn3=args.last_sparsity,
-                                                        arch=args.arch,
-                                                        gate=args.gate,
-                                                        keep_out=args.keep_out,
-                                                        bn3_argument=None)
-                    sparsity_loss_classifier = bn_sparsity(classifier_module,
-                                                           args.loss, args.lbd, args.t, args.alpha,
-                                                           sparsity_on_bn3=args.last_sparsity,
-                                                           arch=args.arch,
-                                                           gate=args.gate,
-                                                           keep_out=args.keep_out,
-                                                           bn3_argument=None)
-                    sparsity_loss = sparsity_loss_feature + sparsity_loss_classifier
-                elif args.fc_sparsity == "single":
-                    # apply bn_sparsity for each FC layer
-
-                    # handle different cases for dp warpper
-                    feature_module = model.features if hasattr(model, "features") else model.module.features
-                    classifier_module = model.classifier if hasattr(model, "classifier") else model.module.classifier
-
-                    sparsity_loss_feature = bn_sparsity(feature_module,
-                                                        args.loss, args.lbd, args.t, args.alpha,
-                                                        sparsity_on_bn3=args.last_sparsity,
-                                                        arch=args.arch,
-                                                        gate=args.gate,
-                                                        keep_out=args.keep_out,
-                                                        bn3_argument=None)
-                    sparsity_loss_classifier = 0.
-                    for name, submodule in classifier_module.named_modules():
-                        if isinstance(submodule, nn.BatchNorm1d):
-                            sparsity_loss_classifier += bn_sparsity(submodule,
-                                                                    args.loss, args.lbd, args.t, args.alpha,
-                                                                    sparsity_on_bn3=args.last_sparsity,
-                                                                    arch=args.arch,
-                                                                    gate=args.gate,
-                                                                    keep_out=args.keep_out,
-                                                                    bn3_argument=None)
-                    sparsity_loss = sparsity_loss_feature + sparsity_loss_classifier
-                elif args.bn3_sparsity == 'separate':
-                    # use different mean for bn3 layers
-                    # only for ResNet-50
-
-                    # sparsity on bn1 and bn2 layers
-                    sparsity_loss = bn_sparsity(model, args.loss, args.lbd, args.t, args.alpha,
-                                                sparsity_on_bn3=False,
-                                                arch=args.arch,
-                                                gate=args.gate,
-                                                keep_out=args.keep_out,
-                                                bn3_only=False,
-                                                bn3_argument=None,
-                                                flops_weighted=args.flops_weighted,
-                                                weighted_mean=args.weighted_mean,
-                                                weight_min=args.weight_min,
-                                                weight_max=args.weight_max, )
-                    # sparsity on bn3 layers
-                    sparsity_loss += bn_sparsity(model, args.loss,
-                                                 # this 3 arguments will be ignored
-                                                 sparsity=0., t=args.t, alpha=args.alpha,
-                                                 sparsity_on_bn3=True,
-                                                 bn3_only=True,
-                                                 arch=args.arch,
-                                                 gate=args.gate,
-                                                 keep_out=args.keep_out,
-                                                 flops_weighted=args.flops_weighted,
-                                                 weighted_mean=args.weighted_mean,
-                                                 weight_min=args.weight_min,
-                                                 weight_max=args.weight_max,
-                                                 bn3_argument={'lbd': args.bn3_lbd,
-                                                               't': args.bn3_t,
-                                                               'alpha': args.bn3_alpha})
-                else:
-                    raise NotImplementedError(f"do not support --fc-sparsity as {args.fc_sparsity}")
-                loss += sparsity_loss
-                avg_sparsity_loss.update(sparsity_loss.data.item(), image.size(0))
-            
-            # loss /= num_mini_batch
-            # loss.backward()
-               
-            # # mini batch
-            # # only process at the last batch of minibatches
-            # if (i)%num_mini_batch == num_mini_batch-1:
-            #     if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
-            #         update_shared_model(args,model,dynamic_model,freeze_mask,batch_idx,ch_indices,net_id)
-            #     if args.loss not in {LossType.PROGRESSIVE_SHRINKING} or batch_idx%args.ps_batch==(args.ps_batch-1):
-            #         optimizer.step()
-            #         optimizer.zero_grad()
-            #     if args.loss == LossType.L1_SPARSITY_REGULARIZATION:
-            #         updateBN(model, sparsity,
-            #                  sparsity_on_bn3=args.last_sparsity,
-            #                  is_mobilenet=args.arch == "mobilenetv2",
-            #                  gate=args.gate,
-            #                  exclude_out=args.keep_out)
-            #     # BN_grad_zero(model)
-            #     if args.loss in {LossType.POLARIZATION,
-            #                      LossType.POLARIZATION_GRAD,
-            #                      LossType.L2_POLARIZATION} or \
-            #             (args.loss == LossType.L1_SPARSITY_REGULARIZATION and args.gate):
-            #         # if enable gate, do not clamp bn, clamp gate to [0, 1]
-            #         clamp_bn(model, gate=args.gate, upper_bound=args.clamp)
-
-            # measure elapsed time
-            batch_time.update(time.time() - end)
-            end = time.time()
-
-            if args.rank == 0 and (i+1)%num_mini_batch == 0:
-                if args.loss in {LossType.PROGRESSIVE_SHRINKING} and not args.OFA:
-                    lr=optimizer.param_groups[0]['lr']
-                    prec_str = ''
-                    for top1,top5 in zip(top1_list,top5_list):
-                        prec_str += f'{top1.val:.3f}({top1.avg:.3f}). '
-                    train_iter.set_description(
-                          f'Epoch: [{epoch:03d}]. '
-                          f'Time {batch_time.val:.3f} ({batch_time.avg:.3f}). '
-                          f'Loss {losses.val:.4f} ({losses.avg:.4f}). '
-                          f'LR {lr}. {prec_str}')
-                else:
-                    train_iter.set_description(
-                          'Epoch: [{epoch:03d}]. '
-                          'Time {batch_time.val:.3f} ({batch_time.avg:.3f}). '
-                          'Data {data_time.val:.3f} ({data_time.avg:.3f}). '
-                          'Loss {loss.val:.4f} ({loss.avg:.4f}). '
-                          'Sparsity Loss {s_loss.val:.4f} ({s_loss.avg:.4f}). '
-                          'Learning rate {lr}. '
-                          'Prec@1 {top1.val:.3f} ({top1.avg:.3f}). '
-                          'Prec@5 {top5.val:.3f} ({top5.avg:.3f})'.format(
-                        epoch=epoch, batch_time=batch_time,
-                        data_time=data_time, loss=losses, s_loss=avg_sparsity_loss,
-                        top1=top1, top5=top5, lr=optimizer.param_groups[0]['lr']))
+                train_iter.set_description(
+                      'Epoch: [{epoch:03d}]. '
+                      'Time {batch_time.val:.3f} ({batch_time.avg:.3f}). '
+                      'Data {data_time.val:.3f} ({data_time.avg:.3f}). '
+                      'Loss {loss.val:.4f} ({loss.avg:.4f}). '
+                      'Sparsity Loss {s_loss.val:.4f} ({s_loss.avg:.4f}). '
+                      'Learning rate {lr}. '
+                      'Prec@1 {top1.val:.3f} ({top1.avg:.3f}). '
+                      'Prec@5 {top5.val:.3f} ({top5.avg:.3f})'.format(
+                    epoch=epoch, batch_time=batch_time,
+                    data_time=data_time, loss=losses, s_loss=avg_sparsity_loss,
+                    top1=top1, top5=top5, lr=optimizer.param_groups[0]['lr']))
 
 
 def validate(val_loader, model, criterion, epoch, args, writer=None):
