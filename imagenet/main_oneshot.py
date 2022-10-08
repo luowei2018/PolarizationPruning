@@ -1510,30 +1510,30 @@ def train(train_loader, model, criterion, optimizer, epoch, sparsity, args, is_d
                 loss += sparsity_loss
                 avg_sparsity_loss.update(sparsity_loss.data.item(), image.size(0))
             
-            loss /= num_mini_batch
-            loss.backward()
+            # loss /= num_mini_batch
+            # loss.backward()
                
-            # mini batch
-            # only process at the last batch of minibatches
-            if (i)%num_mini_batch == num_mini_batch-1:
-                if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
-                    update_shared_model(args,model,dynamic_model,freeze_mask,batch_idx,ch_indices,net_id)
-                if args.loss not in {LossType.PROGRESSIVE_SHRINKING} or batch_idx%args.ps_batch==(args.ps_batch-1):
-                    optimizer.step()
-                    optimizer.zero_grad()
-                if args.loss == LossType.L1_SPARSITY_REGULARIZATION:
-                    updateBN(model, sparsity,
-                             sparsity_on_bn3=args.last_sparsity,
-                             is_mobilenet=args.arch == "mobilenetv2",
-                             gate=args.gate,
-                             exclude_out=args.keep_out)
-                # BN_grad_zero(model)
-                if args.loss in {LossType.POLARIZATION,
-                                 LossType.POLARIZATION_GRAD,
-                                 LossType.L2_POLARIZATION} or \
-                        (args.loss == LossType.L1_SPARSITY_REGULARIZATION and args.gate):
-                    # if enable gate, do not clamp bn, clamp gate to [0, 1]
-                    clamp_bn(model, gate=args.gate, upper_bound=args.clamp)
+            # # mini batch
+            # # only process at the last batch of minibatches
+            # if (i)%num_mini_batch == num_mini_batch-1:
+            #     if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
+            #         update_shared_model(args,model,dynamic_model,freeze_mask,batch_idx,ch_indices,net_id)
+            #     if args.loss not in {LossType.PROGRESSIVE_SHRINKING} or batch_idx%args.ps_batch==(args.ps_batch-1):
+            #         optimizer.step()
+            #         optimizer.zero_grad()
+            #     if args.loss == LossType.L1_SPARSITY_REGULARIZATION:
+            #         updateBN(model, sparsity,
+            #                  sparsity_on_bn3=args.last_sparsity,
+            #                  is_mobilenet=args.arch == "mobilenetv2",
+            #                  gate=args.gate,
+            #                  exclude_out=args.keep_out)
+            #     # BN_grad_zero(model)
+            #     if args.loss in {LossType.POLARIZATION,
+            #                      LossType.POLARIZATION_GRAD,
+            #                      LossType.L2_POLARIZATION} or \
+            #             (args.loss == LossType.L1_SPARSITY_REGULARIZATION and args.gate):
+            #         # if enable gate, do not clamp bn, clamp gate to [0, 1]
+            #         clamp_bn(model, gate=args.gate, upper_bound=args.clamp)
 
             # measure elapsed time
             batch_time.update(time.time() - end)
