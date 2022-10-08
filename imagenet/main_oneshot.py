@@ -1225,8 +1225,7 @@ def update_shared_model(args,old_model,new_model,mask,batch_idx,ch_indices,net_i
                 assert len(old_module.masks)==4
                 for i in range(1,4):
                     assert old_module.masks[i].sum()>=old_module.masks[i-1].sum() 
-                    assert min(old_module.masks[i][old_module.masks[i-1]==1])==max(old_module.masks[i][old_module.masks[i-1]==1])
-                    assert min(old_module.masks[i][old_module.masks[i-1]==1])==1
+                    assert torch.equal(old_module.masks[i-1],old_module.masks[i]*old_module.masks[i-1])
                 assert old_module.masks[-1].sum()==len(old_module.masks[-1])
                 old_module.masks=[]
 
