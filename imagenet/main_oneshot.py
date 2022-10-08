@@ -1085,9 +1085,11 @@ def sample_network(args,old_model,net_id=None,eval=False,fake_prune=True,check_s
                 bn_module.mean_sum = []
                 bn_module.var_sum = []
                 bn_module.sum_len = 0
-                print(bn_module.__dict__)
-                bn_module.eval()
-                print(bn_module.__dict__)
+                b = bn_module.clone().detach()
+                b.eval()
+                for key in bn_module.__dict__:
+                    print(bn_module.__dict__[key],b[key])
+                    print('====================')
                 exit(0)
 
     if isinstance(dynamic_model, nn.DataParallel) or isinstance(dynamic_model, nn.parallel.DistributedDataParallel):
