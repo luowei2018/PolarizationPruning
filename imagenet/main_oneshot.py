@@ -1081,7 +1081,7 @@ def sample_network(args,old_model,net_id=None,eval=False,fake_prune=True,check_s
                 # updated in the last update
                 bn_module.running_mean.data = bn_module._buffers[f"mean{net_id}"].clone().detach()
                 bn_module.running_var.data = bn_module._buffers[f"var{net_id}"].clone().detach()
-                bn_module.momentum = 1.
+                bn_module.momentum = 0
                 bn_module.mean_sum = []
                 bn_module.var_sum = []
                 bn_module.sum_len = 0
@@ -1265,7 +1265,6 @@ def update_shared_model(args,old_model,new_model,mask,batch_idx,ch_indices,net_i
             copy_module_grad(old_module,new_module)
 
 def update_minibatch_stats(dynamic_model,net_id,eomb=False):
-    print(net_id)
     for module_name, bn_module in dynamic_model.named_modules():
         if not isinstance(bn_module, nn.BatchNorm2d) and not isinstance(bn_module,nn.BatchNorm1d): continue
         if bn_module.sum_len == 0:
@@ -1285,7 +1284,6 @@ def update_minibatch_stats(dynamic_model,net_id,eomb=False):
             bn_module.var_sum /= bn_module.sum_len
             bn_module.running_mean.data = 0.9 *bn_module._buffers[f"mean{net_id}"].data.clone().detach() + 0.1 * bn_module.mean_sum
             bn_module.running_var.data = 0.9 * bn_module._buffers[f"mean{net_id}"].data.clone().detach() + 0.1 * bn_module.var_sum
-            exit(0)
             
 def cross_entropy_loss_with_soft_target(pred, soft_target):
     logsoftmax = nn.LogSoftmax()
