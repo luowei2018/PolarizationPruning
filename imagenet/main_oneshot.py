@@ -1353,6 +1353,7 @@ def train(train_loader, model, criterion, optimizer, epoch, sparsity, args, is_d
     end = time.time()
     train_iter = tqdm(train_loader)
     for i, (image, target) in enumerate(train_iter):
+        optimizer.zero_grad()
         batch_idx = i//num_mini_batch
         if args.debug and batch_idx >= 10: break
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
@@ -1508,7 +1509,6 @@ def train(train_loader, model, criterion, optimizer, epoch, sparsity, args, is_d
             loss += sparsity_loss
             avg_sparsity_loss.update(sparsity_loss.data.item(), image.size(0))
         
-        optimizer.zero_grad()
         loss /= num_mini_batch
         loss.backward()
            
