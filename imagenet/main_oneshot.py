@@ -1515,7 +1515,8 @@ def train(train_loader, model, criterion, optimizer, epoch, sparsity, args, is_d
         # only process at the last batch of minibatches
         if (i)%num_mini_batch == num_mini_batch-1:
             if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
-                update_shared_model(args,model,dynamic_model,freeze_mask,batch_idx,ch_indices,net_id)
+                pass
+                # update_shared_model(args,model,dynamic_model,freeze_mask,batch_idx,ch_indices,net_id)
             if args.loss not in {LossType.PROGRESSIVE_SHRINKING} or batch_idx%args.ps_batch==(args.ps_batch-1):
                 # optimizer.step()
                 optimizer.zero_grad()
