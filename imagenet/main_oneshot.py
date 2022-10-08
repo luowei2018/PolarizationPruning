@@ -662,7 +662,7 @@ def main_worker(gpu, ngpus_per_node, args):
     print("rank #{}: dataloader loaded!".format(args.rank))
     if args.evaluate:
         for fake_prune in [True,False]:
-            prec1,prune_str,saved_prec1s = prune_while_training(model, args.arch, args.prune_mode, args.width_multiplier, val_loader, criterion, 0, args, fake_prune=fake_prune, check_size=fake_prune)
+            prec1,prune_str,saved_prec1s = prune_while_training(model, args.arch, args.prune_mode, args.width_multiplier, train_loader, criterion, 0, args, fake_prune=fake_prune, check_size=fake_prune)
             print(args.save,prune_str,args.alphas)
         return
 
@@ -1515,10 +1515,9 @@ def train(train_loader, model, criterion, optimizer, epoch, sparsity, args, is_d
         # only process at the last batch of minibatches
         if (i)%num_mini_batch == num_mini_batch-1:
             if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
-                pass
-                # update_shared_model(args,model,dynamic_model,freeze_mask,batch_idx,ch_indices,net_id)
+                update_shared_model(args,model,dynamic_model,freeze_mask,batch_idx,ch_indices,net_id)
             if args.loss not in {LossType.PROGRESSIVE_SHRINKING} or batch_idx%args.ps_batch==(args.ps_batch-1):
-                # optimizer.step()
+                optimizer.step()
                 optimizer.zero_grad()
             if args.loss == LossType.L1_SPARSITY_REGULARIZATION:
                 updateBN(model, sparsity,
