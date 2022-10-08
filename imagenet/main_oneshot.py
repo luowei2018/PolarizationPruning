@@ -1224,7 +1224,10 @@ def update_shared_model(args,old_model,new_model,mask,batch_idx,ch_indices,net_i
             if net_id==3:
                 assert len(old_module.masks)==4
                 for i in range(1,4):
-                    assert masks[i].sum()>=masks[i-1].sum() and masks[i][masks[i-1]==1].min()==masks[i][masks[i-1]==1].max() and masks[i][masks[i-1]==1].min()==1
+                    assert old_module.masks[i].sum()>=old_module.masks[i-1].sum() 
+                    assert old_module.masks[i][old_module.masks[i-1]==1].min()==old_module.masks[i][old_module.masks[i-1]==1].max() 
+                    assert old_module.masks[i][old_module.masks[i-1]==1].min()==1
+                assert old_module.masks[-1].sum()==len(old_module.masks)
                 old_module.masks=[]
 
         # --------------------------
@@ -1250,7 +1253,8 @@ def update_shared_model(args,old_model,new_model,mask,batch_idx,ch_indices,net_i
                     old_module.comp_bias.grad_tmp = None
             else:
                 assert old_module.bias.grad is None or old_module.bias.grad.data.sum()==0, old_module.bias.grad.data.sum()
-                assert old_module.comp_bias.grad is None or old_module.comp_bias.grad.data.sum()==0, old_module.comp_bias.grad.data.sum()
+                if hasattr(old_module,'comp_bias'):
+                    assert old_module.comp_bias.grad is None or old_module.comp_bias.grad.data.sum()==0, old_module.comp_bias.grad.data.sum()
             
     def copy_param_grad(old_param,new_grad):
         if not args.OFA:
