@@ -1085,12 +1085,7 @@ def sample_network(args,old_model,net_id=None,eval=False,fake_prune=True,check_s
                 bn_module.mean_sum = []
                 bn_module.var_sum = []
                 bn_module.sum_len = 0
-                b = copy.deepcopy(bn_module)
-                b.eval()
-                for key in bn_module.__dict__:
-                    print(bn_module.__dict__[key],b.__dict__[key])
-                    print('====================')
-                exit(0)
+                bn_module.eval()
 
     if isinstance(dynamic_model, nn.DataParallel) or isinstance(dynamic_model, nn.parallel.DistributedDataParallel):
         bn_modules,convs = dynamic_model.module.get_sparse_layers_and_convs()
