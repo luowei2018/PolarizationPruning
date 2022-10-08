@@ -1353,7 +1353,7 @@ def train(train_loader, model, criterion, optimizer, epoch, sparsity, args, is_d
     end = time.time()
     train_iter = tqdm(train_loader)
     for i, (image, target) in enumerate(train_iter):
-        optimizer.zero_grad()
+        # optimizer.zero_grad()
         batch_idx = i//num_mini_batch
         if args.debug and batch_idx >= 10: break
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
@@ -1508,7 +1508,7 @@ def train(train_loader, model, criterion, optimizer, epoch, sparsity, args, is_d
                 raise NotImplementedError(f"do not support --fc-sparsity as {args.fc_sparsity}")
             loss += sparsity_loss
             avg_sparsity_loss.update(sparsity_loss.data.item(), image.size(0))
-        
+
         loss /= num_mini_batch
         loss.backward()
            
@@ -1519,6 +1519,7 @@ def train(train_loader, model, criterion, optimizer, epoch, sparsity, args, is_d
                 update_shared_model(args,model,dynamic_model,freeze_mask,batch_idx,ch_indices,net_id)
             if args.loss not in {LossType.PROGRESSIVE_SHRINKING} or batch_idx%args.ps_batch==(args.ps_batch-1):
                 optimizer.step()
+                optimizer.zero_grad()
             if args.loss == LossType.L1_SPARSITY_REGULARIZATION:
                 updateBN(model, sparsity,
                          sparsity_on_bn3=args.last_sparsity,
