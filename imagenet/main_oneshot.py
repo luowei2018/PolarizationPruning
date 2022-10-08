@@ -661,10 +661,8 @@ def main_worker(gpu, ngpus_per_node, args):
 
     print("rank #{}: dataloader loaded!".format(args.rank))
     if args.evaluate:
-        validate(train_loader, model, criterion, epoch=0, args=args, writer=None)
-        exit(0)
         for fake_prune in [True,False]:
-            prec1,prune_str,saved_prec1s = prune_while_training(model, args.arch, args.prune_mode, args.width_multiplier, val_loader, criterion, 0, args, fake_prune=fake_prune, check_size=fake_prune)
+            prec1,prune_str,saved_prec1s = prune_while_training(model, args.arch, args.prune_mode, args.width_multiplier, train_loader, criterion, 0, args, fake_prune=fake_prune, check_size=fake_prune)
             print(args.save,prune_str,args.alphas)
         return
 
@@ -1319,6 +1317,7 @@ def prune_while_training(model, arch, prune_mode, width_multiplier, val_loader, 
     saved_flops = []
     saved_prec1s = []
     for i in range(len(args.alphas)):
+        i=3
         pruned_model = sample_network(args,model,net_id=i,eval=True,fake_prune=fake_prune,check_size=check_size)
         prec1 = validate(val_loader, pruned_model, criterion, epoch=epoch, args=args, writer=None)
         flop = compute_conv_flops(pruned_model, cuda=True)
