@@ -1084,8 +1084,8 @@ def sample_network(args,old_model,net_id=None,eval=False,fake_prune=True,check_s
                 if num_mini_batch != 1:
                     bn_module.eval()
                     def bn_fordward_hook(self, inp, out):
-                        bn_module.minibatch_mean = inp[0].mean([0, 2, 3])
-                        bn_module.minibatch_var = inp[0].var([0, 2, 3], unbiased=False)
+                        self.minibatch_mean = inp[0].mean([0, 2, 3])
+                        self.minibatch_var = inp[0].var([0, 2, 3], unbiased=False)
                     bn_module.register_forward_hook(bn_fordward_hook)
 
     
@@ -1270,20 +1270,21 @@ def update_shared_model(args,old_model,new_model,mask,batch_idx,ch_indices,net_i
 def update_minibatch_stats(dynamic_model,net_id,eomb=False):
     for module_name, bn_module in dynamic_model.named_modules():
         if not isinstance(bn_module, nn.BatchNorm2d) and not isinstance(bn_module,nn.BatchNorm1d): continue
-        if not hasattr(bn_module,'mean_sum'):
-            bn_module.mean_sum = bn_module.minibatch_mean.clone().detach()
-            bn_module.var_sum = bn_module.minibatch_var.clone().detach()
-            bn_module.sum_len = 1
-        else:
-            bn_module.mean_sum += bn_module.minibatch_mean.clone().detach()
-            bn_module.var_sum += bn_module.minibatch_var.clone().detach()
-            bn_module.sum_len += 1
+        assert hasattr(bn_module, 'minibatch_mean')
+        # if not hasattr(bn_module,'mean_sum'):
+        #     bn_module.mean_sum = bn_module.minibatch_mean.clone().detach()
+        #     bn_module.var_sum = bn_module.minibatch_var.clone().detach()
+        #     bn_module.sum_len = 1
+        # else:
+        #     bn_module.mean_sum += bn_module.minibatch_mean.clone().detach()
+        #     bn_module.var_sum += bn_module.minibatch_var.clone().detach()
+        #     bn_module.sum_len += 1
 
-        if eomb:
-            bn_module.mean_sum /= bn_module.sum_len
-            bn_module.var_sum /= bn_module.sum_len
-            bn_module.running_mean.data = 0.9 *bn_module._buffers[f"mean{net_id}"].data.clone().detach() + 0.1 * bn_module.mean_sum
-            bn_module.running_var.data = 0.9 * bn_module._buffers[f"mean{net_id}"].data.clone().detach() + 0.1 * bn_module.var_sum
+        # if eomb:
+        #     bn_module.mean_sum /= bn_module.sum_len
+        #     bn_module.var_sum /= bn_module.sum_len
+        #     bn_module.running_mean.data = 0.9 *bn_module._buffers[f"mean{net_id}"].data.clone().detach() + 0.1 * bn_module.mean_sum
+        #     bn_module.running_var.data = 0.9 * bn_module._buffers[f"mean{net_id}"].data.clone().detach() + 0.1 * bn_module.var_sum
 
 def cross_entropy_loss_with_soft_target(pred, soft_target):
     logsoftmax = nn.LogSoftmax()
@@ -1409,6 +1410,7 @@ def train(train_loader, model, criterion, optimizer, epoch, sparsity, args, is_d
                 soft_logits, _ = soft_logits
             soft_label = F.softmax(soft_logits.detach(), dim=1)
             output = dynamic_model(image)
+            update_minibatch_stats(dynamic_model,net_id,eomb=False)
         else:
             output = model(image)
         if isinstance(output, tuple):
