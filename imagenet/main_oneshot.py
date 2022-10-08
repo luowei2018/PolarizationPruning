@@ -1086,6 +1086,7 @@ def sample_network(args,old_model,net_id=None,eval=False,fake_prune=True,check_s
                     def bn_fordward_hook(self, inp, out):
                         self.minibatch_mean = inp[0].mean([0, 2, 3])
                         self.minibatch_var = inp[0].var([0, 2, 3], unbiased=False)
+                        print('c')
                     bn_module.register_forward_hook(bn_fordward_hook)
 
     
