@@ -1177,22 +1177,21 @@ def update_shared_model(args,old_model,new_model,mask,batch_idx,ch_indices,net_i
 
         # copy running mean/var
         if isinstance(new_module,nn.BatchNorm2d) or isinstance(new_module,nn.BatchNorm1d):
-            print(new_module.momentum)
-            exit(0)
-            if args.split_running_stat:
-                if subnet_mask is not None:
-                    old_module._buffers[f"mean{net_id}"][keep_mask] = new_module.running_mean.data[keep_mask].clone().detach()
-                    old_module._buffers[f"var{net_id}"][keep_mask] = new_module.running_var.data[keep_mask].clone().detach()
-                else:
-                    old_module._buffers[f"mean{net_id}"] = new_module.running_mean.data.clone().detach()
-                    old_module._buffers[f"var{net_id}"] = new_module.running_var.data.clone().detach()
-            else:
-                if subnet_mask is not None:
-                    old_module.running_mean.data[keep_mask] = new_module.running_mean.data[keep_mask]
-                    old_module.running_var.data[keep_mask] = new_module.running_var.data[keep_mask]
-                else:
-                    old_module.running_mean.data = new_module.running_mean.data
-                    old_module.running_var.data = new_module.running_var.data
+            pass
+            # if args.split_running_stat:
+            #     if subnet_mask is not None:
+            #         old_module._buffers[f"mean{net_id}"][keep_mask] = new_module.running_mean.data[keep_mask].clone().detach()
+            #         old_module._buffers[f"var{net_id}"][keep_mask] = new_module.running_var.data[keep_mask].clone().detach()
+            #     else:
+            #         old_module._buffers[f"mean{net_id}"] = new_module.running_mean.data.clone().detach()
+            #         old_module._buffers[f"var{net_id}"] = new_module.running_var.data.clone().detach()
+            # else:
+            #     if subnet_mask is not None:
+            #         old_module.running_mean.data[keep_mask] = new_module.running_mean.data[keep_mask]
+            #         old_module.running_var.data[keep_mask] = new_module.running_var.data[keep_mask]
+            #     else:
+            #         old_module.running_mean.data = new_module.running_mean.data
+            #         old_module.running_var.data = new_module.running_var.data
 
         # weight
         w_grad0 = new_module.weight.grad.clone().detach()
@@ -1351,7 +1350,7 @@ def train(train_loader, model, criterion, optimizer, epoch, sparsity, args, is_d
     num_mini_batch = 1024//args.batch_size if args.arch == 'mobilenetv2' else 512//args.batch_size
 
     # switch to train mode
-    model.train()
+    model.eval()
     end = time.time()
     train_iter = tqdm(train_loader)
     for i, (image, target) in enumerate(train_iter):
