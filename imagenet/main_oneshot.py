@@ -1275,6 +1275,8 @@ def update_minibatch_stats(dynamic_model,eomb=False):
         else:
             bn_module.mean_sum += bn_module.running_mean
             bn_module.var_sum += bn_module.running_var
+        bn_module.running_mean = bn_module.mean_init
+        bn_module.running_var = bn_module.var_init
         bn_module.sum_len += 1
         if eomb:
             bn_module.mean_sum /= bn_module.sum_len
