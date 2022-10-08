@@ -1081,7 +1081,7 @@ def sample_network(args,old_model,net_id=None,eval=False,fake_prune=True,check_s
                 # updated in the last update
                 bn_module.running_mean.data = bn_module._buffers[f"mean{net_id}"].clone().detach()
                 bn_module.running_var.data = bn_module._buffers[f"var{net_id}"].clone().detach()
-                if num_mini_batch != 1;
+                if num_mini_batch != 1:
                     bn_module.eval()
                     def bn_fordward_hook(self, input, output):
                         self.minibatch_mean = input.mean([0, 2, 3])
