@@ -1275,14 +1275,16 @@ def update_minibatch_stats(dynamic_model,eomb=False):
         else:
             bn_module.mean_sum += bn_module.running_mean
             bn_module.var_sum += bn_module.running_var
+            
         bn_module.running_mean = bn_module.mean_init
         bn_module.running_var = bn_module.var_init
+
         bn_module.sum_len += 1
         if eomb:
             bn_module.mean_sum /= bn_module.sum_len
             bn_module.var_sum /= bn_module.sum_len
-        bn_module.running_mean = 0.9 * bn_module.mean_init + 0.1 * bn_module.mean_sum
-        bn_module.running_var = 0.9 * bn_module.var_init + 0.1 * bn_module.var_sum
+            bn_module.running_mean = 0.9 * bn_module.mean_init + 0.1 * bn_module.mean_sum
+            bn_module.running_var = 0.9 * bn_module.var_init + 0.1 * bn_module.var_sum
             
 def cross_entropy_loss_with_soft_target(pred, soft_target):
     logsoftmax = nn.LogSoftmax()
@@ -1373,7 +1375,7 @@ def train(train_loader, model, criterion, optimizer, epoch, sparsity, args, is_d
     num_mini_batch = 1024//args.batch_size if args.arch == 'mobilenetv2' else 512//args.batch_size
 
     # switch to train mode
-    model.eval()
+    model.train()
     end = time.time()
     train_iter = tqdm(train_loader)
     for i, (image, target) in enumerate(train_iter):
