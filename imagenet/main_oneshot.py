@@ -1270,7 +1270,6 @@ def update_shared_model(args,old_model,new_model,mask,batch_idx,ch_indices,net_i
             copy_module_grad(old_module,new_module)
 
 def update_minibatch_stats(dynamic_model,net_id,eomb=False):
-    return
     for module_name, bn_module in dynamic_model.named_modules():
         if not isinstance(bn_module, nn.BatchNorm2d) and not isinstance(bn_module,nn.BatchNorm1d): continue
         if not hasattr(bn_module,'mean_sum'):
@@ -1283,10 +1282,11 @@ def update_minibatch_stats(dynamic_model,net_id,eomb=False):
             bn_module.sum_len += 1
 
         if eomb:
+            assert bn_module.sum_len==8
             bn_module.mean_sum /= bn_module.sum_len
             bn_module.var_sum /= bn_module.sum_len
-            bn_module.running_mean.data = 0.9 *bn_module._buffers[f"mean{net_id}"].data.clone().detach() + 0.1 * bn_module.mean_sum
-            bn_module.running_var.data = 0.9 * bn_module._buffers[f"mean{net_id}"].data.clone().detach() + 0.1 * bn_module.var_sum
+            bn_module.running_mean.data = 0.9 *bn_module.running_mean.data.clone().detach() + 0.1 * bn_module.mean_sum
+            bn_module.running_var.data = 0.9 * bn_module.running_var.data.clone().detach() + 0.1 * bn_module.var_sum
 
 def cross_entropy_loss_with_soft_target(pred, soft_target):
     logsoftmax = nn.LogSoftmax()
