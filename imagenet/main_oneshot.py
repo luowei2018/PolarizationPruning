@@ -543,7 +543,7 @@ def main_worker(gpu, ngpus_per_node, args):
                         bn_module.register_buffer(f"mean{nid}",bn_module.running_mean.data.clone().detach())
                         bn_module.register_buffer(f"var{nid}",bn_module.running_var.data.clone().detach())
                 if args.enhance and args.load_enhance:
-                    bns,convs = model.get_sparse_layers_and_convs()
+                    bns,convs = model.module.get_sparse_layers_and_convs()
                     for conv,bn in zip(convs,bns):
                         # add compensate weights
                         conv.register_parameter("comp_weight",torch.nn.Parameter((conv.weight.data.clone().detach())))
@@ -578,7 +578,6 @@ def main_worker(gpu, ngpus_per_node, args):
                     bn_module.register_buffer(f"var{nid}",bn_module.running_var.data.clone().detach())
 
         if args.enhance and not args.load_enhance:
-            print('adding comp')
             bns,convs = model.module.get_sparse_layers_and_convs()
             for conv,bn in zip(convs,bns):
                 # add compensate weights
