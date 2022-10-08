@@ -1211,25 +1211,6 @@ def update_shared_model(args,old_model,new_model,mask,batch_idx,ch_indices,net_i
             if hasattr(old_module,'comp_weight'):
                 old_module.comp_weight.grad = old_module.comp_weight.grad_tmp.clone().detach() / sum(args.alphas)
                 old_module.comp_weight.grad_tmp = None
-        else:
-            assert old_module.weight.grad is None or old_module.weight.grad.data.sum()==0, old_module.weight.grad.data.sum()
-            if hasattr(old_module,'comp_weight'):
-                assert old_module.comp_weight.grad is None or old_module.comp_weight.grad.data.sum()==0, old_module.comp_weight.grad.data.sum()
-
-        # check  correctness
-        if subnet_mask is not None:
-            if net_id==0:
-                old_module.masks=[]
-            old_module.masks.append(keep_mask)
-            if net_id==3:
-                assert len(old_module.masks)==4
-                for i in range(1,4):
-                    assert old_module.masks[i].sum()>=old_module.masks[i-1].sum() 
-                    assert torch.equal(old_module.masks[i-1],old_module.masks[i]*old_module.masks[i-1])
-                assert old_module.masks[-1].sum()==len(old_module.masks[-1])
-                old_module.masks=[]
-
-        # --------------------------
 
         # bias
         if hasattr(new_module,'bias') and new_module.bias is not None:
@@ -1250,10 +1231,6 @@ def update_shared_model(args,old_model,new_model,mask,batch_idx,ch_indices,net_i
                 if hasattr(old_module,'comp_bias'):
                     old_module.comp_bias.grad = old_module.comp_bias.grad_tmp.clone().detach() / sum(args.alphas)
                     old_module.comp_bias.grad_tmp = None
-            else:
-                assert old_module.bias.grad is None or old_module.bias.grad.data.sum()==0, old_module.bias.grad.data.sum()
-                if hasattr(old_module,'comp_bias'):
-                    assert old_module.comp_bias.grad is None or old_module.comp_bias.grad.data.sum()==0, old_module.comp_bias.grad.data.sum()
             
     def copy_param_grad(old_param,new_grad):
         if not args.OFA:
