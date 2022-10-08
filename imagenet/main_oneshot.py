@@ -1088,7 +1088,7 @@ def sample_network(args,old_model,net_id=None,eval=False,fake_prune=True,check_s
                 b = copy.deepcopy(bn_module)
                 b.eval()
                 for key in bn_module.__dict__:
-                    print(bn_module.__dict__[key],b[key])
+                    print(bn_module.__dict__[key],b.__dict__[key])
                     print('====================')
                 exit(0)
 
