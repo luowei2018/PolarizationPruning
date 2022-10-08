@@ -1275,7 +1275,7 @@ def update_minibatch_stats(dynamic_model,eomb=False):
         else:
             bn_module.mean_sum += bn_module.running_mean
             bn_module.var_sum += bn_module.running_var
-            
+
         bn_module.running_mean = bn_module.mean_init
         bn_module.running_var = bn_module.var_init
 
@@ -1375,7 +1375,7 @@ def train(train_loader, model, criterion, optimizer, epoch, sparsity, args, is_d
     num_mini_batch = 1024//args.batch_size if args.arch == 'mobilenetv2' else 512//args.batch_size
 
     # switch to train mode
-    model.train()
+    model.evals()
     end = time.time()
     train_iter = tqdm(train_loader)
     for i, (image, target) in enumerate(train_iter):
