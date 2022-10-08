@@ -1062,7 +1062,7 @@ def zero_bn(model, gate):
         m.weight.data.zero_()
         #m.bias.data.zero_()
 
-def sample_network(args,old_model,net_id=None,eval=False,fake_prune=True,check_size=False):
+def sample_network(args,old_model,net_id=None,eval=False,fake_prune=True,check_size=False,num_mini_batch=1):
     num_subnets = len(args.alphas)
     if net_id is None:
         if not args.OFA:
@@ -1079,10 +1079,15 @@ def sample_network(args,old_model,net_id=None,eval=False,fake_prune=True,check_s
             if args.split_running_stat:
                 # choose the right running mean/var for a subnet
                 # updated in the last update
-                bn_module.running_mean.data = bn_module._buffers[f"mean{net_id}"]
-                bn_module.running_var.data = bn_module._buffers[f"var{net_id}"]
-                # only if minibatch
-                bn_module.eval()
+                bn_module.running_mean.data = bn_module._buffers[f"mean{net_id}"].clone().detach()
+                bn_module.running_var.data = bn_module._buffers[f"var{net_id}"].clone().detach()
+                if num_mini_batch != 1;
+                    bn_module.eval()
+                    def bn_fordward_hook(self, input, output):
+                        self.minibatch_mean = input.mean([0, 2, 3])
+                        self.minibatch_var = input.var([0, 2, 3], unbiased=False)
+                    bn_module.register_forward_hook(bn_fordward_hook)
+
     
     if isinstance(dynamic_model, nn.DataParallel) or isinstance(dynamic_model, nn.parallel.DistributedDataParallel):
         bn_modules,convs = dynamic_model.module.get_sparse_layers_and_convs()
@@ -1261,7 +1266,25 @@ def update_shared_model(args,old_model,new_model,mask,batch_idx,ch_indices,net_i
         new_non_sparse_modules = get_non_sparse_modules(new_model)
         for old_module,new_module in zip(old_non_sparse_modules,new_non_sparse_modules):
             copy_module_grad(old_module,new_module)
-            
+
+def update_minibatch_stats(dynamic_model,net_id,eomb=False):
+    for module_name, bn_module in dynamic_model.named_modules():
+        if not isinstance(bn_module, nn.BatchNorm2d) and not isinstance(bn_module,nn.BatchNorm1d): continue
+        if not hasattr(bn_module,'mean_sum'):
+            bn_module.mean_sum = bn_module.minibatch_mean.clone().detach()
+            bn_module.var_sum = bn_module.minibatch_var.clone().detach()
+            bn_module.sum_len = 1
+        else:
+            bn_module.mean_sum += bn_module.minibatch_mean.clone().detach()
+            bn_module.var_sum += bn_module.minibatch_var.clone().detach()
+            bn_module.sum_len += 1
+
+        if eomb:
+            bn_module.mean_sum /= bn_module.sum_len
+            bn_module.var_sum /= bn_module.sum_len
+            bn_module.running_mean.data = 0.9 *bn_module._buffers[f"mean{net_id}"].data.clone().detach() + 0.1 * bn_module.mean_sum
+            bn_module.running_var.data = 0.9 * bn_module._buffers[f"mean{net_id}"].data.clone().detach() + 0.1 * bn_module.var_sum
+
 def cross_entropy_loss_with_soft_target(pred, soft_target):
     logsoftmax = nn.LogSoftmax()
     return torch.mean(torch.sum(-soft_target * logsoftmax(pred), 1))
@@ -1364,9 +1387,9 @@ def train(train_loader, model, criterion, optimizer, epoch, sparsity, args, is_d
                     net_id = int(nonzero[batch_idx%len(nonzero)][0])
                 else:
                     net_id = batch_idx%len(args.alphas)
-                freeze_mask,net_id,dynamic_model,ch_indices = sample_network(args,model,net_id)
+                freeze_mask,net_id,dynamic_model,ch_indices = sample_network(args,model,net_id,num_mini_batch=num_mini_batch)
             else:
-                freeze_mask,net_id,dynamic_model,ch_indices = sample_network(args,model)
+                freeze_mask,net_id,dynamic_model,ch_indices = sample_network(args,model,num_mini_batch=num_mini_batch)
         # the adjusting only work when epoch is at decay_epoch
         adjust_learning_rate(optimizer, epoch, lr=args.lr, decay_epoch=args.decay_epoch,
                              total_epoch=args.epochs,
@@ -1515,7 +1538,10 @@ def train(train_loader, model, criterion, optimizer, epoch, sparsity, args, is_d
            
         # mini batch
         # only process at the last batch of minibatches
-        if (i)%num_mini_batch == num_mini_batch-1:
+        eomb = i%num_mini_batch == num_mini_batch-1
+        if args.loss in {LossType.PROGRESSIVE_SHRINKING} and num_mini_batch != 1:
+            update_minibatch_stats(dynamic_model,net_id,eomb=eomb)
+        if eomb:
             if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
                 update_shared_model(args,model,dynamic_model,freeze_mask,batch_idx,ch_indices,net_id)
             if args.loss not in {LossType.PROGRESSIVE_SHRINKING} or batch_idx%args.ps_batch==(args.ps_batch-1):
