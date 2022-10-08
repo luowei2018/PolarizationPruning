@@ -1083,12 +1083,12 @@ def sample_network(args,old_model,net_id=None,eval=False,fake_prune=True,check_s
                 bn_module.running_var.data = bn_module._buffers[f"var{net_id}"].clone().detach()
                 if num_mini_batch != 1:
                     bn_module.eval()
-                    bn_module.register_buffer(f"minibatch_mean",bn_module.running_mean.data.clone().detach())
-                    bn_module.register_buffer(f"minibatch_var",bn_module.running_var.data.clone().detach())
-                    def bn_fordward_hook(self, inp, out):
-                        self.minibatch_mean = inp[0].mean([0, 2, 3]).clone().detach()
-                        self.minibatch_var = inp[0].var([0, 2, 3], unbiased=False).clone().detach()
-                    bn_module.register_forward_hook(bn_fordward_hook)
+                    # bn_module.register_buffer(f"minibatch_mean",bn_module.running_mean.data.clone().detach())
+                    # bn_module.register_buffer(f"minibatch_var",bn_module.running_var.data.clone().detach())
+                    # def bn_fordward_hook(self, inp, out):
+                    #     self.minibatch_mean = inp[0].mean([0, 2, 3]).clone().detach()
+                    #     self.minibatch_var = inp[0].var([0, 2, 3], unbiased=False).clone().detach()
+                    # bn_module.register_forward_hook(bn_fordward_hook)
 
     
     if isinstance(dynamic_model, nn.DataParallel) or isinstance(dynamic_model, nn.parallel.DistributedDataParallel):
@@ -1270,6 +1270,7 @@ def update_shared_model(args,old_model,new_model,mask,batch_idx,ch_indices,net_i
             copy_module_grad(old_module,new_module)
 
 def update_minibatch_stats(dynamic_model,net_id,eomb=False):
+    return
     for module_name, bn_module in dynamic_model.named_modules():
         if not isinstance(bn_module, nn.BatchNorm2d) and not isinstance(bn_module,nn.BatchNorm1d): continue
         if not hasattr(bn_module,'mean_sum'):
