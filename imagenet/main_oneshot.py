@@ -1253,12 +1253,12 @@ def update_shared_model(args,old_model,new_model,mask,batch_idx,ch_indices,net_i
         ch_start = 0
         for conv1,bn1,conv2,bn2 in zip(convs1,bns1,convs2,bns2):
             ch_len = conv1.weight.data.size(0)
-                subnet_mask = mask[ch_start:ch_start+ch_len]
-                enhance_mask = None
-                if args.enhance:
-                    enhance_mask = args.enhance_valid_mask[ch_start:ch_start+ch_len]
-                copy_module_grad(bn1,bn2,subnet_mask,enhance_mask)
-                copy_module_grad(conv1,conv2,subnet_mask,enhance_mask)
+            subnet_mask = mask[ch_start:ch_start+ch_len]
+            enhance_mask = None
+            if args.enhance:
+                enhance_mask = args.enhance_valid_mask[ch_start:ch_start+ch_len]
+            copy_module_grad(bn1,bn2,subnet_mask,enhance_mask)
+            copy_module_grad(conv1,conv2,subnet_mask,enhance_mask)
             ch_start += ch_len
 
         old_non_sparse_modules = get_non_sparse_modules(old_model)
