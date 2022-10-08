@@ -1081,6 +1081,8 @@ def sample_network(args,old_model,net_id=None,eval=False,fake_prune=True,check_s
                 # updated in the last update
                 bn_module.running_mean.data = bn_module._buffers[f"mean{net_id}"]
                 bn_module.running_var.data = bn_module._buffers[f"var{net_id}"]
+                # only if minibatch
+                bn_module.eval()
     
     if isinstance(dynamic_model, nn.DataParallel) or isinstance(dynamic_model, nn.parallel.DistributedDataParallel):
         bn_modules,convs = dynamic_model.module.get_sparse_layers_and_convs()
@@ -1355,7 +1357,7 @@ def train(train_loader, model, criterion, optimizer, epoch, sparsity, args, is_d
     for i, (image, target) in enumerate(train_iter):
         batch_idx = i//num_mini_batch
         if args.debug and batch_idx >= 10: break
-        if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
+        if args.loss in {LossType.PROGRESSIVE_SHRINKING} and i%num_mini_batch==0:
             if not args.OFA:
                 if not args.enhance:
                     nonzero = torch.nonzero(torch.tensor(args.alphas))
