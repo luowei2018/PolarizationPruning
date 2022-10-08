@@ -1084,7 +1084,7 @@ def sample_network(args,old_model,net_id=None,eval=False,fake_prune=True,check_s
                 bn_module.momentum = 1.
                 bn_module.mean_sum = []
                 bn_module.var_sum = []
-                bn_module.mean_len = 0
+                bn_module.sum_len = 0
                 bn_module.mean_init = bn_module.running_mean
                 bn_module.var_init = bn_module.running_var
     
