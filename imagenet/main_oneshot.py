@@ -1393,7 +1393,11 @@ def train(train_loader, model, criterion, optimizer, epoch, sparsity, args, is_d
             else:
                 freeze_mask,net_id,dynamic_model,ch_indices = sample_network(args,model)
 
+        print(dynamic_model.module.get_sparse_layers_and_convs()[0][0].running_mean)
+        print(model.module.get_sparse_layers_and_convs()[0][0].running_mean)
         assert torch.equal(dynamic_model.module.get_sparse_layers_and_convs()[0][0].running_mean,model.module.get_sparse_layers_and_convs()[0][0].running_mean)
+        
+
         assert torch.equal(dynamic_model.module.get_sparse_layers_and_convs()[0][0].running_var,model.module.get_sparse_layers_and_convs()[0][0].running_var)
         # the adjusting only work when epoch is at decay_epoch
         adjust_learning_rate(optimizer, epoch, lr=args.lr, decay_epoch=args.decay_epoch,
