@@ -1077,6 +1077,7 @@ def sample_network(args,old_model,net_id=None,eval=False,fake_prune=True,check_s
             if not isinstance(bn_module, nn.BatchNorm2d) and not isinstance(bn_module,nn.BatchNorm1d): continue
             # set the right running mean/var
             if args.split_running_stat:
+                bn_module.eval()
                 # choose the right running mean/var for a subnet
                 # updated in the last update
                 bn_module.running_mean.data = bn_module._buffers[f"mean{net_id}"]
@@ -1281,6 +1282,7 @@ def update_minibatch_stats(dynamic_model,eomb=False):
 
         bn_module.sum_len += 1
         if eomb:
+            assert bn_module.sum_len==8
             bn_module.mean_sum /= bn_module.sum_len
             bn_module.var_sum /= bn_module.sum_len
             bn_module.running_mean = 0.9 * bn_module.mean_init + 0.1 * bn_module.mean_sum
@@ -1541,8 +1543,8 @@ def train(train_loader, model, criterion, optimizer, epoch, sparsity, args, is_d
            
         # mini batch
         # only process at the last batch of minibatches
-        if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
-            update_minibatch_stats(dynamic_model,eomb=eomb)
+        # if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
+        #     update_minibatch_stats(dynamic_model,eomb=eomb)
         if eomb:
             if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
                 update_shared_model(args,model,dynamic_model,freeze_mask,batch_idx,ch_indices,net_id)
