@@ -1227,9 +1227,7 @@ def update_shared_model(args,old_model,new_model,mask,batch_idx,ch_indices,net_i
                     assert old_module.masks[i].sum()>=old_module.masks[i-1].sum() 
                     assert old_module.masks[i][old_module.masks[i-1]==1].min()==old_module.masks[i][old_module.masks[i-1]==1].max() 
                     assert old_module.masks[i][old_module.masks[i-1]==1].min()==1
-                for m in old_module.masks:
-                    print('mask len = ',len(m),', mask sum = ',m.sum())
-                assert old_module.masks[-1].sum()==len(old_module.masks)
+                assert old_module.masks[-1].sum()==len(old_module.masks[-1])
                 old_module.masks=[]
 
         # --------------------------
