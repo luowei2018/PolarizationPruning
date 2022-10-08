@@ -1077,21 +1077,14 @@ def sample_network(args,old_model,net_id=None,eval=False,fake_prune=True,check_s
             if not isinstance(bn_module, nn.BatchNorm2d) and not isinstance(bn_module,nn.BatchNorm1d): continue
             # set the right running mean/var
             if args.split_running_stat:
-                print(bn_module.running_mean,bn_module.running_var)
-                bn_module.eval()
-
-                print(bn_module.running_mean,bn_module.running_var)
-                exit(0)
                 # choose the right running mean/var for a subnet
                 # updated in the last update
-                bn_module.running_mean.data = bn_module._buffers[f"mean{net_id}"]
-                bn_module.running_var.data = bn_module._buffers[f"var{net_id}"]
+                bn_module.running_mean.data = bn_module._buffers[f"mean{net_id}"].clone().detach()
+                bn_module.running_var.data = bn_module._buffers[f"var{net_id}"].clone().detach()
                 bn_module.momentum = 1.
                 bn_module.mean_sum = []
                 bn_module.var_sum = []
                 bn_module.sum_len = 0
-                bn_module.mean_init = bn_module.running_mean
-                bn_module.var_init = bn_module.running_var
     
     if isinstance(dynamic_model, nn.DataParallel) or isinstance(dynamic_model, nn.parallel.DistributedDataParallel):
         bn_modules,convs = dynamic_model.module.get_sparse_layers_and_convs()
@@ -1271,26 +1264,26 @@ def update_shared_model(args,old_model,new_model,mask,batch_idx,ch_indices,net_i
         for old_module,new_module in zip(old_non_sparse_modules,new_non_sparse_modules):
             copy_module_grad(old_module,new_module)
 
-def update_minibatch_stats(dynamic_model,eomb=False):
+def update_minibatch_stats(dynamic_model,net_id,eomb=False):
     for module_name, bn_module in dynamic_model.named_modules():
         if not isinstance(bn_module, nn.BatchNorm2d) and not isinstance(bn_module,nn.BatchNorm1d): continue
         if bn_module.sum_len == 0:
-            bn_module.mean_sum = bn_module.running_mean
-            bn_module.var_sum = bn_module.running_var
+            bn_module.mean_sum = bn_module.running_mean.clone().detach()
+            bn_module.var_sum = bn_module.running_var.clone().detach()
         else:
-            bn_module.mean_sum += bn_module.running_mean
-            bn_module.var_sum += bn_module.running_var
+            bn_module.mean_sum += bn_module.running_mean.clone().detach()
+            bn_module.var_sum += bn_module.running_var.clone().detach()
 
-        bn_module.running_mean = bn_module.mean_init
-        bn_module.running_var = bn_module.var_init
+        bn_module.running_mean.data = bn_module._buffers[f"mean{net_id}"].clone().detach()
+        bn_module.running_var.data = bn_module._buffers[f"var{net_id}"].clone().detach()
 
         bn_module.sum_len += 1
+
         if eomb:
-            assert bn_module.sum_len==8
             bn_module.mean_sum /= bn_module.sum_len
             bn_module.var_sum /= bn_module.sum_len
-            bn_module.running_mean = 0.9 * bn_module.mean_init + 0.1 * bn_module.mean_sum
-            bn_module.running_var = 0.9 * bn_module.var_init + 0.1 * bn_module.var_sum
+            bn_module.running_mean.data = 0.9 *bn_module._buffers[f"mean{net_id}"].data.clone().detach() + 0.1 * bn_module.mean_sum
+            bn_module.running_var.data = 0.9 * bn_module._buffers[f"mean{net_id}"].data.clone().detach() + 0.1 * bn_module.var_sum
             
 def cross_entropy_loss_with_soft_target(pred, soft_target):
     logsoftmax = nn.LogSoftmax()
@@ -1547,8 +1540,8 @@ def train(train_loader, model, criterion, optimizer, epoch, sparsity, args, is_d
            
         # mini batch
         # only process at the last batch of minibatches
-        # if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
-        #     update_minibatch_stats(dynamic_model,eomb=eomb)
+        if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
+            update_minibatch_stats(dynamic_model,net_id,eomb=eomb)
         if eomb:
             if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
                 update_shared_model(args,model,dynamic_model,freeze_mask,batch_idx,ch_indices,net_id)
