@@ -1081,14 +1081,14 @@ def sample_network(args,old_model,net_id=None,eval=False,fake_prune=True,check_s
                 # updated in the last update
                 bn_module.running_mean.data = bn_module._buffers[f"mean{net_id}"].clone().detach()
                 bn_module.running_var.data = bn_module._buffers[f"var{net_id}"].clone().detach()
-                if num_mini_batch != 1:
-                    bn_module.eval()
-                    bn_module.register_buffer(f"minibatch_mean",bn_module.running_mean.data.clone().detach())
-                    bn_module.register_buffer(f"minibatch_var",bn_module.running_var.data.clone().detach())
-                    def bn_fordward_hook(self, inp, out):
-                        self.minibatch_mean = inp[0].mean([0, 2, 3]).clone().detach()
-                        self.minibatch_var = inp[0].var([0, 2, 3], unbiased=False).clone().detach()
-                    bn_module.register_forward_hook(bn_fordward_hook)
+                # if num_mini_batch != 1:
+                #     bn_module.eval()
+                #     bn_module.register_buffer(f"minibatch_mean",bn_module.running_mean.data.clone().detach())
+                #     bn_module.register_buffer(f"minibatch_var",bn_module.running_var.data.clone().detach())
+                #     def bn_fordward_hook(self, inp, out):
+                #         self.minibatch_mean = inp[0].mean([0, 2, 3]).clone().detach()
+                #         self.minibatch_var = inp[0].var([0, 2, 3], unbiased=False).clone().detach()
+                #     bn_module.register_forward_hook(bn_fordward_hook)
 
     
     if isinstance(dynamic_model, nn.DataParallel) or isinstance(dynamic_model, nn.parallel.DistributedDataParallel):
@@ -1542,8 +1542,8 @@ def train(train_loader, model, criterion, optimizer, epoch, sparsity, args, is_d
         # mini batch
         # only process at the last batch of minibatches
         eomb = i%num_mini_batch == num_mini_batch-1
-        if args.loss in {LossType.PROGRESSIVE_SHRINKING} and num_mini_batch != 1:
-            update_minibatch_stats(dynamic_model,net_id,eomb=eomb)
+        # if args.loss in {LossType.PROGRESSIVE_SHRINKING} and num_mini_batch != 1:
+        #     update_minibatch_stats(dynamic_model,net_id,eomb=eomb)
         if eomb:
             if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
                 update_shared_model(args,model,dynamic_model,freeze_mask,batch_idx,ch_indices,net_id)
