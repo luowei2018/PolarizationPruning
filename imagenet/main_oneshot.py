@@ -1079,13 +1079,9 @@ def sample_network(args,old_model,net_id=None,eval=False,fake_prune=True,check_s
             if args.split_running_stat:
                 # choose the right running mean/var for a subnet
                 # updated in the last update
-                bn_module.running_mean.data = bn_module._buffers[f"mean{net_id}"].clone().detach()
-                bn_module.running_var.data = bn_module._buffers[f"var{net_id}"].clone().detach()
-                bn_module.momentum = 0
-                bn_module.mean_sum = []
-                bn_module.var_sum = []
-                bn_module.sum_len = 0
-
+                bn_module.running_mean.data = bn_module._buffers[f"mean{net_id}"]
+                bn_module.running_var.data = bn_module._buffers[f"var{net_id}"]
+    
     if isinstance(dynamic_model, nn.DataParallel) or isinstance(dynamic_model, nn.parallel.DistributedDataParallel):
         bn_modules,convs = dynamic_model.module.get_sparse_layers_and_convs()
     else:
@@ -1246,44 +1242,23 @@ def update_shared_model(args,old_model,new_model,mask,batch_idx,ch_indices,net_i
             
     bns1,convs1 = old_model.module.get_sparse_layers_and_convs()
     bns2,convs2 = new_model.module.get_sparse_layers_and_convs()
-    
-    with torch.no_grad():
-        ch_start = 0
-        for conv1,bn1,conv2,bn2 in zip(convs1,bns1,convs2,bns2):
-            ch_len = conv1.weight.data.size(0)
+    ch_start = 0
+    for conv1,bn1,conv2,bn2 in zip(convs1,bns1,convs2,bns2):
+        ch_len = conv1.weight.data.size(0)
+        with torch.no_grad():
             subnet_mask = mask[ch_start:ch_start+ch_len]
             enhance_mask = None
             if args.enhance:
                 enhance_mask = args.enhance_valid_mask[ch_start:ch_start+ch_len]
             copy_module_grad(bn1,bn2,subnet_mask,enhance_mask)
             copy_module_grad(conv1,conv2,subnet_mask,enhance_mask)
-            ch_start += ch_len
-
+        ch_start += ch_len
+    
+    with torch.no_grad():
         old_non_sparse_modules = get_non_sparse_modules(old_model)
         new_non_sparse_modules = get_non_sparse_modules(new_model)
         for old_module,new_module in zip(old_non_sparse_modules,new_non_sparse_modules):
             copy_module_grad(old_module,new_module)
-
-def update_minibatch_stats(dynamic_model,net_id,eomb=False):
-    for module_name, bn_module in dynamic_model.named_modules():
-        if not isinstance(bn_module, nn.BatchNorm2d) and not isinstance(bn_module,nn.BatchNorm1d): continue
-        if bn_module.sum_len == 0:
-            bn_module.mean_sum = bn_module.running_mean.clone().detach()
-            bn_module.var_sum = bn_module.running_var.clone().detach()
-        else:
-            bn_module.mean_sum += bn_module.running_mean.clone().detach()
-            bn_module.var_sum += bn_module.running_var.clone().detach()
-
-        bn_module.running_mean.data = bn_module._buffers[f"mean{net_id}"].clone().detach()
-        bn_module.running_var.data = bn_module._buffers[f"var{net_id}"].clone().detach()
-
-        bn_module.sum_len += 1
-
-        if eomb:
-            bn_module.mean_sum /= bn_module.sum_len
-            bn_module.var_sum /= bn_module.sum_len
-            bn_module.running_mean.data = 0.9 *bn_module._buffers[f"mean{net_id}"].data.clone().detach() + 0.1 * bn_module.mean_sum
-            bn_module.running_var.data = 0.9 * bn_module._buffers[f"mean{net_id}"].data.clone().detach() + 0.1 * bn_module.var_sum
             
 def cross_entropy_loss_with_soft_target(pred, soft_target):
     logsoftmax = nn.LogSoftmax()
@@ -1379,10 +1354,8 @@ def train(train_loader, model, criterion, optimizer, epoch, sparsity, args, is_d
     train_iter = tqdm(train_loader)
     for i, (image, target) in enumerate(train_iter):
         batch_idx = i//num_mini_batch
-        eomb = i%num_mini_batch == num_mini_batch-1
-        bomb = i%num_mini_batch == 0
         if args.debug and batch_idx >= 10: break
-        if args.loss in {LossType.PROGRESSIVE_SHRINKING} and bomb:
+        if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
             if not args.OFA:
                 if not args.enhance:
                     nonzero = torch.nonzero(torch.tensor(args.alphas))
@@ -1392,7 +1365,6 @@ def train(train_loader, model, criterion, optimizer, epoch, sparsity, args, is_d
                 freeze_mask,net_id,dynamic_model,ch_indices = sample_network(args,model,net_id)
             else:
                 freeze_mask,net_id,dynamic_model,ch_indices = sample_network(args,model)
-
         # the adjusting only work when epoch is at decay_epoch
         adjust_learning_rate(optimizer, epoch, lr=args.lr, decay_epoch=args.decay_epoch,
                              total_epoch=args.epochs,
@@ -1404,16 +1376,6 @@ def train(train_loader, model, criterion, optimizer, epoch, sparsity, args, is_d
 
         image = image.cuda(non_blocking=True)
         target = target.cuda(non_blocking=True)
-
-        # test zone
-        dynamic_model.train()
-        output1 = dynamic_model(image)
-        dynamic_model2 = copy.deepcopy(dynamic_model)
-        dynamic_model2.eval()
-        output2 = dynamic_model2(image)
-        assert torch.equal(output1[0],output2[0])
-
-        # ==============================
 
         # compute output
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
@@ -1551,9 +1513,7 @@ def train(train_loader, model, criterion, optimizer, epoch, sparsity, args, is_d
            
         # mini batch
         # only process at the last batch of minibatches
-        if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
-            update_minibatch_stats(dynamic_model,net_id,eomb=eomb)
-        if eomb:
+        if (i)%num_mini_batch == num_mini_batch-1:
             if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
                 update_shared_model(args,model,dynamic_model,freeze_mask,batch_idx,ch_indices,net_id)
             if args.loss not in {LossType.PROGRESSIVE_SHRINKING} or batch_idx%args.ps_batch==(args.ps_batch-1):
