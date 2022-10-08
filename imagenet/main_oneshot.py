@@ -1217,14 +1217,15 @@ def update_shared_model(args,old_model,new_model,mask,batch_idx,ch_indices,net_i
                 assert old_module.comp_weight.grad is None or old_module.comp_weight.grad.data.sum()==0, old_module.comp_weight.grad.data.sum()
 
         # check  correctness
-        if net_id==0:
-            old_module.masks=[]
-        old_module.masks.append(keep_mask)
-        if net_id==3:
-            assert len(old_module.masks)==4
-            for i in range(1,4):
-                assert masks[i].sum()>=masks[i-1].sum() and masks[i][masks[i-1]==1].min()==masks[i][masks[i-1]==1].max() and masks[i][masks[i-1]==1].min()==1
-            old_module.masks=[]
+        if subnet_mask is not None:
+            if net_id==0:
+                old_module.masks=[]
+            old_module.masks.append(keep_mask)
+            if net_id==3:
+                assert len(old_module.masks)==4
+                for i in range(1,4):
+                    assert masks[i].sum()>=masks[i-1].sum() and masks[i][masks[i-1]==1].min()==masks[i][masks[i-1]==1].max() and masks[i][masks[i-1]==1].min()==1
+                old_module.masks=[]
 
         # --------------------------
 
