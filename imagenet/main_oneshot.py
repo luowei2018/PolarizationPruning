@@ -1077,7 +1077,11 @@ def sample_network(args,old_model,net_id=None,eval=False,fake_prune=True,check_s
             if not isinstance(bn_module, nn.BatchNorm2d) and not isinstance(bn_module,nn.BatchNorm1d): continue
             # set the right running mean/var
             if args.split_running_stat:
+                print(bn_module.running_mean,bn_module.running_var)
                 bn_module.eval()
+
+                print(bn_module.running_mean,bn_module.running_var)
+                exit(0)
                 # choose the right running mean/var for a subnet
                 # updated in the last update
                 bn_module.running_mean.data = bn_module._buffers[f"mean{net_id}"]
