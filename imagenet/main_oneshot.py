@@ -1375,13 +1375,15 @@ def train(train_loader, model, criterion, optimizer, epoch, sparsity, args, is_d
     num_mini_batch = 1024//args.batch_size if args.arch == 'mobilenetv2' else 512//args.batch_size
 
     # switch to train mode
-    model.eval()
+    model.train()
     end = time.time()
     train_iter = tqdm(train_loader)
     for i, (image, target) in enumerate(train_iter):
         batch_idx = i//num_mini_batch
+        eomb = i%num_mini_batch == num_mini_batch-1
+        bomb = i%num_mini_batch == 0
         if args.debug and batch_idx >= 10: break
-        if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
+        if args.loss in {LossType.PROGRESSIVE_SHRINKING} and bomb:
             if not args.OFA:
                 if not args.enhance:
                     nonzero = torch.nonzero(torch.tensor(args.alphas))
@@ -1538,7 +1540,6 @@ def train(train_loader, model, criterion, optimizer, epoch, sparsity, args, is_d
         loss.backward()
            
         # mini batch
-        eomb = i%num_mini_batch == num_mini_batch-1
         # only process at the last batch of minibatches
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
             update_minibatch_stats(dynamic_model,eomb=eomb)
