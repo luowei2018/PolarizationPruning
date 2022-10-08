@@ -1213,7 +1213,8 @@ def update_shared_model(args,old_model,new_model,mask,batch_idx,ch_indices,net_i
                 old_module.comp_weight.grad_tmp = None
         else:
             assert old_module.weight.grad is None or old_module.weight.grad.data.sum()==0, old_module.weight.grad.data.sum()
-            assert old_module.comp_weight.grad is None or old_module.comp_weight.grad.data.sum()==0, old_module.comp_weight.grad.data.sum()
+            if hasattr(old_module,'comp_weight'):
+                assert old_module.comp_weight.grad is None or old_module.comp_weight.grad.data.sum()==0, old_module.comp_weight.grad.data.sum()
 
         # check  correctness
         if net_id==0:
