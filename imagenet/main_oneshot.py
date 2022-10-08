@@ -1373,7 +1373,7 @@ def train(train_loader, model, criterion, optimizer, epoch, sparsity, args, is_d
     num_mini_batch = 1024//args.batch_size if args.arch == 'mobilenetv2' else 512//args.batch_size
 
     # switch to train mode
-    model.train()
+    model.eval()
     end = time.time()
     train_iter = tqdm(train_loader)
     for i, (image, target) in enumerate(train_iter):
