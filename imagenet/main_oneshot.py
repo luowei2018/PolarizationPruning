@@ -1508,9 +1508,9 @@ def train(train_loader, model, criterion, optimizer, epoch, sparsity, args, is_d
             loss += sparsity_loss
             avg_sparsity_loss.update(sparsity_loss.data.item(), image.size(0))
         
-        optimizer.zero_grad()
-        loss /= num_mini_batch
-        loss.backward()
+        # optimizer.zero_grad()
+        # loss /= num_mini_batch
+        # loss.backward()
            
         # # mini batch
         # # only process at the last batch of minibatches
