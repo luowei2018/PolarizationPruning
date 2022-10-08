@@ -1085,10 +1085,6 @@ def sample_network(args,old_model,net_id=None,eval=False,fake_prune=True,check_s
                 bn_module.mean_sum = []
                 bn_module.var_sum = []
                 bn_module.sum_len = 0
-                print(bn_module)
-                bn_module.eval()
-                print(bn_module)
-                exit(0)
     
     if isinstance(dynamic_model, nn.DataParallel) or isinstance(dynamic_model, nn.parallel.DistributedDataParallel):
         bn_modules,convs = dynamic_model.module.get_sparse_layers_and_convs()
@@ -1396,6 +1392,7 @@ def train(train_loader, model, criterion, optimizer, epoch, sparsity, args, is_d
                 freeze_mask,net_id,dynamic_model,ch_indices = sample_network(args,model,net_id)
             else:
                 freeze_mask,net_id,dynamic_model,ch_indices = sample_network(args,model)
+        print(dynamic_model.module.get_sparse_layers_and_convs()[0][0].running_mean)
         # the adjusting only work when epoch is at decay_epoch
         adjust_learning_rate(optimizer, epoch, lr=args.lr, decay_epoch=args.decay_epoch,
                              total_epoch=args.epochs,
@@ -1547,6 +1544,7 @@ def train(train_loader, model, criterion, optimizer, epoch, sparsity, args, is_d
         if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
             update_minibatch_stats(dynamic_model,net_id,eomb=eomb)
         if eomb:
+            exit(0)
             if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
                 update_shared_model(args,model,dynamic_model,freeze_mask,batch_idx,ch_indices,net_id)
             if args.loss not in {LossType.PROGRESSIVE_SHRINKING} or batch_idx%args.ps_batch==(args.ps_batch-1):
