@@ -1,6 +1,6 @@
 #!/bin/bash
-#SBATCH --job-name="r50opscratch.01"
-#SBATCH --output="r50opscratch.01.out"
+#SBATCH --job-name="botest"
+#SBATCH --output="botest.out"
 #SBATCH --partition=gpuA40x4
 #SBATCH --mem=220G
 #SBATCH --nodes=1
@@ -36,9 +36,11 @@ export OMP_NUM_THREADS=16  # if code is not multithreaded, otherwise set to 16 o
 
 
 # my test
-srun python3 -W ignore -u main_oneshot.py /scratch/bbng/boc2/datasets/imagenet -loss ps -b 512 --lbd 8e-5 --t 1.2 --lr-strategy step --lr 1e-2 1e-3 --decay-epoch 40 --epochs 80 --arch resnet50 --workers 16 --world-size 1 --dist-url tcp://localhost:23456 --dist-backend gloo --rank 0 --save ./op/resnet/ --resume original/resnet/model_best.pth.tar --load-param-only --alphas 1 1 1 1 --split_running_stat --load_running_stat --enhance --isoratio .25 --isotarget 0 --load_enhance
+# srun python3 -W ignore -u main_oneshot.py /scratch/bbng/boc2/datasets/imagenet -loss ps -b 512 --lbd 8e-5 --t 1.2 --lr-strategy step --lr 1e-2 1e-3 --decay-epoch 40 --epochs 80 --arch resnet50 --workers 16 --world-size 1 --dist-url tcp://localhost:23456 --dist-backend gloo --rank 0 --save ./op/resnet/ --resume original/resnet/model_best.pth.tar --load-param-only --alphas 1 1 1 1 --split_running_stat --load_running_stat --enhance --isoratio .25 --isotarget 0 --load_enhance
 # srun python3 -W ignore -u main_oneshot.py /scratch/bbng/boc2/datasets/imagenet -loss ps -b 512 --lbd 8e-5 --t 1.2 --lr-strategy step --lr 1e-1 1e-2 1e-3 --decay-epoch 40 80 --epochs 120 --arch resnet50 --workers 16 --world-size 1 --dist-url tcp://localhost:23456 --dist-backend gloo --rank 0 --save ./op/resnet/ --resume original/resnet/model_best.pth.tar --load-param-only  --alphas 1 1 1 1 --split_running_stat --enhance --isoratio .25 --isotarget 0
 # srun python3 -W ignore -u main_oneshot.py /scratch/bbng/mw34/datasets/imagenet -loss ps -b 512 --lbd 8e-5 --t 1.2 --lr-strategy step --lr 1e-1 1e-2 1e-3 --decay-epoch 40 80 --epochs 120 --arch resnet50 --workers 16 --world-size 1 --dist-url tcp://localhost:23456 --dist-backend gloo --rank 0 --save ./op/resnet/ --resume original/resnet/model_best.pth.tar --load-param-only  --alphas 1 1 1 1 --split_running_stat --enhance
 
 # r50opft
 # srun python3 -W ignore -u main_oneshot.py /scratch/bbng/boc2/datasets/imagenet -loss ps -b 512 --lbd 8e-5 --t 1.2 --lr-strategy step --lr 1e-3 1e-4 --decay-epoch 40 --epochs 60 --arch resnet50 --workers 16 --world-size 1 --dist-url tcp://localhost:23456 --dist-backend gloo --rank 0 --save ./op0123 --resume op23/checkpoint.pth.tar --load-param-only --alphas 1 1 1 1 --split_running_stat --load_running_stat --enhance  --isoratio .25 --isotarget 0
+
+srun python3 -W ignore -u main_oneshot.py /scratch/bbng/boc2/datasets/imagenet -loss ps -b 512 --lbd 8e-5 --t 1.2 --lr-strategy step --lr 1e-2 1e-3 --decay-epoch 40 --epochs 80 --arch resnet50 --workers 16 --world-size 1 --dist-url tcp://localhost:23456 --dist-backend gloo --rank 0 --save ./botest/ --resume original/resnet/model_best.pth.tar --load-param-only --alphas 1 1 1 1 --split_running_stat --load_running_stat --enhance --isoratio .25 --isotarget 0 --load_enhance
