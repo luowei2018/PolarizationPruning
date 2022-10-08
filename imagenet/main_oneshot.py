@@ -1085,6 +1085,7 @@ def sample_network(args,old_model,net_id=None,eval=False,fake_prune=True,check_s
                 bn_module.mean_sum = []
                 bn_module.var_sum = []
                 bn_module.sum_len = 0
+        assert torch.equal(dynamic_model.module.get_sparse_layers_and_convs()[0][0].running_mean,old_model.module.get_sparse_layers_and_convs()[0][0].running_mean)
     
     if isinstance(dynamic_model, nn.DataParallel) or isinstance(dynamic_model, nn.parallel.DistributedDataParallel):
         bn_modules,convs = dynamic_model.module.get_sparse_layers_and_convs()
@@ -1396,9 +1397,6 @@ def train(train_loader, model, criterion, optimizer, epoch, sparsity, args, is_d
         print(dynamic_model.module.get_sparse_layers_and_convs()[0][0].running_mean)
         print(model.module.get_sparse_layers_and_convs()[0][0].running_mean)
         assert torch.equal(dynamic_model.module.get_sparse_layers_and_convs()[0][0].running_mean,model.module.get_sparse_layers_and_convs()[0][0].running_mean)
-        
-
-        assert torch.equal(dynamic_model.module.get_sparse_layers_and_convs()[0][0].running_var,model.module.get_sparse_layers_and_convs()[0][0].running_var)
         # the adjusting only work when epoch is at decay_epoch
         adjust_learning_rate(optimizer, epoch, lr=args.lr, decay_epoch=args.decay_epoch,
                              total_epoch=args.epochs,
