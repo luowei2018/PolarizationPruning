@@ -1408,7 +1408,7 @@ def train(train_loader, model, criterion, optimizer, epoch, sparsity, args, is_d
         # test zone
         dynamic_model.train()
         output1 = dynamic_model(image)
-        dynamic_model2 = copy.deepcopy()
+        dynamic_model2 = copy.deepcopy(dynamic_model)
         dynamic_model2.eval()
         output2 = dynamic_model2(image)
         assert torch.equal(output1[0],output2[0])
