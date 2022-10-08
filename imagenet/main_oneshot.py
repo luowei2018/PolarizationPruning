@@ -1177,6 +1177,8 @@ def update_shared_model(args,old_model,new_model,mask,batch_idx,ch_indices,net_i
 
         # copy running mean/var
         if isinstance(new_module,nn.BatchNorm2d) or isinstance(new_module,nn.BatchNorm1d):
+            print(new_module.momentum)
+            exit(0)
             if args.split_running_stat:
                 if subnet_mask is not None:
                     old_module._buffers[f"mean{net_id}"][keep_mask] = new_module.running_mean.data[keep_mask].clone().detach()
