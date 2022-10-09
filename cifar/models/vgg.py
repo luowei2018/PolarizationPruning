@@ -203,7 +203,6 @@ class VGG(nn.Module):
                 m.bias.data.zero_()
 
     def prune_model(self, pruner, prune_mode, fake_prune=True):
-        fake_prune = True
         input_mask = np.ones(3)
         for submodule in self.modules():
             if isinstance(submodule, VGGBlock):
