@@ -410,6 +410,7 @@ def main():
 
 def main_worker(gpu, ngpus_per_node, args):
     global best_prec1
+    global best_avg_prec1
     args.gpu = gpu
 
     os.environ['CUDA_VISIBLE_DEVICES'] = str(gpu)
