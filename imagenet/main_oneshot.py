@@ -1089,7 +1089,7 @@ def sample_network(args,old_model,net_id=None,eval=False,fake_prune=True,check_s
         bn_modules,convs = dynamic_model.get_sparse_layers_and_convs()
     all_scale_factors = torch.tensor([]).cuda()
     for bn_module in bn_modules:
-        all_scale_factors = torch.cat((all_scale_factors,bn_module.weight.data))
+        all_scale_factors = torch.cat((all_scale_factors,bn_module.weight.data.abs()))
     
     # total channels
     total_channels = len(all_scale_factors)
