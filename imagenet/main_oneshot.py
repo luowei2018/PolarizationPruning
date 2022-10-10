@@ -1357,7 +1357,7 @@ def train(train_loader, model, criterion, optimizer, epoch, sparsity, args, is_d
         args.teacher_model.train()
         args.ps_batch = 1
         t_optimizer = torch.optim.SGD(args.teacher_model.parameters(),
-                            lr=args.0.001,
+                            lr=0.001,
                             momentum=0.9,
                             nesterov=True)
     end = time.time()
