@@ -217,8 +217,6 @@ parser.add_argument('--isotarget', type=int, nargs='+', default=[0],
                     help='Subnets that use isolation.')
 parser.add_argument('--ps_batch', default=4, type=int, 
                     help='super batch size')
-parser.add_argument('--MPL', action='store_true',
-                    help='meta pseudo label')
 
 best_prec1 = 0
 best_avg_prec1 = 0
@@ -645,7 +643,7 @@ def main_worker(gpu, ngpus_per_node, args):
         train_sampler = None
 
     train_loader = torch.utils.data.DataLoader(
-        train_dataset, batch_size=args.batch_size if not args.MPL else args.batch_size*2, shuffle=(train_sampler is None),
+        train_dataset, batch_size=args.batch_size, shuffle=(train_sampler is None),
         num_workers=args.workers, pin_memory=True, sampler=train_sampler,
         #worker_init_fn=worker_init_fn,
         )
@@ -1331,6 +1329,13 @@ def prune_while_training(model, arch, prune_mode, width_multiplier, val_loader, 
     prune_str = f'{baseline_flops}. '
     for flop,prec1 in zip(saved_flops,saved_prec1s):
         prune_str += f"[{prec1:.4f}({(1-flop / baseline_flops)*100:.2f}%)],"
+    log_str = ''
+    if avg_loss is not None:
+        log_str += f"{avg_loss:.3f} "
+    for prec1 in saved_prec1s:
+        log_str += f"{prec1:.4f} "
+    with open(os.path.join(args.save,'train.log'),'a+') as f:
+        f.write(log_str+'\n')
     return prec1,prune_str,saved_prec1s
 
 
@@ -1353,13 +1358,6 @@ def train(train_loader, model, criterion, optimizer, epoch, sparsity, args, is_d
 
     # switch to train mode
     model.train()
-    if args.MPL:
-        args.teacher_model.train()
-        args.ps_batch = 1
-        t_optimizer = torch.optim.SGD(args.teacher_model.parameters(),
-                            lr=0.001,
-                            momentum=0.9,
-                            nesterov=True)
     end = time.time()
     train_iter = tqdm(train_loader)
     for i, (image, target) in enumerate(train_iter):
@@ -1388,43 +1386,20 @@ def train(train_loader, model, criterion, optimizer, epoch, sparsity, args, is_d
         target = target.cuda(non_blocking=True)
 
         # compute output
-        if not args.MPL:
-            if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
-                soft_logits = args.teacher_model(image)
-                if isinstance(soft_logits, tuple):
-                    soft_logits, _ = soft_logits
-                soft_label = F.softmax(soft_logits.detach(), dim=1)
-                output = dynamic_model(image)
-            else:
-                output = model(image)
-            if isinstance(output, tuple):
-                output, extra_info = output
-            if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
-                loss = cross_entropy_loss_with_soft_target(output, soft_label)
-            else:
-                loss = criterion(output, target)
+        if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
+            soft_logits = args.teacher_model(image)
+            if isinstance(soft_logits, tuple):
+                soft_logits, _ = soft_logits
+            soft_label = F.softmax(soft_logits.detach(), dim=1)
+            output = dynamic_model(image)
         else:
-            images_l, images_us = image[:args.batch_size], image[args.batch_size:]
-            t_logits,_ = args.teacher_model(image)
-            t_logits_l = t_logits[:args.batch_size]
-            t_logits_us = t_logits[args.batch_size:]
-            del t_logits
-
-            t_loss_l = criterion(t_logits_l, target[:args.batch_size])
-
-            soft_pseudo_label = torch.softmax(t_logits_us.detach(), dim=-1)
-            max_probs, hard_pseudo_label = torch.max(soft_pseudo_label, dim=-1)
-            t_loss_uda = t_loss_l
-
-            s_images = torch.cat((images_l, images_us))
-            s_logits = dynamic_model(s_images)
-            s_logits_l = s_logits[:args.batch_size]
-            s_logits_us = s_logits[args.batch_size:]
-            del s_logits
-
-            s_loss_l_old = criterion(s_logits_l.detach(), target)
-            loss = criterion(s_logits_us, hard_pseudo_label)
-
+            output = model(image)
+        if isinstance(output, tuple):
+            output, extra_info = output
+        if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
+            loss = cross_entropy_loss_with_soft_target(output, soft_label)
+        else:
+            loss = criterion(output, target)
         losses.update(loss.data.item(), image.size(0))
 
         # measure accuracy and record loss
@@ -1565,29 +1540,6 @@ def train(train_loader, model, criterion, optimizer, epoch, sparsity, args, is_d
                     (args.loss == LossType.L1_SPARSITY_REGULARIZATION and args.gate):
                 # if enable gate, do not clamp bn, clamp gate to [0, 1]
                 clamp_bn(model, gate=args.gate, upper_bound=args.clamp)
-
-        if args.MPL:
-            with torch.no_grad():
-                s_logits_l = dynamic_model(images_l)
-            s_loss_l_new = criterion(s_logits_l.detach(), target[:args.batch_size])
-
-            # theoretically correct formula (https://github.com/kekmodel/MPL-pytorch/issues/6)
-            # dot_product = s_loss_l_old - s_loss_l_new
-
-            # author's code formula
-            dot_product = s_loss_l_new - s_loss_l_old
-            # moving_dot_product = moving_dot_product * 0.99 + dot_product * 0.01
-            # dot_product = dot_product - moving_dot_product
-
-            _, hard_pseudo_label = torch.max(t_logits_us.detach(), dim=-1)
-            t_loss_mpl = dot_product * F.cross_entropy(t_logits_us, hard_pseudo_label)
-            # test
-            # t_loss_mpl = torch.tensor(0.).to(args.device)
-            t_loss = t_loss_uda + t_loss_mpl
-
-            t_loss.backward()
-            t_optimizer.step()
-            t_optimizer.zero_grad()
 
         # measure elapsed time
         batch_time.update(time.time() - end)
