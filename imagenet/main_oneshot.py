@@ -681,12 +681,12 @@ def main_worker(gpu, ngpus_per_node, args):
             train_sampler.set_epoch(epoch)
 
         # train for one epoch
-        train(train_loader, model, criterion, optimizer, epoch,
+        avg_loss = train(train_loader, model, criterion, optimizer, epoch,
               args.lbd, args=args,
               is_debug=args.debug)
 
         # prune the network and record FLOPs at each epoch
-        prec1,prune_str,saved_prec1s = prune_while_training(model, args.arch, args.prune_mode, args.width_multiplier, val_loader, criterion, epoch, args, fake_prune=True)
+        prec1,prune_str,saved_prec1s = prune_while_training(model, args.arch, args.prune_mode, args.width_multiplier, val_loader, criterion, epoch, args, avg_loss=avg_loss, fake_prune=True)
         print(f"Epoch {epoch}/{args.epochs}",args.arch,args.save,prune_str,args.alphas)
         if args.debug:
             exit(0)
@@ -1157,7 +1157,7 @@ def sample_network(args,old_model,net_id=None,eval=False,fake_prune=True,check_s
                 for k in key_of_running_stat:
                     del ckpt[k]
 
-            torch.save({'state_dict':ckpt,'indices':ch_indices}, os.path.join(args.save, 'static.pth.tar'))
+            torch.save({'state_dict':ckpt}, os.path.join(args.save, 'static.pth.tar'))
 
     if not eval:
         return freeze_mask,net_id,dynamic_model,ch_indices
@@ -1311,7 +1311,7 @@ def clamp_bn(model, gate, lower_bound=0, upper_bound=1):
         m.weight.data.clamp_(lower_bound, upper_bound)
     
 
-def prune_while_training(model, arch, prune_mode, width_multiplier, val_loader, criterion, epoch, args, fake_prune=True, check_size=False):
+def prune_while_training(model, arch, prune_mode, width_multiplier, val_loader, criterion, epoch, args, avg_loss=None, fake_prune=True, check_size=False):
     if isinstance(model, nn.DataParallel) or isinstance(model, nn.parallel.DistributedDataParallel):
         model = model.module
         
@@ -1569,6 +1569,7 @@ def train(train_loader, model, criterion, optimizer, epoch, sparsity, args, is_d
                     epoch=epoch, batch_time=batch_time,
                     data_time=data_time, loss=losses, s_loss=avg_sparsity_loss,
                     top1=top1, top5=top5, lr=optimizer.param_groups[0]['lr']))
+    return losses.avg
 
 
 def validate(val_loader, model, criterion, epoch, args, writer=None):
