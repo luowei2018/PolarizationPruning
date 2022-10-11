@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name="r50op23"
+#SBATCH --job-name="r50op23.5"
 #SBATCH --output="r50op23.5.out"
 #SBATCH --partition=gpuA40x4
 #SBATCH --mem=220G
