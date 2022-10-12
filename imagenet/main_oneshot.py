@@ -686,8 +686,11 @@ def main_worker(gpu, ngpus_per_node, args):
               is_debug=args.debug)
 
         # prune the network and record FLOPs at each epoch
-        prec1,prune_str,saved_prec1s = prune_while_training(model, args.arch, args.prune_mode, args.width_multiplier, val_loader, criterion, epoch, args, avg_loss=avg_loss, fake_prune=True)
-        print(f"Epoch {epoch}/{args.epochs}",args.arch,args.save,prune_str,args.alphas)
+        if epoch >= 10:
+            prec1,prune_str,saved_prec1s = prune_while_training(model, args.arch, args.prune_mode, args.width_multiplier, val_loader, criterion, epoch, args, avg_loss=avg_loss, fake_prune=True)
+            print(f"Epoch {epoch}/{args.epochs}",args.arch,args.save,prune_str,args.alphas)
+        else:
+            prec1,saved_prec1s = 0,[0 for _ in args.alphas]
         if args.debug:
             exit(0)
 
