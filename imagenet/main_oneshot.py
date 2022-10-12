@@ -296,17 +296,17 @@ def main():
     if args.width_multiplier != 1.0 and (args.arch != "resnet50" and args.arch != "mobilenetv2"):
         raise ValueError("--width-multiplier only support ResNet-50 and MobileNet v2,"
                          "got: {} for {}".format(args.width_multiplier, args.arch))
-    if args.arch == "mobilenetv2":
-        print("MobileNet Warning:")
-        print("1. The learning rate arguments (--deacy-epoch) is disabled."
-              " Use cosine learning rate decay schedule.")
+    # if args.arch == "mobilenetv2":
+    #     print("MobileNet Warning:")
+    #     print("1. The learning rate arguments (--deacy-epoch) is disabled."
+    #           " Use cosine learning rate decay schedule.")
 
-        assert len(args.lr) == 1, "cosine schedule only need one initial learning rate."
+    #     assert len(args.lr) == 1, "cosine schedule only need one initial learning rate."
 
-        #if args.batch_size != 256:
-        #    print("WARNING: MobileNet v2 default batch size is 256, got {}".format(args.batch_size))
-        if args.weight_decay != 0.00004:
-            print("WARNING: MobileNet v2 default weight decay is 0.00004, got {}".format(args.weight_decay))
+    #     #if args.batch_size != 256:
+    #     #    print("WARNING: MobileNet v2 default batch size is 256, got {}".format(args.batch_size))
+    #     if args.weight_decay != 0.00004:
+    #         print("WARNING: MobileNet v2 default weight decay is 0.00004, got {}".format(args.weight_decay))
 
     if args.gate and args.arch not in {'mobilenetv2', 'resnet50'}:
         raise ValueError(f"--gate option only works for MobileNet v2 and ResNet-50, got {args.arch}")
