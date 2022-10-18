@@ -1,6 +1,6 @@
 #!/bin/bash
-#SBATCH --job-name="m2op23"
-#SBATCH --output="m2op23.out"
+#SBATCH --job-name="r50"
+#SBATCH --output="./op/resnet/step0/10/log.out"
 #SBATCH --partition=gpuA40x4
 #SBATCH --mem=220G
 #SBATCH --nodes=1
@@ -38,6 +38,6 @@ export OMP_NUM_THREADS=16  # if code is not multithreaded, otherwise set to 16 o
 # my test
 # srun python3 -W ignore -u main_oneshot.py /scratch/bbng/mw34/datasets/imagenet -loss ps --warmup -b 1024 --lbd 2.5e-5 --t 1 --lr-strategy cos --lr 0.04 --epochs 64 --wd 0.00004 --no-bn-wd --arch mobilenetv2 --workers 16 --world-size 1 --dist-url tcp://localhost:23456 --dist-backend gloo --rank 0 --save ./op/mobilenetv2/step0/ --resume op/mobilenetv2/step0/checkpoint.pth.tar  --alphas 0 0 1 1 --split_running_stat --load_running_stat
 # python3 -W ignore -u main_oneshot.py ../../dataset/imagenet -loss ps -b 64 --lbd 2.5e-5 --t 1 -lr-strategy step --lr 1e-2 1e-3 --decay-epoch 80 --epochs 100 --wd 0.00004 --no-bn-wd --arch mobilenetv2 --workers 16 --world-size 1 --dist-url tcp://localhost:23456 --dist-backend gloo --rank 0 --save ./op/mobilenetv2/step0/ --resume original/mobilenetv2/model_best.pth.tar  --alphas 0 0 1 1 --split_running_stat
-# srun python3 -W ignore -u main_oneshot.py /scratch/bbng/boc2/datasets/imagenet -loss ps -b 512 --lbd 8e-5 --t 1.2 --lr-strategy step --lr 1e-2 1e-3 --decay-epoch 140 --epochs 160 --arch resnet50 --workers 16 --world-size 1 --dist-url tcp://localhost:23456 --dist-backend gloo --rank 0 --save ./op23_2/ --resume original/resnet/model_best.pth.tar --load-param-only --alphas 0 0 8 1 --split_running_stat
+srun python3 -W ignore -u main_oneshot.py /scratch/bbng/boc2/datasets/imagenet -loss ps -b 512 --lbd 8e-5 --t 1.2 --lr-strategy step --lr 1e-2 1e-3 --decay-epoch 140 --epochs 160 --arch resnet50 --workers 16 --world-size 1 --dist-url tcp://localhost:23456 --dist-backend gloo --rank 0 --save ./op/resnet/step0/10/ --resume original/resnet/model_best.pth.tar --load-param-only --alphas 0 0 10 1 --split_running_stat
 # srun python3 -W ignore -u main_oneshot.py /scratch/bbng/boc2/datasets/imagenet -loss ps -b 512 --lbd 8e-5 --t 1.2 --lr-strategy step --lr 1e-2 1e-3 --decay-epoch 120 --epochs 140 --arch resnet50 --workers 16 --world-size 1 --dist-url tcp://localhost:23456 --dist-backend gloo --rank 0 --save ./op0123_01/ --resume op123_07/checkpoint.pth.tar --alphas 0.1 .7 1 1 --split_running_stat --load_running_stat --load-param-only
-srun python3 -W ignore -u main_oneshot.py /scratch/bbng/boc2/datasets/imagenet -loss ps -b 1024 --lbd 2.5e-5 --t 1 --lr-strategy step --lr 0.01 0.001 --decay-epoch 30 --epochs 60 --wd 0.00004 --no-bn-wd --arch mobilenetv2 --workers 16 --world-size 1 --dist-url tcp://localhost:23456 --dist-backend gloo --rank 0 --save ./op/mobilenetv2/step0_lr1/ --resume ./original/mobilenetv2/model_best.pth.tar --load-param-only  --alphas 0 0 1 1 --split_running_stat
+# srun python3 -W ignore -u main_oneshot.py /scratch/bbng/boc2/datasets/imagenet -loss ps -b 1024 --lbd 2.5e-5 --t 1 --lr-strategy step --lr 0.01 0.001 --decay-epoch 30 --epochs 60 --wd 0.00004 --no-bn-wd --arch mobilenetv2 --workers 16 --world-size 1 --dist-url tcp://localhost:23456 --dist-backend gloo --rank 0 --save ./op/mobilenetv2/step0_lr1/ --resume ./original/mobilenetv2/model_best.pth.tar --load-param-only  --alphas 0 0 1 1 --split_running_stat
