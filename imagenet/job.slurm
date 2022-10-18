@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --job-name="r50"
-#SBATCH --output="./op/resnet/step0/10/log.out"
+#SBATCH --output="r50_s0_10.out"
 #SBATCH --partition=gpuA40x4
 #SBATCH --mem=220G
 #SBATCH --nodes=1
