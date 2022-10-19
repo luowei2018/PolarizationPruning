@@ -5,12 +5,10 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import os
-lfsize = 18
-labelsize = 24
-labelsize_b = 20
-linewidth = 4
-plt.rcParams['xtick.labelsize'] = 20
-plt.rcParams['ytick.labelsize'] = 20
+labelsize_b = 13
+linewidth = 2
+plt.rcParams['xtick.labelsize'] = 16
+plt.rcParams['ytick.labelsize'] = 16
 plt.rcParams["font.family"] = "Times New Roman"
 colors = ['#DB1F48','#FF9636','#1C4670','#9D5FFB','#21B6A8','#D65780']
 # colors = ['#D00C0E','#E09C1A','#08A720','#86A8E7','#9D5FFB','#D65780']
@@ -19,34 +17,30 @@ markers = ['o','P','s','>','D','^']
 linestyles = ['solid','dotted','dashed','dashdot', (0, (3, 5, 1, 5, 1, 5))]
 
 
-
-
 def line_plot(XX,YY,label,color,path,xlabel,ylabel,lbsize=labelsize_b,lfsize=labelsize_b,legloc='best',
 				xticks=None,yticks=None,ncol=None, yerr=None,
 				use_arrow=False,arrow_coord=(0.4,30)):
 	fig, ax = plt.subplots()
 	ax.grid(zorder=0)
+	if use_arrow:
+		plt.hlines(94.1,0,90,colors='k',linestyles='--',label='Best')
 	for i in range(len(XX)):
 		xx,yy = XX[i],YY[i]
 		if yerr is None:
 			plt.plot(xx, yy, color = color[i], marker = markers[i], 
 				# linestyle = linestyles[i], 
 				label = label[i], 
-				linewidth=2, markersize=8)
+				linewidth=1, markersize=4)
 		else:
 			plt.errorbar(xx, yy, yerr=yerr[i], color = color[i], 
 				marker = markers[i], label = label[i], 
-				linewidth=2, markersize=8)
+				linewidth=1, markersize=4)
 	plt.xlabel(xlabel, fontsize = lbsize)
 	plt.ylabel(ylabel, fontsize = lbsize)
 	if xticks is not None:
 		plt.xticks(xticks,fontsize=lfsize)
 	if yticks is not None:
 		plt.yticks(yticks,fontsize=lfsize)
-	if use_arrow:
-		ax.text(
-		    arrow_coord[0], arrow_coord[1], "Better", ha="center", va="center", rotation=-45, size=lbsize-8,
-		    bbox=dict(boxstyle="larrow,pad=0.3", fc="white", ec="black", lw=2))
 	plt.tight_layout()
 	if ncol!=0:
 		if ncol is None:
@@ -59,6 +53,13 @@ def line_plot(XX,YY,label,color,path,xlabel,ylabel,lbsize=labelsize_b,lfsize=lab
 
 	# plt.xlim((0.8,3.2))
 	# plt.ylim((-40,90))
+
+	ratio = 0.3
+	xleft, xright = ax.get_xlim()
+	ybottom, ytop = ax.get_ylim()
+	ax.set_aspect(abs((xright-xleft)/(ybottom-ytop))*ratio)
+
+
 	plt.tight_layout()
 	fig.savefig(path,bbox_inches='tight')
 	plt.close()
@@ -119,4 +120,4 @@ x = np.array(x)
 y = np.array(y)*100
 line_plot(x, y,['Original','Lasso','Polar','OFANet'],colors,
 		'/home/bo/Dropbox/Research/CVPR23/images/compare_scalability.eps',
-		'Pruned FLOPS (%)','Top1 Prec. (%)')	
+		'Pruned FLOPS (%)','Top1 Prec. (%)',yticks=[50,90],xticks=[i*10 for i in range(1,10)],use_arrow=True)	
