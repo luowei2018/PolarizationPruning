@@ -1210,10 +1210,10 @@ def update_shared_model(args,old_model,new_model,mask,batch_idx,ch_indices,net_i
         if hasattr(old_module,'comp_weight') and net_id in args.isotarget and subnet_mask is not None:
             copy_param_grad(old_module.comp_weight,w_grad1)
         if batch_idx%args.ps_batch == args.ps_batch-1:
-            old_module.weight.grad = old_module.weight.grad_tmp.clone().detach() / sum(args.alphas)
+            old_module.weight.grad = old_module.weight.grad_tmp.clone().detach() / sum(args.alphas) / (args.ps_batch//len(args.alphas))
             old_module.weight.grad_tmp = None
             if hasattr(old_module,'comp_weight'):
-                old_module.comp_weight.grad = old_module.comp_weight.grad_tmp.clone().detach() / sum(args.alphas)
+                old_module.comp_weight.grad = old_module.comp_weight.grad_tmp.clone().detach() / sum(args.alphas) / (args.ps_batch//len(args.alphas))
                 old_module.comp_weight.grad_tmp = None
 
         # bias
@@ -1230,10 +1230,10 @@ def update_shared_model(args,old_model,new_model,mask,batch_idx,ch_indices,net_i
             if hasattr(old_module,'comp_bias') and net_id in args.isotarget and subnet_mask is not None:
                 copy_param_grad(old_module.comp_bias,b_grad1)
             if batch_idx%args.ps_batch == args.ps_batch-1:
-                old_module.bias.grad = old_module.bias.grad_tmp.clone().detach() / sum(args.alphas)
+                old_module.bias.grad = old_module.bias.grad_tmp.clone().detach() / sum(args.alphas) / (args.ps_batch//len(args.alphas))
                 old_module.bias.grad_tmp = None
                 if hasattr(old_module,'comp_bias'):
-                    old_module.comp_bias.grad = old_module.comp_bias.grad_tmp.clone().detach() / sum(args.alphas)
+                    old_module.comp_bias.grad = old_module.comp_bias.grad_tmp.clone().detach() / sum(args.alphas) / (args.ps_batch//len(args.alphas))
                     old_module.comp_bias.grad_tmp = None
             
     def copy_param_grad(old_param,new_grad):
