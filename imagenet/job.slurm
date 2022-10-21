@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --job-name="r50"
-#SBATCH --output="r50_s1_03.2.out"
+#SBATCH --output="r50_s1_03v2.out"
 #SBATCH --partition=gpuA40x4
 #SBATCH --mem=220G
 #SBATCH --nodes=1
