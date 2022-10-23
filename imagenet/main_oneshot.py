@@ -711,7 +711,7 @@ def main_worker(gpu, ngpus_per_node, args):
                 'state_dict': model.state_dict(),
                 'best_prec1': prec1,
                 'optimizer': optimizer.state_dict(),
-                'prec_list': saved_prec1s,
+                'prec_list': prune_str,
             }, is_best, args.save,
                 save_backup=epoch % args.backup_freq == 0,
                 backup_path=args.save,
