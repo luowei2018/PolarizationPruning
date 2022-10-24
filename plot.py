@@ -22,8 +22,8 @@ def line_plot(XX,YY,label,color,path,xlabel,ylabel,lbsize=labelsize_b,lfsize=lab
 				use_arrow=False,arrow_coord=(0.4,30)):
 	fig, ax = plt.subplots()
 	ax.grid(zorder=0)
-	if use_arrow:
-		plt.hlines(94.1,0,90,colors='k',linestyles='--',label='Best')
+	# if use_arrow:
+	# 	plt.hlines(94.1,0,90,colors='k',linestyles='--',label='Best')
 	for i in range(len(XX)):
 		xx,yy = XX[i],YY[i]
 		if yerr is None:
@@ -42,17 +42,47 @@ def line_plot(XX,YY,label,color,path,xlabel,ylabel,lbsize=labelsize_b,lfsize=lab
 	if yticks is not None:
 		plt.yticks(yticks,fontsize=lfsize)
 	plt.tight_layout()
-	if ncol!=0:
-		if ncol is None:
-			plt.legend(loc=legloc,fontsize = lfsize)
-		else:
-			plt.legend(loc=legloc,fontsize = lfsize,ncol=ncol)
+	# if ncol!=0:
+	# 	if ncol is None:
+	# 		plt.legend(loc=legloc,fontsize = lfsize)
+	# 	else:
+	# 		plt.legend(loc=legloc,fontsize = lfsize,ncol=ncol)
 
-	# plt.legend(bbox_to_anchor=(0.46, 1.28), fancybox=True,
-	           # loc='upper center', ncol=4, fontsize=20)
+	plt.legend(bbox_to_anchor=(0.46, 1.28), fancybox=True,
+	           loc='upper center', ncol=5, fontsize=lfsize)
 
-	# plt.xlim((0.8,3.2))
+	plt.xlim((0,100))
 	# plt.ylim((-40,90))
+
+	# inset axes....
+	axins = ax.inset_axes([0.01, 0.04, 0.35, 0.48])
+	for i in range(len(XX)):
+		xx,yy = XX[i][5:],YY[i][5:]
+		axins.plot(xx, yy, color = color[i], marker = markers[i], 
+			label = label[i], 
+			linewidth=1, markersize=4)
+	# sub region of the original image
+	x1, x2, y1, y2 = 0, 26, 90, 95
+	axins.set_xlim(x1, x2)
+	axins.set_ylim(y1, y2)
+	axins.set_xticklabels([])
+	axins.set_yticklabels([])
+	axins.tick_params(
+	    axis='x',          # changes apply to the x-axis
+	    which='both',      # both major and minor ticks are affected
+	    bottom=False,      # ticks along the bottom edge are off
+	    top=False,         # ticks along the top edge are off
+	    labelbottom=False) # labels along the bottom edge are off
+
+	axins.tick_params(
+	    axis='y',          # changes apply to the x-axis
+	    which='both',      # both major and minor ticks are affected
+	    right=False,      # ticks along the bottom edge are off
+	    left=False,         # ticks along the top edge are off
+	    labelbottom=False) # labels along the bottom edge are off
+
+
+	ax.indicate_inset_zoom(axins, edgecolor="black")
 
 	ratio = 0.3
 	xleft, xright = ax.get_xlim()
