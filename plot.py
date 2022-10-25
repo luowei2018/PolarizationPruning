@@ -52,17 +52,17 @@ def line_plot(XX,YY,label,color,path,xlabel,ylabel,lbsize=labelsize_b,lfsize=lab
 	           loc='upper center', ncol=5, fontsize=lfsize)
 
 	plt.xlim((0,100))
-	# plt.ylim((-40,90))
+	# plt.ylim((0,95))
 
 	# inset axes....
-	axins = ax.inset_axes([0.01, 0.04, 0.35, 0.48])
+	axins = ax.inset_axes([0.02, 0.08, 0.30, 0.65])
 	for i in range(len(XX)):
 		xx,yy = XX[i][5:],YY[i][5:]
 		axins.plot(xx, yy, color = color[i], marker = markers[i], 
 			label = label[i], 
 			linewidth=1, markersize=4)
 	# sub region of the original image
-	x1, x2, y1, y2 = 0, 26, 90, 95
+	x1, x2, y1, y2 = 0, 26, 88, 97
 	axins.set_xlim(x1, x2)
 	axins.set_ylim(y1, y2)
 	axins.set_xticklabels([])
@@ -80,9 +80,11 @@ def line_plot(XX,YY,label,color,path,xlabel,ylabel,lbsize=labelsize_b,lfsize=lab
 	    right=False,      # ticks along the bottom edge are off
 	    left=False,         # ticks along the top edge are off
 	    labelbottom=False) # labels along the bottom edge are off
+	for axis in ['top','bottom','left','right']:
+		axins.spines[axis].set_color('gray')	
 
 
-	ax.indicate_inset_zoom(axins, edgecolor="black")
+	ax.indicate_inset_zoom(axins, edgecolor="gray")
 
 	ratio = 0.3
 	xleft, xright = ax.get_xlim()
@@ -150,4 +152,4 @@ x = np.array(x)
 y = np.array(y)*100
 line_plot(x, y,['Original','Lasso','Polar','OFANet'],colors,
 		'/home/bo/Dropbox/Research/CVPR23/images/compare_scalability.eps',
-		'Pruned FLOPS (%)','Top1 Prec. (%)',yticks=[50,90],xticks=[i*10 for i in range(1,10)],use_arrow=True)	
+		'Pruned FLOPS (%)','Top1 Accuracy (%)',yticks=[50,90],xticks=[i*10 for i in range(1,10)],use_arrow=True)	
