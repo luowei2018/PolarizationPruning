@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --job-name="m2_s0_wc01"
-#SBATCH --output="m2_s0_wc01.3.out"
+#SBATCH --output="m2_s0_wc01.4.out"
 #SBATCH --partition=gpuA40x4
 #SBATCH --mem=220G
 #SBATCH --nodes=1
