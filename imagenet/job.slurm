@@ -9,7 +9,7 @@
 #SBATCH --constraint="scratch"
 #SBATCH --gpus-per-node=4
 #SBATCH --gpu-bind=closest   # select a cpu close to gpu on pci bus topology
-#SBATCH --account=bbng-delta-gpu
+#SBATCH --account=bbod-delta-gpu
 #SBATCH --exclusive  # dedicated node for this job
 #SBATCH --no-requeue
 #SBATCH -t 48:00:00
