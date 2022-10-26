@@ -26,6 +26,8 @@ def line_plot(XX,YY,label,color,path,xlabel,ylabel,lbsize=labelsize_b,lfsize=lab
 	# 	plt.hlines(94.1,0,90,colors='k',linestyles='--',label='Best')
 	for i in range(len(XX)):
 		xx,yy = XX[i],YY[i]
+		xx = np.array(xx)
+		yy = np.array(yy)*100
 		if yerr is None:
 			plt.plot(xx, yy, color = color[i], marker = markers[i], 
 				# linestyle = linestyles[i], 
@@ -58,11 +60,13 @@ def line_plot(XX,YY,label,color,path,xlabel,ylabel,lbsize=labelsize_b,lfsize=lab
 	axins = ax.inset_axes([0.02, 0.08, 0.30, 0.65])
 	for i in range(len(XX)):
 		xx,yy = XX[i][5:],YY[i][5:]
+		xx = np.array(xx)
+		yy = np.array(yy)*100
 		axins.plot(xx, yy, color = color[i], marker = markers[i], 
 			label = label[i], 
 			linewidth=1, markersize=4)
 	# sub region of the original image
-	x1, x2, y1, y2 = 0, 26, 88, 97
+	x1, x2, y1, y2 = 0, 60, 88, 96
 	axins.set_xlim(x1, x2)
 	axins.set_ylim(y1, y2)
 	axins.set_xticklabels([])
@@ -80,8 +84,8 @@ def line_plot(XX,YY,label,color,path,xlabel,ylabel,lbsize=labelsize_b,lfsize=lab
 	    right=False,      # ticks along the bottom edge are off
 	    left=False,         # ticks along the top edge are off
 	    labelbottom=False) # labels along the bottom edge are off
-	for axis in ['top','bottom','left','right']:
-		axins.spines[axis].set_color('gray')	
+	# for axis in ['top','bottom','left','right']:
+	# 	axins.spines[axis].set_linestyle('--')	
 
 
 	ax.indicate_inset_zoom(axins, edgecolor="gray")
@@ -136,6 +140,9 @@ def line_plot(XX,YY,label,color,path,xlabel,ylabel,lbsize=labelsize_b,lfsize=lab
 
 x = []
 y = []
+# onion
+y += [[0.1067,0.5651,0.8049,0.8701,0.8972,0.9159,0.9288,0.9330,0.9382,0.9399,0.9423,0.9429]]
+x += [[92.67,90.62,86.42,80.16,72.02,64.39,55.75,46.84,36.59,27.71,18.18,0.00]]
 # original
 x += [[92.52,87.53,80.16,71.11,61.96,51.42,40.52,30.26,20.15,0.00]]
 y += [[0.1040,0.1216,0.1160,0.1655,0.1820,0.2294,0.4102,0.8530,0.9135,0.9411]]
@@ -148,8 +155,6 @@ y += [[0.1000,0.0927,0.1090,0.2734,0.7647,0.8648,0.9242,0.9310,0.9310,0.9322]]
 # ofa
 x += [[90.70,86.88,80.53,72.31,64.04,57.53,50.84,40.20,22.81,0.00]]
 y += [[0.3587,0.6448,0.8675,0.9009,0.9103,0.9081,0.9082,0.9084,0.9086,0.9086]]
-x = np.array(x)
-y = np.array(y)*100
-line_plot(x, y,['Original','Lasso','Polar','OFANet'],colors,
+line_plot(x, y,['Ours','Original','Lasso','Polar','OFANet'],colors,
 		'/home/bo/Dropbox/Research/CVPR23/images/compare_scalability.eps',
 		'Pruned FLOPS (%)','Top1 Accuracy (%)',yticks=[50,90],xticks=[i*10 for i in range(1,10)],use_arrow=True)	
