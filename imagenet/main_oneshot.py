@@ -1138,18 +1138,6 @@ def sample_network(args,old_model,net_id=None,eval=False,fake_prune=True,check_s
             static_model = copy.deepcopy(old_model)
 
             ch_start = 0
-            bn_modules,convs = static_model.get_sparse_layers_and_convs()
-            for bn_module,conv in zip(bn_modules,convs):
-                ch_len = len(bn_module.weight.data)
-                if args.load_enhance and net_id in args.isotarget:
-                    enhance_mask = args.enhance_valid_mask[ch_start:ch_start+ch_len]==1
-                    conv.comp_weight.data = conv.comp_weight.data[enhance_mask]
-                    if hasattr(conv,'bias') and conv.bias is not None:
-                        conv.comp_bias.data = conv.comp_bias.data[enhance_mask]
-                    bn_module.comp_weight.data = bn_module.comp_weight.data[enhance_mask]
-                    if hasattr(bn_module,'bias') and bn_module.bias is not None:
-                        bn_module.comp_bias.data = bn_module.comp_bias.data[enhance_mask]
-                ch_start += ch_len
 
             ckpt = static_model.state_dict()
             if args.load_running_stat:
@@ -1161,6 +1149,8 @@ def sample_network(args,old_model,net_id=None,eval=False,fake_prune=True,check_s
                     del ckpt[k]
 
             torch.save({'state_dict':ckpt}, os.path.join(args.save, 'static.pth.tar'))
+            print(ckpt.keys())
+            exit(0)
 
     if not eval:
         return freeze_mask,net_id,dynamic_model,ch_indices

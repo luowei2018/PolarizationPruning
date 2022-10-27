@@ -595,8 +595,6 @@ def sample_network(old_model,net_id=None,eval=False,check_size=False):
                     del ckpt[k]
 
             torch.save({'state_dict':ckpt}, os.path.join(args.save, 'static.pth.tar'))
-            print(ckpt.keys())
-            exit(0)
 
     if not eval:
         return freeze_mask,net_id,dynamic_model,ch_indices
