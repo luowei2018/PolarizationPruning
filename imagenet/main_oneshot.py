@@ -662,7 +662,7 @@ def main_worker(gpu, ngpus_per_node, args):
 
     print("rank #{}: dataloader loaded!".format(args.rank))
     if args.evaluate:
-        for fake_prune in [True,False]:
+        for fake_prune in [True]:
             prec1,prune_str,saved_prec1s = prune_while_training(model, args.arch, args.prune_mode, args.width_multiplier, val_loader, criterion, 0, args, fake_prune=fake_prune, check_size=fake_prune)
             print(args.save,prune_str,args.alphas)
         return
