@@ -1306,7 +1306,7 @@ def prune_while_training(model, arch, prune_mode, width_multiplier, val_loader, 
     if isinstance(model, nn.DataParallel) or isinstance(model, nn.parallel.DistributedDataParallel):
         model = model.module
         
-    prec1 = validate(val_loader, pruned_model, criterion, epoch=epoch, args=args, writer=None)
+    prec1 = validate(val_loader, model, criterion, epoch=epoch, args=args, writer=None)
     print(prec1)
     exit(0)
     saved_flops = []
