@@ -9,10 +9,10 @@
 #SBATCH --constraint="scratch"
 #SBATCH --gpus-per-node=4
 #SBATCH --gpu-bind=closest   # select a cpu close to gpu on pci bus topology
-#SBATCH --account=bbng-delta-gpu
+#SBATCH --account=bbod-delta-gpu
 #SBATCH --exclusive  # dedicated node for this job
 #SBATCH --no-requeue
-#SBATCH -t 48:00:00
+#SBATCH -t 24:00:00
 cd /scratch/bbng/boc2/PolarizationPruning/imagenet/
 source /sw/external/python/anaconda3/etc/profile.d/conda.sh
 conda activate boenv
