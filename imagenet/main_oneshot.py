@@ -1149,8 +1149,6 @@ def sample_network(args,old_model,net_id=None,eval=False,fake_prune=True,check_s
                     del ckpt[k]
 
             torch.save({'state_dict':ckpt}, os.path.join(args.save, 'static.pth.tar'))
-            print(ckpt.keys())
-            exit(0)
 
     if not eval:
         return freeze_mask,net_id,dynamic_model,ch_indices
@@ -1308,6 +1306,9 @@ def prune_while_training(model, arch, prune_mode, width_multiplier, val_loader, 
     if isinstance(model, nn.DataParallel) or isinstance(model, nn.parallel.DistributedDataParallel):
         model = model.module
         
+    prec1 = validate(val_loader, pruned_model, criterion, epoch=epoch, args=args, writer=None)
+    print(prec1)
+    exit(0)
     saved_flops = []
     saved_prec1s = []
     for i in range(len(args.alphas)):
