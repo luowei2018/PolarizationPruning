@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --job-name="m2_s0_wc01"
 #SBATCH --output="m2_s0_wc01.6.out"
-#SBATCH --partition=gpuA40x4
+#SBATCH --partition=gpuA100x4
 #SBATCH --mem=220G
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
@@ -9,7 +9,7 @@
 #SBATCH --constraint="scratch"
 #SBATCH --gpus-per-node=4
 #SBATCH --gpu-bind=closest   # select a cpu close to gpu on pci bus topology
-#SBATCH --account=bbod-delta-gpu
+#SBATCH --account=bbng-delta-gpu
 #SBATCH --exclusive  # dedicated node for this job
 #SBATCH --no-requeue
 #SBATCH -t 12:00:00
