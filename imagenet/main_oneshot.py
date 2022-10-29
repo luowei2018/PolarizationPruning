@@ -691,7 +691,7 @@ def main_worker(gpu, ngpus_per_node, args):
             print(f"Epoch {epoch}/{args.epochs}",args.arch,args.save,prune_str,args.alphas)
         else:
             prec1 = validate(val_loader, model, criterion, epoch=epoch, args=args, writer=None)
-            prec1,saved_prec1s,prune_str = 0,[0 for _ in args.alphas],''
+            saved_prec1s,prune_str = [0 for _ in args.alphas],''
         if args.debug:
             exit(0)
 
