@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name="m2_ofa
+#SBATCH --job-name="m2_ofa"
 #SBATCH --output="m2_ofa.out"
 #SBATCH --partition=gpuA40x4
 #SBATCH --mem=220G
