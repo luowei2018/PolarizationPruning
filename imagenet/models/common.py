@@ -512,6 +512,7 @@ class ChannelOperation(nn.Module, ABC):
 
 class ChannelExpand(ChannelOperation):
     def forward(self, x):
+        print(self.idx)
         if len(self.idx) == self.channel_num or x.size(1) == self.channel_num:
             # no need to do expand
             return x
