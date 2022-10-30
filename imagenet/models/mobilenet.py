@@ -348,6 +348,7 @@ class InvertedResidual(nn.Module):
         pruned_expander_idx = original_expander_idx[out_channel_mask]
         print(pruned_expander_idx)
         idx = np.squeeze(pruned_expander_idx)
+        print(idx)
         expander.idx = idx
         pass
 
