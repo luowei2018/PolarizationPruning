@@ -343,12 +343,9 @@ class InvertedResidual(nn.Module):
         expander: ChannelExpand = self.conv[-1]
         # note that the idx of the expander might be set in a pruned model
         original_expander_idx = expander.idx
-        print(original_expander_idx)
         assert len(original_expander_idx) == len(out_channel_mask), "the output channel should be consistent"
         pruned_expander_idx = original_expander_idx[out_channel_mask]
-        print(pruned_expander_idx)
-        idx = np.squeeze(pruned_expander_idx)
-        print(idx)
+        # idx = np.squeeze(pruned_expander_idx)
         expander.idx = idx
         pass
 
