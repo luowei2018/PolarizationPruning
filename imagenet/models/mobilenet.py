@@ -346,7 +346,7 @@ class InvertedResidual(nn.Module):
         assert len(original_expander_idx) == len(out_channel_mask), "the output channel should be consistent"
         pruned_expander_idx = original_expander_idx[out_channel_mask]
         # idx = np.squeeze(pruned_expander_idx)
-        expander.idx = idx
+        expander.idx = pruned_expander_idx#idx
         pass
 
         # return the output dim
