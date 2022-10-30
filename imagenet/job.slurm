@@ -1,6 +1,6 @@
 #!/bin/bash
-#SBATCH --job-name="m2_s0_wc01"
-#SBATCH --output="m2_s0_wc01.8.out"
+#SBATCH --job-name="m2ofa"
+#SBATCH --output="m2ofa.out"
 #SBATCH --partition=gpuA40x4
 #SBATCH --mem=220G
 #SBATCH --nodes=1
@@ -9,10 +9,10 @@
 #SBATCH --constraint="scratch"
 #SBATCH --gpus-per-node=4
 #SBATCH --gpu-bind=closest   # select a cpu close to gpu on pci bus topology
-#SBATCH --account=bbng-delta-gpu
+#SBATCH --account=bbod-delta-gpu
 #SBATCH --exclusive  # dedicated node for this job
 #SBATCH --no-requeue
-#SBATCH -t 10:00:00
+#SBATCH -t 20:00:00
 cd /scratch/bbng/boc2/PolarizationPruning/imagenet/
 source /sw/external/python/anaconda3/etc/profile.d/conda.sh
 conda activate boenv
@@ -29,14 +29,14 @@ export OMP_NUM_THREADS=16  # if code is not multithreaded, otherwise set to 16 o
 # OFA baseline
 # srun python3 -W ignore -u main_oneshot.py /scratch/bbng/mw34/datasets/imagenet -loss ps -b 512 --lbd 8e-5 --t 1.2 --lr-strategy step --lr 1e-1 1e-2 1e-3 --decay-epoch 40 80 --epochs 120 --arch resnet50 --workers 16 --world-size 1 --dist-url tcp://localhost:23456 --dist-backend gloo --rank 0 --save ./ofa/resnet/ --resume original/resnet/model_best.pth.tar --load-param-only --OFA
 # srun python3 -W ignore -u main_oneshot.py /scratch/bbng/mw34/datasets/imagenet -loss ps -b 512 --lbd 8e-5 --t 1.2 --lr-strategy step --lr 1e-1 1e-2 1e-3 --decay-epoch 40 80 --epochs 120 --arch resnet50 --workers 16 --world-size 1 --dist-url tcp://localhost:23456 --dist-backend gloo --rank 0 --save ./ofav2/resnet/ --resume original/resnet/model_best.pth.tar --load-param-only --OFA
-# srun python3 -W ignore -u main_oneshot.py /scratch/bbng/boc2/datasets/imagenet -loss ps --warmup -b 1024 --lbd 2.5e-5 --t 1 --lr-strategy cos --lr 0.4 --epochs 256 --wd 0.00004 --no-bn-wd --arch mobilenetv2 --workers 16 --world-size 1 --dist-url tcp://localhost:23456 --dist-backend gloo --rank 0 --save ./ofa/mobilenetv2/ --resume ../../BackupPolarizationPruning/imagenet/ofa/mobilenetv2/checkpoint.pth.tar --OFA
+srun python3 -W ignore -u main_oneshot.py /scratch/bbng/boc2/datasets/imagenet -loss ps --warmup -b 1024 --lbd 2.5e-5 --t 1 --lr-strategy cos --lr 0.4 --epochs 256 --wd 0.00004 --no-bn-wd --arch mobilenetv2 --workers 16 --world-size 1 --dist-url tcp://localhost:23456 --dist-backend gloo --rank 0 --save ./ofa/mobilenetv2/ --resume ../../BackupPolarizationPruning/imagenet/ofa/mobilenetv2/checkpoint.pth.tar --OFA
 
 # OFA debug
 # srun python3 -W ignore -u main_oneshot.py /scratch/bbng/mw34/datasets/imagenet -loss ps -b 512 --lbd 8e-5 --t 1.2 --lr-strategy step --lr 1e-1 1e-2 1e-3 --decay-epoch 40 80 --epochs 120 --arch resnet50 --workers 16 --world-size 1 --dist-url tcp://localhost:23456 --dist-backend gloo --rank 0 --save ./ofa/resnet/ --resume ./ofa/resnet/checkpoint.pth.tar --load-param-only --OFA
 
 
 # my test
-srun python3 -W ignore -u main_oneshot.py /scratch/bbng/boc2/datasets/imagenet -loss ps --warmup -b 1024 --lbd 2.5e-5 --t 1 --lr-strategy cos --lr 0.1 --epochs 256 --wd 0.00004 --no-bn-wd --arch mobilenetv2 --workers 25 --world-size 1 --dist-url tcp://localhost:23456 --dist-backend gloo --rank 0 --save ./op/mobilenetv2/ --resume ./op/mobilenetv2/checkpoint.pth.tar --alphas 0.1 0.1 1 1 --split_running_stat --load_running_stat
+# srun python3 -W ignore -u main_oneshot.py /scratch/bbng/boc2/datasets/imagenet -loss ps --warmup -b 1024 --lbd 2.5e-5 --t 1 --lr-strategy cos --lr 0.1 --epochs 256 --wd 0.00004 --no-bn-wd --arch mobilenetv2 --workers 25 --world-size 1 --dist-url tcp://localhost:23456 --dist-backend gloo --rank 0 --save ./op/mobilenetv2/ --resume ./op/mobilenetv2/checkpoint.pth.tar --alphas 0.1 0.1 1 1 --split_running_stat --load_running_stat
 # srun python3 -W ignore -u main_oneshot.py /scratch/bbng/boc2/datasets/imagenet -loss ps --warmup -b 1024 --lbd 2.5e-5 --t 1 --lr-strategy cos --lr 0.4 --epochs 256 --wd 0.00004 --no-bn-wd --arch mobilenetv2 --workers 25 --world-size 1 --dist-url tcp://localhost:23456 --dist-backend gloo --rank 0 --save ./op/mobilenetv2/step4/wcos4/ --resume ./op/mobilenetv2/step4/wcos4/checkpoint.pth.tar --alphas .1 .1 1 1 --split_running_stat --load_running_stat
 # srun python3 -W ignore -u main_oneshot.py /scratch/bbng/boc2/datasets/imagenet -loss ps -b 512 --lbd 8e-5 --t 1.2 --lr-strategy step --lr 1e-2 1e-3 --decay-epoch 140 --epochs 160 --arch resnet50 --workers 16 --world-size 1 --dist-url tcp://localhost:23456 --dist-backend gloo --rank 0 --save ./op/resnet/step2/01/ --resume ./op/resnet/step2/01/checkpoint.pth.tar --alphas .1 .2 1 .1 --split_running_stat --load_running_stat
 # srun python3 -W ignore -u main_oneshot.py /scratch/bbng/boc2/datasets/imagenet -loss ps -b 512 --lbd 8e-5 --t 1.2 --lr-strategy step --lr 1e-3 1e-4 --decay-epoch 80 --epochs 120 --arch resnet50 --workers 25 --world-size 1 --dist-url tcp://localhost:23456 --dist-backend gloo --rank 0 --save ./op/resnet/step2/01v3/ --resume ./op/resnet/step2/01v3/checkpoint.pth.tar --ps_batch 16 --alphas 0.05 .1 1 .1 --split_running_stat --load_running_stat
