@@ -510,8 +510,7 @@ class MobileNetV2(nn.Module):
         default_inverted_residual_setting = flat_mobilenet_settings(default_inverted_residual_setting,
                                                                     input_channel=self.input_channel,
                                                                     width_mult=width_mult)
-        print(default_inverted_residual_setting)
-        exit(0)
+
         if inverted_residual_setting is None:
             inverted_residual_setting = default_inverted_residual_setting
             self._pruned = False
@@ -534,6 +533,8 @@ class MobileNetV2(nn.Module):
         # do not apply sparsity on the first layer, only apply on each residual blocks
         features = [ConvBNReLU(3, input_channel, stride=2, gate=False)]
         # building inverted residual blocks
+        print(inverted_residual_setting)
+        exit(0)
         for setting_idx, (conv_in, hidden_dim, c, n, s, use_shortcut, pw) in enumerate(inverted_residual_setting):
             if n != 1:
                 raise ValueError("do not accept n != 1 settings")
