@@ -291,7 +291,8 @@ class InvertedResidual(nn.Module):
                                                                 fake_prune=fake_prune)
             if not np.any(in_channel_mask) or not np.any(input_gate_mask):
                 # no channel left
-                self._prune_whole_layer()
+                if not fake_prune:
+                    self._prune_whole_layer()
                 return self.output_channel
 
             channel_select_idx = np.squeeze(np.argwhere(np.asarray(input_gate_mask)))
@@ -533,8 +534,6 @@ class MobileNetV2(nn.Module):
         # do not apply sparsity on the first layer, only apply on each residual blocks
         features = [ConvBNReLU(3, input_channel, stride=2, gate=False)]
         # building inverted residual blocks
-        print(inverted_residual_setting)
-        exit(0)
         for setting_idx, (conv_in, hidden_dim, c, n, s, use_shortcut, pw) in enumerate(inverted_residual_setting):
             if n != 1:
                 raise ValueError("do not accept n != 1 settings")
