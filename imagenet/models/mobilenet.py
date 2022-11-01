@@ -510,7 +510,8 @@ class MobileNetV2(nn.Module):
         default_inverted_residual_setting = flat_mobilenet_settings(default_inverted_residual_setting,
                                                                     input_channel=self.input_channel,
                                                                     width_mult=width_mult)
-
+        print(default_inverted_residual_setting)
+        exit(0)
         if inverted_residual_setting is None:
             inverted_residual_setting = default_inverted_residual_setting
             self._pruned = False
