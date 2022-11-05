@@ -601,7 +601,7 @@ def sample_network(old_model,net_id=None,eval=False,check_size=False):
     else:
         return dynamic_model
 
-args.ps_batch = len(args.alphas)
+args.ps_batch = len(args.alphas)*4
     
 def update_shared_model(old_model,new_model,mask,batch_idx,ch_indices,net_id):
     def copy_module_grad(old_module,new_module,subnet_mask=None,enhance_mask=None):

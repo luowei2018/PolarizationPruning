@@ -195,13 +195,13 @@ colors = ['#d53e4f',
 ]
 
 line_plot(None, r50_means,['SubNet0','SubNet1','SubNet2','SubNet3'],colors,
-		'/home/bo/Dropbox/Research/CVPR23/images/compare_r50means.eps','# Batch Normalization Layer','Running Mean')
+		'/home/bo/Dropbox/Research/CVPR23/images/r50means.eps','# Batch Normalization Layer','Running Mean')
 line_plot(None, r50_vars,['SubNet0','SubNet1','SubNet2','SubNet3'],colors,
-		'/home/bo/Dropbox/Research/CVPR23/images/compare_r50vars.eps','# Batch Normalization Layer','Running Var')
+		'/home/bo/Dropbox/Research/CVPR23/images/r50vars.eps','# Batch Normalization Layer','Running Var')
 line_plot(None, r56_means,['SubNet0','SubNet1','SubNet2','SubNet3'],colors,
-		'/home/bo/Dropbox/Research/CVPR23/images/compare_r56means.eps','# Batch Normalization Layer','Running Mean')
+		'/home/bo/Dropbox/Research/CVPR23/images/r56means.eps','# Batch Normalization Layer','Running Mean')
 line_plot(None, r56_vars,['SubNet0','SubNet1','SubNet2','SubNet3'],colors,
-		'/home/bo/Dropbox/Research/CVPR23/images/compare_r56vars.eps','# Batch Normalization Layer','Running Var')
+		'/home/bo/Dropbox/Research/CVPR23/images/r56vars.eps','# Batch Normalization Layer','Running Var')
 
 for arr in [r50_means,r50_vars,r56_means,r56_vars]:
 	arr = np.array(arr)
