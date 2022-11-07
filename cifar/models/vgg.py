@@ -55,7 +55,7 @@ class VGGBlock(BuildingBlock):
                f"bn={self.is_batch_norm}, " \
                f"gate={self.gate})"
 
-    def do_pruning(self, in_channel_mask: np.ndarray, pruner: Callable[[np.ndarray], float], prune_mode: str, fake_prune: bool):
+    def do_pruning(self, in_channel_mask: np.ndarray, pruner: Callable[[np.ndarray], float], prune_mode: str, inplace_prune: bool):
         if not self.gate and not self.is_batch_norm:
             raise ValueError("No sparse layer in the block.")
 
@@ -66,7 +66,7 @@ class VGGBlock(BuildingBlock):
                                                pruner=pruner,
                                                prune_output_mode="prune",
                                                prune_mode=prune_mode,
-                                               fake_prune=fake_prune)
+                                               inplace_prune=inplace_prune)
 
         return out_channel_mask
         pass
@@ -202,15 +202,15 @@ class VGG(nn.Module):
                 m.weight.data.normal_(0, 0.01)
                 m.bias.data.zero_()
 
-    def prune_model(self, pruner, prune_mode, fake_prune=True):
+    def prune_model(self, pruner, prune_mode, inplace_prune=True):
         input_mask = np.ones(3)
         for submodule in self.modules():
             if isinstance(submodule, VGGBlock):
                 submodule: VGGBlock
-                input_mask = submodule.do_pruning(in_channel_mask=input_mask, pruner=pruner, prune_mode=prune_mode, fake_prune=fake_prune)
+                input_mask = submodule.do_pruning(in_channel_mask=input_mask, pruner=pruner, prune_mode=prune_mode, inplace_prune=inplace_prune)
         
         # prune the last linear layer
-        if not fake_prune:
+        if not inplace_prune:
             linear_weight: torch.Tensor = self._logit_layer.weight.data.clone()
             idx_in = np.squeeze(np.argwhere(np.asarray(input_mask)))
             if len(idx_in.shape) == 0:

@@ -65,7 +65,7 @@ def _check_model_same(model1: torch.nn.Module, model2: torch.nn.Module) -> float
 
 
 def prune_resnet(num_classes: int, sparse_model: torch.nn.Module, pruning_strategy: str, sanity_check: bool,
-                 prune_mode: str, prune_type: str = 'polarization', l1_norm_ratio=None, fake_prune=True):
+                 prune_mode: str, prune_type: str = 'polarization', l1_norm_ratio=None, inplace_prune=True):
     """
     :param sparse_model: The model trained with sparsity regularization
     :param pruning_strategy: same as `models.common.search_threshold`
@@ -107,10 +107,10 @@ def prune_resnet(num_classes: int, sparse_model: torch.nn.Module, pruning_strate
     pruned_model.prune_model(pruner=pruner,
                              prune_mode=prune_mode,
                              prune_on=prune_on,
-                             fake_prune=fake_prune)
+                             inplace_prune=inplace_prune)
     #print("Pruning finished. ")
     #print(pruned_model.config())
-    if fake_prune:
+    if inplace_prune:
         return pruned_model
 
     if sanity_check:

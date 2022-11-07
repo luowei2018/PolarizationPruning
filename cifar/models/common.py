@@ -156,7 +156,7 @@ def prune_conv_layer(conv_layer: Union[nn.Conv2d, nn.Linear],
                      prune_mode: str,
                      sparse_layer_in: typing.Optional[SparseGate] = None,
                      prune_on="factor",
-                     fake_prune=True) -> typing.Tuple[np.ndarray, np.ndarray]:
+                     inplace_prune=True) -> typing.Tuple[np.ndarray, np.ndarray]:
     """
     Note: if the sparse_layer is SparseGate, the gate will be replaced by BatchNorm
     scaling factor. The value of the gate will be set to all ones.
@@ -213,7 +213,7 @@ def prune_conv_layer(conv_layer: Union[nn.Conv2d, nn.Linear],
             input_threshold = pruner(sparse_weight_in)
             in_channel_mask: np.ndarray = sparse_weight_in > input_threshold
             
-        if fake_prune: 
+        if inplace_prune: 
             # change the property of the conv layer
             if isinstance(conv_layer, nn.Conv2d):
                 conv_layer.in_channels = int(in_channel_mask.sum())
@@ -233,12 +233,12 @@ def prune_conv_layer(conv_layer: Union[nn.Conv2d, nn.Linear],
         # prune the input of the conv layer
         if isinstance(conv_layer, nn.Conv2d):
             if conv_layer.groups == 1:
-                if not fake_prune:
+                if not inplace_prune:
                     conv_weight = conv_weight[:, idx_in.tolist(), :, :]
             else:
                 assert conv_weight.shape[1] == 1, "only works for groups == num_channels"
         elif isinstance(conv_layer, nn.Linear):
-            if not fake_prune:
+            if not inplace_prune:
                 conv_weight = conv_weight[:, idx_in.tolist()]
         else:
             raise ValueError(f"unsupported conv layer type: {conv_layer}")
@@ -276,7 +276,7 @@ def prune_conv_layer(conv_layer: Union[nn.Conv2d, nn.Linear],
         else:
             raise ValueError(f"invalid prune_output_mode: {prune_output_mode}")
             
-        if fake_prune:
+        if inplace_prune:
             idx_block: np.ndarray = np.squeeze(np.argwhere(np.asarray(1-out_channel_mask)))
 
         if not np.any(out_channel_mask):
@@ -289,10 +289,10 @@ def prune_conv_layer(conv_layer: Union[nn.Conv2d, nn.Linear],
             idx_out = np.expand_dims(idx_out, 0)
 
         if isinstance(conv_layer, nn.Conv2d):
-            if not fake_prune:
+            if not inplace_prune:
                 conv_weight = conv_weight[idx_out.tolist(), :, :, :]
         elif isinstance(conv_layer, nn.Linear):
-            if not fake_prune:
+            if not inplace_prune:
                 conv_weight = conv_weight[idx_out.tolist(), :]
                 linear_bias = conv_layer.bias.clone()
                 linear_bias = linear_bias[idx_out.tolist()]
@@ -304,10 +304,10 @@ def prune_conv_layer(conv_layer: Union[nn.Conv2d, nn.Linear],
             conv_layer.out_channels = len(idx_out)
         elif isinstance(conv_layer, nn.Linear):
             conv_layer.out_features = len(idx_out)
-        if not fake_prune:
+        if not inplace_prune:
             conv_layer.weight.data = conv_weight
         if isinstance(conv_layer, nn.Linear):
-            if not fake_prune:
+            if not inplace_prune:
                 conv_layer.bias.data = linear_bias
         if isinstance(conv_layer, nn.Conv2d) and conv_layer.groups != 1:
             # set the new groups for dw layer (for MobileNet)
@@ -316,7 +316,7 @@ def prune_conv_layer(conv_layer: Union[nn.Conv2d, nn.Linear],
 
         # prune the bn layer
         if bn_layer is not None:
-            if fake_prune:
+            if inplace_prune:
                 bn_layer.weight.data[idx_block.tolist()] = 0
                 bn_layer.bias.data[idx_block.tolist()] = 0
             else:

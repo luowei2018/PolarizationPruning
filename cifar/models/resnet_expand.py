@@ -199,7 +199,7 @@ class BasicBlock(BuildingBlock):
             return out
 
     def do_pruning(self, pruner: Callable[[np.ndarray], float], prune_mode: str,
-                   in_channel_mask: np.ndarray = None, prune_on=None, fake_prune=True) -> None:
+                   in_channel_mask: np.ndarray = None, prune_on=None, inplace_prune=True) -> None:
         """
         Prune the block in place.
         Note: There is not ChannelExpand layer at the end of the block. After pruning, the output dimension might be
@@ -229,11 +229,11 @@ class BasicBlock(BuildingBlock):
                                                                      prune_output_mode="prune",
                                                                      prune_mode=prune_mode,
                                                                      prune_on=prune_on, 
-                                                                     fake_prune=fake_prune)
+                                                                     inplace_prune=inplace_prune)
         if not np.any(in_channel_mask) or not np.any(conv1_input_channel_mask):
             # prune the entire block
             # dont do this in fake prune
-            if not fake_prune:
+            if not inplace_prune:
                 self.is_empty_block = True
             return
 
@@ -260,11 +260,11 @@ class BasicBlock(BuildingBlock):
                                                prune_output_mode="prune",
                                                prune_mode=prune_mode,
                                                prune_on=prune_on,
-                                               fake_prune=fake_prune )
+                                               inplace_prune=inplace_prune )
         if not np.any(out_channel_mask):
             # prune the entire block
             # dont do this in fake prune
-            if not fake_prune:
+            if not inplace_prune:
                 self.is_empty_block = True
             return
 

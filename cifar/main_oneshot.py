@@ -58,14 +58,10 @@ parser.add_argument('--no-cuda', action='store_true', default=False,
                     help='disables CUDA training')
 parser.add_argument('--seed', type=int, metavar='S', default=666,
                     help='random seed (default: a random int)')
-parser.add_argument('--log-interval', type=int, default=100, metavar='N',
-                    help='how many batches to wait before logging training status')
 parser.add_argument('--save', type=str, metavar='PATH', required=True,
                     help='path to save prune model')
 parser.add_argument('--arch', default='vgg', type=str,
                     help='architecture to use')
-parser.add_argument('--log', type=str, metavar='PATH', required=True,
-                    help='path to tensorboard log ')
 parser.add_argument('--gammas', type=float, nargs='+', default=[0.1, 0.1],
                     help='LR is multiplied by gamma on decay-epoch, number of gammas should be equal to decay-epoch')
 parser.add_argument('--bn-init-value', default=0.5, type=float,
@@ -173,8 +169,6 @@ if not os.path.exists(args.save):
     os.makedirs(args.save)
 if args.backup_path is not None and not os.path.exists(args.backup_path):
     os.makedirs(args.backup_path)
-if not os.path.exists(args.log):
-    os.makedirs(args.log)
 
 
 kwargs = {'num_workers': 1, 'pin_memory': True} if args.cuda else {}
@@ -302,6 +296,13 @@ if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
         teacher_path = './original/vgg/model_best.pth.tar'
     teacher_model.load_state_dict(torch.load(teacher_path)['state_dict'])
 
+if args.split_running_stat:
+    for module_name, bn_module in model.named_modules():
+        if not isinstance(bn_module, nn.BatchNorm2d) and not isinstance(bn_module, nn.BatchNorm1d): continue
+        for nid in range(len(args.alphas)):
+            bn_module.register_buffer(f"mean{nid}",bn_module.running_mean.data.clone().detach())
+            bn_module.register_buffer(f"var{nid}",bn_module.running_var.data.clone().detach())
+
 if args.resume:
     if os.path.isfile(args.resume):
         print("=> loading checkpoint '{}'".format(args.resume))
@@ -317,13 +318,10 @@ if args.resume:
 
         args.start_epoch = 0#checkpoint['epoch']
         best_prec1 = checkpoint['best_prec1']
-        if args.load_running_stat:
-            for module_name, bn_module in model.named_modules():
-                if not isinstance(bn_module, nn.BatchNorm2d) and not isinstance(bn_module, nn.BatchNorm1d): continue
-                for nid in range(len(args.alphas)):
-                    bn_module.register_buffer(f"mean{nid}",bn_module.running_mean.data.clone().detach())
-                    bn_module.register_buffer(f"var{nid}",bn_module.running_var.data.clone().detach())
-        model.load_state_dict(checkpoint['state_dict'])
+        if args.evaluate:
+            model.load_state_dict(checkpoint['state_dict'])
+        else:
+            model.load_state_dict(checkpoint['state_dict'], strict=False)
 
         print("=> loaded checkpoint '{}' (epoch {}) Prec1: {:f}"
               .format(args.resume, checkpoint['epoch'], best_prec1))
@@ -331,14 +329,6 @@ if args.resume:
         raise ValueError("=> no checkpoint found at '{}'".format(args.resume))
 else:
     checkpoint = None
-
-if args.split_running_stat:
-    if not args.load_running_stat:
-        for module_name, bn_module in model.named_modules():
-            if not isinstance(bn_module, nn.BatchNorm2d) and not isinstance(bn_module, nn.BatchNorm1d): continue
-            for nid in range(len(args.alphas)):
-                bn_module.register_buffer(f"mean{nid}",bn_module.running_mean.data.clone().detach())
-                bn_module.register_buffer(f"var{nid}",bn_module.running_var.data.clone().detach())
 
 # build optim
 if args.bn_wd:
@@ -651,7 +641,7 @@ def get_non_sparse_modules(model,get_name=False):
                     non_sparse_modules.append((module_name,module))
     return non_sparse_modules
 
-def prune_while_training(model, arch, prune_mode, num_classes, avg_loss=None, fake_prune=True, check_size=False):
+def prune_while_training(model, arch, prune_mode, num_classes, avg_loss=None, inplace_prune=True, check_size=False):
     model.eval()
     saved_flops = []
     saved_prec1s = []
@@ -661,7 +651,7 @@ def prune_while_training(model, arch, prune_mode, num_classes, avg_loss=None, fa
         for i in range(len(args.alphas)):
             masked_model = sample_network(model,i,eval=True,check_size=check_size)
             pruned_model = prune_resnet(sparse_model=masked_model, pruning_strategy='fixed', prune_type='mask',
-                                             sanity_check=False, prune_mode=prune_mode, num_classes=num_classes, fake_prune=fake_prune)
+                                             sanity_check=False, prune_mode=prune_mode, num_classes=num_classes, inplace_prune=inplace_prune)
             prec1 = test(pruned_model)
             flop = compute_conv_flops(pruned_model, cuda=True)
             saved_prec1s += [prec1]
@@ -673,7 +663,7 @@ def prune_while_training(model, arch, prune_mode, num_classes, avg_loss=None, fa
         for i in range(len(args.alphas)):
             masked_model = sample_network(model,i,eval=True,check_size=check_size)
             pruned_model = prune_vgg(sparse_model=masked_model, pruning_strategy='fixed', prune_type='mask',
-                                          sanity_check=False, prune_mode=prune_mode, num_classes=num_classes, fake_prune=fake_prune)
+                                          sanity_check=False, prune_mode=prune_mode, num_classes=num_classes, inplace_prune=inplace_prune)
             prec1 = test(pruned_model)
             flop = compute_conv_flops(pruned_model, cuda=True)
             saved_prec1s += [prec1]
