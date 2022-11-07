@@ -514,7 +514,7 @@ def sample_network(old_model,net_id=None,eval=False,check_size=False):
     bn_modules,convs = dynamic_model.get_sparse_layers_and_convs()
     all_scale_factors = torch.tensor([]).cuda()
     for bn_module in bn_modules:
-        all_scale_factors = torch.cat((all_scale_factors,bn_module.weight.data))
+        all_scale_factors = torch.cat((all_scale_factors,bn_module.weight.data.abs()))
     
     # total channels
     total_channels = len(all_scale_factors)
@@ -595,7 +595,7 @@ def update_shared_model(old_model,new_model,mask,batch_idx,ch_indices,net_id):
 
         copy_param_grad(old_module.weight,w_grad0)
         if batch_idx%args.ps_batch == args.ps_batch-1:
-            old_module.weight.grad = old_module.weight.grad_tmp.clone().detach() / sum(args.alphas)
+            old_module.weight.grad = old_module.weight.grad_tmp.clone().detach()
             old_module.weight.grad_tmp = None
 
         # bias
@@ -606,7 +606,7 @@ def update_shared_model(old_model,new_model,mask,batch_idx,ch_indices,net_id):
 
             copy_param_grad(old_module.bias,b_grad0)
             if batch_idx%args.ps_batch == args.ps_batch-1:
-                old_module.bias.grad = old_module.bias.grad_tmp.clone().detach() / sum(args.alphas)
+                old_module.bias.grad = old_module.bias.grad_tmp.clone().detach()
                 old_module.bias.grad_tmp = None
             
     def copy_param_grad(old_param,new_grad):
