@@ -504,7 +504,7 @@ def sample_network(old_model,net_id=None,eval=False,check_size=False):
     bn_modules,convs = dynamic_model.get_sparse_layers_and_convs()
     all_scale_factors = torch.tensor([]).cuda()
     for bn_module in bn_modules:
-        all_scale_factors = torch.cat((all_scale_factors,bn_module.weight.data.abs()))
+        all_scale_factors = torch.cat((all_scale_factors,bn_module.weight.data.abs())) # 之后可以把bn_module.weight.data.abs()换成别的importance
     
     # total channels
     total_channels = len(all_scale_factors)
@@ -530,23 +530,23 @@ def sample_network(old_model,net_id=None,eval=False,check_size=False):
             bn_module.out_channel_mask = out_channel_mask.clone().detach()
             ch_start += ch_len
     # prune additional memory, save ckpt, check size, delete
-    if check_size:
-        if net_id == 0:
-            static_model = copy.deepcopy(old_model)
+    # if check_size:
+    #     if net_id == 0:
+    #         static_model = copy.deepcopy(old_model)
 
-            ch_start = 0
-            bn_modules,convs = static_model.get_sparse_layers_and_convs()
+    #         ch_start = 0
+    #         bn_modules,convs = static_model.get_sparse_layers_and_convs()
 
-            ckpt = static_model.state_dict()
-            if args.load_running_stat:
-                key_of_running_stat = []
-                for k in ckpt.keys():
-                    if 'running_mean' in k or 'running_var' in k:
-                        key_of_running_stat.append(k)
-                for k in key_of_running_stat:
-                    del ckpt[k]
+    #         ckpt = static_model.state_dict()
+    #         if args.load_running_stat:
+    #             key_of_running_stat = []
+    #             for k in ckpt.keys():
+    #                 if 'running_mean' in k or 'running_var' in k:
+    #                     key_of_running_stat.append(k)
+    #             for k in key_of_running_stat:
+    #                 del ckpt[k]
 
-            torch.save({'state_dict':ckpt}, os.path.join(args.save, 'static.pth.tar'))
+    #         torch.save({'state_dict':ckpt}, os.path.join(args.save, 'static.pth.tar'))
 
     if not eval:
         return freeze_mask,net_id,dynamic_model,ch_indices

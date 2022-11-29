@@ -11,6 +11,8 @@ class LossType(Enum):
     L2_POLARIZATION = 6
     LOG_QUANTIZATION = 8
     PROGRESSIVE_SHRINKING = 10
+    ITERATIVE = 9
+    ONESHOT = 7
 
     @staticmethod
     def from_string(desc: str):
@@ -25,6 +27,8 @@ class LossType(Enum):
                 "zol2": LossType.L2_POLARIZATION,
                 "logq": LossType.LOG_QUANTIZATION,
                 "ps": LossType.PROGRESSIVE_SHRINKING,
+                "it": LossType.ITERATIVE,
+                "os": LossType.ONESHOT,
                 }
 
 

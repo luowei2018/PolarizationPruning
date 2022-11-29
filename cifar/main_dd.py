@@ -1,3 +1,4 @@
+# 11 version
 from __future__ import print_function
 
 import argparse
@@ -12,7 +13,6 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
-from tensorboardX import SummaryWriter
 from torchvision import datasets, transforms
 
 import common
@@ -20,6 +20,8 @@ import models
 from common import LossType, compute_conv_flops
 from models.common import SparseGate, Identity
 from models.resnet_expand import BasicBlock
+import copy
+from tqdm import tqdm
 
 # Training settings
 parser = argparse.ArgumentParser(description='PyTorch CIFAR training with Polarization')
@@ -63,8 +65,6 @@ parser.add_argument('--save', type=str, metavar='PATH', required=True,
                     help='path to save prune model')
 parser.add_argument('--arch', default='vgg', type=str,
                     help='architecture to use')
-parser.add_argument('--log', type=str, metavar='PATH', required=True,
-                    help='path to tensorboard log ')
 parser.add_argument('--gammas', type=float, nargs='+', default=[0.1, 0.1],
                     help='LR is multiplied by gamma on decay-epoch, number of gammas should be equal to decay-epoch')
 parser.add_argument('--bn-init-value', default=0.5, type=float,
@@ -100,6 +100,21 @@ parser.add_argument('--width-multiplier', default=1.0, type=float,
                          "Unavailable for other networks. (default 1.0)")
 parser.add_argument('--debug', action='store_true',
                     help='Debug mode.')
+parser.add_argument('--randomize', action='store_true',
+                    help='If use randomly initialized weights.')
+parser.add_argument('--remain_ratio', default=1.0, type=float,
+                    help='The remaining network ratio after pruning.')
+parser.add_argument('--noise_ratio', default=1.0, type=float,
+                    help='The noise added to the label.')
+# parser.add_argument('--prune_scale', type=int, default=0,
+#                     help='Whether the model is orginal(2) or pruned(1) or training w/ both(0).')
+# current default:
+parser.add_argument('--alphas', type=float, nargs='+', default=[1, 1],
+                    help='Multiplier of each subnet.')
+parser.add_argument('--ps_batch', type=int, default=1,
+                    help='number of back propagation per weight update')          
+parser.add_argument('--pruning_step', type=float, default=0.1,
+                    help='iterative pruning step')      
 
 args = parser.parse_args()
 args.cuda = not args.no_cuda and torch.cuda.is_available()
@@ -155,8 +170,6 @@ if not os.path.exists(args.save):
     os.makedirs(args.save)
 if args.backup_path is not None and not os.path.exists(args.backup_path):
     os.makedirs(args.backup_path)
-if not os.path.exists(args.log):
-    os.makedirs(args.log)
 
 
 kwargs = {'num_workers': 1, 'pin_memory': True} if args.cuda else {}
@@ -199,11 +212,7 @@ num_classes = 10 if args.dataset == 'cifar10' else 100
 
 if not args.retrain:
     if re.match("resnet[0-9]+", args.arch):
-        model = models.__dict__[args.arch](num_classes=num_classes,
-                                           gate=args.gate,
-                                           bn_init_value=args.bn_init_value, aux_fc=False,
-                                           width_multiplier=args.width_multiplier,
-                                           use_input_mask=args.input_mask)
+        model = models.__dict__[args.arch](num_classes=num_classes)
     elif re.match("vgg[0-9]+", args.arch):
         model = models.__dict__[args.arch](num_classes=num_classes,
                                            gate=args.gate,
@@ -262,7 +271,6 @@ if args.flops_weighted:
 
 if args.cuda:
     model.cuda()
-
 
 def freeze_sparse_gate(model: nn.Module):
     # do not update all SparseGate
@@ -500,8 +508,181 @@ def prune_while_training(model: nn.Module, arch: str, prune_mode: str, num_class
 
     return saved_flops_grad, saved_flops_fixed, baseline_flops
 
+def create_mask(model, remain_ratio=1.0):
+    bn_modules,convs = model.get_sparse_layers_and_convs()
+    all_scale_factors = torch.tensor([]).cuda()
+    for bn_module in bn_modules:
+        all_scale_factors = torch.cat((all_scale_factors,bn_module.weight.data.abs())) # 之后可以把bn_module.weight.data.abs()换成别的importance
 
-def train(epoch):
+    # total channels
+    total_channels = len(all_scale_factors)
+    _,ch_indices = all_scale_factors.sort(dim=0)
+    
+    weight_valid_mask = torch.zeros(total_channels).long().cuda()
+    weight_valid_mask[ch_indices[int(total_channels*(1 - remain_ratio)):]] = 1
+    return weight_valid_mask
+
+#-#-#-#-#
+def iter_create_mask(model, weight_valid_mask, remain_ratio=1.0, pruning_step=0.1):
+    bn_modules,convs = model.get_sparse_layers_and_convs()
+    all_scale_factors = torch.tensor([]).cuda()
+    for bn_module in bn_modules:
+        all_scale_factors = torch.cat((all_scale_factors,bn_module.weight.data.abs()))
+
+    total_channels = len(all_scale_factors)
+    if weight_valid_mask is None:
+        weight_valid_mask = torch.ones(total_channels).long().cuda()
+        return weight_valid_mask
+    print(weight_valid_mask)
+    new_scale_factors_indices = torch.where(weight_valid_mask==1)
+    print(all_scale_factors)
+    new_factors = all_scale_factors[new_scale_factors_indices]
+    print(new_factors)
+    _, new_ch_indices = new_factors.sort(dim=0)
+
+    weight_valid_mask = torch.zeros(total_channels).long().cuda()
+    print("hhhhhh")
+    print(new_scale_factors_indices)
+    print(new_ch_indices[int(total_channels*pruning_step):])
+    weight_valid_mask[new_scale_factors_indices[0][new_ch_indices[int(total_channels*pruning_step):]]] = 1
+
+    return weight_valid_mask
+
+# baseline - original oneshot
+def sample_network(model, weight_valid_mask):
+    ch_start = 0
+    bn_modules,convs = model.get_sparse_layers_and_convs()
+    for bn_module,conv in zip(bn_modules,convs):
+        with torch.no_grad():
+            ch_len = len(bn_module.weight.data)
+            inactive = weight_valid_mask[ch_start:ch_start+ch_len]==0
+            bn_module.weight.data[inactive] = 0
+            bn_module.bias.data[inactive] = 0
+            out_channel_mask = weight_valid_mask[ch_start:ch_start+ch_len]==1
+            bn_module.out_channel_mask = out_channel_mask.clone().detach()
+            ch_start += ch_len
+
+def sample_network_dynamic(model, weight_valid_mask, separation, eval=False):
+    dynamic_model = copy.deepcopy(model)
+    for module_name, bn_module in dynamic_model.named_modules():
+        if not isinstance(bn_module, nn.BatchNorm2d) and not isinstance(bn_module, nn.BatchNorm1d):
+            continue
+        bn_module.running_mean.data = bn_module._buffers[f"mean{separation}"]
+        bn_module.running_var.data = bn_module._buffers[f"var{separation}"]
+    bn_modules,convs = dynamic_model.get_sparse_layers_and_convs()
+
+    all_scale_factors = torch.tensor([]).cuda()
+    for bn_module in bn_modules:
+        all_scale_factors = torch.cat((all_scale_factors, bn_module.weight.data.abs()))
+
+    total_channels = len(all_scale_factors)
+    _,ch_indices = all_scale_factors.sort(dim=0)
+    freeze_mask = 1 - weight_valid_mask
+
+    ch_start = 0
+    for bn_module,conv in zip(bn_modules,convs):
+        with torch.no_grad():
+            ch_len = len(bn_module.weight.data)
+            inactive = weight_valid_mask[ch_start:ch_start+ch_len]==0
+            bn_module.weight.data[inactive] = 0
+            bn_module.bias.data[inactive] = 0
+            out_channel_mask = weight_valid_mask[ch_start:ch_start+ch_len]==1
+            bn_module.out_channel_mask = out_channel_mask.clone().detach()
+            ch_start += ch_len
+
+    if not eval:
+        return freeze_mask, dynamic_model, ch_indices
+    else:
+        return dynamic_model
+
+def get_non_sparse_modules(model,get_name=False):
+    sparse_modules = []
+    bn_modules,conv_modules = model.get_sparse_layers_and_convs()
+    for bn,conv in zip(bn_modules,conv_modules):
+        sparse_modules.append(bn)
+        sparse_modules.append(conv)
+    sparse_modules_set = set(sparse_modules)
+    non_sparse_modules = []
+    for module_name, module in model.named_modules():
+        if module not in sparse_modules_set:
+            if isinstance(module, nn.Conv2d) or isinstance(module, nn.BatchNorm2d) or isinstance(module, nn.Linear):
+                if not get_name:
+                    non_sparse_modules.append(module)
+                else:
+                    non_sparse_modules.append((module_name,module))
+    return non_sparse_modules
+
+def update_shared_model(old_model,new_model,mask,batch_idx,ch_indices,net_id):
+    def copy_module_grad(old_module,new_module,subnet_mask=None,enhance_mask=None):
+        if subnet_mask is not None:
+            freeze_mask = subnet_mask == 1
+            keep_mask = subnet_mask == 0
+
+        # copy running mean/var
+        if isinstance(new_module,nn.BatchNorm2d) or isinstance(new_module,nn.BatchNorm1d):
+            #if args.split_running_stat:
+            if subnet_mask is not None:
+                old_module._buffers[f"mean{net_id}"][keep_mask] = new_module.running_mean.data[keep_mask].clone().detach()
+                old_module._buffers[f"var{net_id}"][keep_mask] = new_module.running_var.data[keep_mask].clone().detach()
+            else:
+                old_module._buffers[f"mean{net_id}"] = new_module.running_mean.data.clone().detach()
+                old_module._buffers[f"var{net_id}"] = new_module.running_var.data.clone().detach()
+            # else:
+            #     if subnet_mask is not None:
+            #         old_module.running_mean.data[keep_mask] = new_module.running_mean.data[keep_mask]
+            #         old_module.running_var.data[keep_mask] = new_module.running_var.data[keep_mask]
+            #     else:
+            #         old_module.running_mean.data = new_module.running_mean.data
+            #         old_module.running_var.data = new_module.running_var.data
+
+        # weight
+        w_grad0 = new_module.weight.grad.clone().detach()
+        if subnet_mask is not None:
+            w_grad0.data[freeze_mask] = 0
+
+        copy_param_grad(old_module.weight,w_grad0)
+        if batch_idx%args.ps_batch == args.ps_batch-1:
+            old_module.weight.grad = old_module.weight.grad_tmp.clone().detach()
+            old_module.weight.grad_tmp = None
+
+        # bias
+        if hasattr(new_module,'bias') and new_module.bias is not None:
+            b_grad0 = new_module.bias.grad.clone().detach()
+            if subnet_mask is not None:
+                b_grad0.data[freeze_mask] = 0
+
+            copy_param_grad(old_module.bias,b_grad0)
+            if batch_idx%args.ps_batch == args.ps_batch-1:
+                old_module.bias.grad = old_module.bias.grad_tmp.clone().detach()
+                old_module.bias.grad_tmp = None
+            
+    def copy_param_grad(old_param,new_grad):
+        new_grad *= args.alphas[net_id]
+        if not hasattr(old_param,'grad_tmp') or old_param.grad_tmp is None:
+            old_param.grad_tmp = new_grad
+        else:
+            old_param.grad_tmp += new_grad
+
+    bns1,convs1 = old_model.get_sparse_layers_and_convs()
+    bns2,convs2 = new_model.get_sparse_layers_and_convs()
+    ch_start = 0
+    for conv1,bn1,conv2,bn2 in zip(convs1,bns1,convs2,bns2):
+        ch_len = conv1.weight.data.size(0)
+        with torch.no_grad():
+            subnet_mask = mask[ch_start:ch_start+ch_len]
+            copy_module_grad(bn1,bn2,subnet_mask)
+            copy_module_grad(conv1,conv2,subnet_mask)
+        ch_start += ch_len
+    
+    with torch.no_grad():
+        old_non_sparse_modules = get_non_sparse_modules(old_model)
+        new_non_sparse_modules = get_non_sparse_modules(new_model)
+        for old_module,new_module in zip(old_non_sparse_modules,new_non_sparse_modules):
+            copy_module_grad(old_module,new_module)
+
+
+#baseline - original: def train(epoch, weight_valid_mask):
+def train(epoch, weight_valid_mask=None):
     model.train()
     global history_score, global_step
     avg_loss = 0.
@@ -509,10 +690,33 @@ def train(epoch):
     train_acc = 0.
     total_data = 0
     for batch_idx, (data, target) in enumerate(train_loader):
+        mod = int(1/args.noise_ratio)
+        #symmetric noise: target[0::mod] + random_(1, 10)
+        target[0::mod].random_(0, 10)
         if args.cuda:
             data, target = data.cuda(), target.cuda()
         optimizer.zero_grad()
-        output = model(data)
+        nonzero = np.array([1, args.remain_ratio])
+        #separation = int(nonzero[batch_idx%len(nonzero)])
+        separation = 1
+        if args.loss in {LossType.ONESHOT}:
+            if separation == 0:
+                remain_ratio = 1
+            else:
+                remain_ratio = args.remain_ratio
+            weight_valid_mask = create_mask(model, remain_ratio)
+            # =============================================== #
+            #sample network: set "weights" in 'model' to 0
+            #sample_network(model, weight_valid_mask)
+            # =============================================== #
+            freeze_mask, dynamic_model, ch_indices = sample_network_dynamic(model, weight_valid_mask, separation)
+            if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
+                output = dynamic_model(data)
+        elif args.loss in {LossType.ITERATIVE}:
+            sample_network(model, weight_valid_mask)
+            output = model(data)
+        else:
+            output = model(data)
         if isinstance(output, tuple):
             output, output_aux = output
         loss = F.cross_entropy(output, target)
@@ -534,6 +738,8 @@ def train(epoch):
         loss.backward()
         if args.loss in {LossType.L1_SPARSITY_REGULARIZATION}:
             updateBN()
+        if args.loss in {LossType.PROGRESSIVE_SHRINKING}:
+            update_shared_model(model, dynamic_model, freeze_mask, batch_idx, ch_indices, separation)
         optimizer.step()
         if args.loss in {LossType.POLARIZATION,
                          LossType.L2_POLARIZATION}:
@@ -547,15 +753,15 @@ def train(epoch):
     history_score[epoch][0] = avg_loss / len(train_loader)
     history_score[epoch][1] = float(train_acc) / float(total_data)
     history_score[epoch][3] = avg_sparsity_loss / len(train_loader)
-    pass
 
 
-def test():
+def test(model):
     model.eval()
     test_loss = 0
     correct = 0
+    test_iter = tqdm(test_loader)
     with torch.no_grad():
-        for data, target in test_loader:
+        for batch_idx, (data, target) in enumerate(test_iter):
             if args.cuda:
                 data, target = data.cuda(), target.cuda()
             output = model(data)
@@ -604,37 +810,101 @@ def save_checkpoint(state, is_best, filepath, backup: bool, backup_path: str, ep
 best_prec1 = 0.
 global_step = 0
 
-writer = SummaryWriter(logdir=args.log)
-
 if args.flops_weighted:
     writer.add_text("train/conv_flops_weight", flops_weight_string, global_step=0)
 
-for epoch in range(args.start_epoch, args.epochs):
-    if args.max_epoch is not None and epoch >= args.max_epoch:
-        break
+for module_name, bn_module in model.named_modules():
+    if not isinstance(bn_module, nn.BatchNorm2d) and not isinstance(bn_module, nn.BatchNorm1d):
+        continue
+    for i in range(2):
+        bn_module.register_buffer(f"mean{i}",bn_module.running_mean.data.clone().detach())
+        bn_module.register_buffer(f"var{i}",bn_module.running_var.data.clone().detach())
 
-    current_learning_rate = adjust_learning_rate(optimizer, epoch, args.gammas, args.decay_epoch)
-    print("Start epoch {}/{} with learning rate {}...".format(epoch, args.epochs, current_learning_rate))
+#weight_valid_mask = create_mask(model, args.remain_ratio)
+if args.randomize:
+    model._initialize_weights()
 
-    weights, bias = bn_weights(model)
-    for bn_name, bn_weight in weights:
-        writer.add_histogram("bn/" + bn_name, bn_weight, global_step=epoch)
-    for bn_name, bn_bias in bias:
-        writer.add_histogram("bn_bias/" + bn_name, bn_bias, global_step=epoch)
-    # visualize conv kernels
-    for name, sub_modules in model.named_modules():
-        if isinstance(sub_modules, nn.Conv2d):
-            writer.add_histogram("conv_kernels/" + name, sub_modules.weight, global_step=epoch)
-    if args.gate:
-        for gate_name, m in model.named_modules():
-            if isinstance(m, SparseGate):
-                writer.add_histogram("gate/" + gate_name, m.weight, global_step=epoch)
+if args.loss in {LossType.ITERATIVE}:
+    print("here")
+    remain_ratio = args.remain_ratio
+    pruning_step = args.pruning_step
+    weight_valid_mask = None
+    while weight_valid_mask is None or weight_valid_mask.float().mean() > remain_ratio+1e-6:
+        weight_valid_mask = iter_create_mask(model, weight_valid_mask, remain_ratio, pruning_step)
+        model._initialize_weights()
+        for epoch in range(args.start_epoch, args.epochs):
+            if args.max_epoch is not None and epoch >= args.max_epoch:
+                break
+            current_learning_rate = adjust_learning_rate(optimizer, epoch, args.gammas, args.decay_epoch)
+            print("Start epoch {}/{} with learning rate {}...".format(epoch, args.epochs, current_learning_rate))
+            weights, bias = bn_weights(model)
+            train(epoch, weight_valid_mask)
+            prec0 = test(model)
+            print(f"model prec :{prec0:.2f}")
+            if not os.path.exists(args.save + '{:.1f}/'.format(weight_valid_mask.float().mean())):
+                os.makedirs(args.save + '{:.1f}/'.format(weight_valid_mask.float().mean()))
+            save_checkpoint({
+                'epoch': epoch + 1,
+                'state_dict': model.state_dict(),
+                'best_prec0': prec0,
+                'optimizer': optimizer.state_dict(),
+            }, False, filepath= args.save + '{:.1f}/'.format(weight_valid_mask.float().mean()),
+                backup_path=args.backup_path,
+                backup=epoch % args.backup_freq == 0,
+                epoch=epoch,
+                max_backup=args.max_backup
+            )
 
-    train(epoch) # train with regularization
+    if args.loss == LossType.POLARIZATION and args.target_flops and (
+        flops_grad / baseline_flops) > args.target_flops and args.gate:
+            print("WARNING: the FLOPs does not achieve the target FLOPs at the end of training.")
+    print("Best accuracy: " + str(prec0))
+    history_score[-1][0] = prec0
+    np.savetxt(os.path.join(args.save, 'overall_record.txt'), history_score, fmt='%10.5f', delimiter=',')
+    print("Best accuracy: " + str(prec0))
 
-    prec1 = test()
+else:
+    for epoch in range(args.start_epoch, args.epochs):
+        if args.max_epoch is not None and epoch >= args.max_epoch:
+            break
+        current_learning_rate = adjust_learning_rate(optimizer, epoch, args.gammas, args.decay_epoch)
+        print("Start epoch {}/{} with learning rate {}...".format(epoch, args.epochs, current_learning_rate))
+        weights, bias = bn_weights(model)
+        train(epoch)
+        #if args.prune_scale = 0:
+        weight_valid_mask_original = create_mask(model, 1)
+        weight_valid_mask_pruned = create_mask(model, args.remain_ratio)
+        # 0: original model separation
+        # 1: pruned model separation
+        orginal_model = sample_network_dynamic(model, weight_valid_mask_original, 0, eval=True)
+        dynamic_model = sample_network_dynamic(model, weight_valid_mask_pruned, 1, eval=True)
+        #from resprune_gate import prune_resnet
+        #pruned_model = prune_resnet(sparse_model=dynamic_model, pruning_strategy='fixed', prune_type='mask',
+        #                    sanity_check=False, prune_mode="default", num_classes=num_classes, inplace_prune=True)
+        prec0 = test(orginal_model)
+        prec1 = test(dynamic_model)
+        #baseline_flops = compute_conv_flops(model, cuda=True)
+        #flop = compute_conv_flops(pruned_model, cuda=True)
+        #saved_prec1s = prec1
+        #saved_flops = (1-flop / baseline_flops)*100
+        print(f"original model prec0 :{prec0:.2f}")
+        print(f"pruned model prec1 :{prec1:.2f}")
+        #print(f"FLOP %:{saved_flops:.2f}")
+        # if args.prune_scale = 1:
+        #     weight_valid_mask_pruned = create_mask(model, args.remain_ratio)
+        #     dynamic_model = sample_network_dynamic(model, weight_valid_mask_pruned, 1, eval=True)
+        #     prec1 = test(dynamic_model)
+        #     print(f"pruned model prec1 :{prec1:.2f}")
+        # if args.prune_scale = 2:
+        #     weight_valid_mask_original = create_mask(model, 1)
+        #     orginal_model = sample_network_dynamic(model, weight_valid_mask_original, 0, eval=True)
+        #     prec0 = test(orginal_model)
+        #     print(f"original model prec0 :{prec0:.2f}")
+
+
+
     history_score[epoch][2] = prec1
-    np.savetxt(os.path.join(args.save, 'record.txt'), history_score, fmt='%10.5f', delimiter=',')
+    np.savetxt(os.path.join(args.save, 'overall_record.txt'), history_score, fmt='%10.5f', delimiter=',')
     is_best = prec1 > best_prec1
     best_prec1 = max(prec1, best_prec1)
     save_checkpoint({
@@ -650,12 +920,12 @@ for epoch in range(args.start_epoch, args.epochs):
     )
 
     # write the tensorboard
-    writer.add_scalar("train/average_loss", history_score[epoch][0], epoch)
-    writer.add_scalar("train/sparsity_loss", history_score[epoch][3], epoch)
-    writer.add_scalar("train/train_acc", history_score[epoch][1], epoch)
-    writer.add_scalar("train/lr", optimizer.param_groups[0]['lr'], epoch)
-    writer.add_scalar("val/acc", prec1, epoch)
-    writer.add_scalar("val/best_acc", best_prec1, epoch)
+    # writer.add_scalar("train/average_loss", history_score[epoch][0], epoch)
+    # writer.add_scalar("train/sparsity_loss", history_score[epoch][3], epoch)
+    # writer.add_scalar("train/train_acc", history_score[epoch][1], epoch)
+    # writer.add_scalar("train/lr", optimizer.param_groups[0]['lr'], epoch)
+    # writer.add_scalar("val/acc", prec1, epoch)
+    # writer.add_scalar("val/best_acc", best_prec1, epoch)
 
     # flops
     # peek the remaining flops
@@ -665,10 +935,10 @@ for epoch in range(args.start_epoch, args.epochs):
                                                                        num_classes=num_classes)
         print(f" --> FLOPs in epoch (grad) {epoch}: {flops_grad:,}, ratio: {flops_grad / baseline_flops}")
         print(f" --> FLOPs in epoch (fixed) {epoch}: {flops_fixed:,}, ratio: {flops_fixed / baseline_flops}")
-        writer.add_scalar("train/flops", flops_grad, epoch)
-        writer.add_scalar("train/flops_fixed", flops_fixed, epoch)
-        writer.add_scalar("train/flops_grad_ratio", flops_grad / baseline_flops, epoch)
-        writer.add_scalar("train/flops_fixed_ratio", flops_fixed / baseline_flops, epoch)
+        #writer.add_scalar("train/flops", flops_grad, epoch)
+        #writer.add_scalar("train/flops_fixed", flops_fixed, epoch)
+        #writer.add_scalar("train/flops_grad_ratio", flops_grad / baseline_flops, epoch)
+        #writer.add_scalar("train/flops_fixed_ratio", flops_fixed / baseline_flops, epoch)
 
         if args.loss == LossType.POLARIZATION and args.target_flops and (
                 flops_grad / baseline_flops) <= args.target_flops and args.gate:
@@ -685,10 +955,10 @@ for epoch in range(args.start_epoch, args.epochs):
 if args.loss == LossType.POLARIZATION and args.target_flops and (
         flops_grad / baseline_flops) > args.target_flops and args.gate:
     print("WARNING: the FLOPs does not achieve the target FLOPs at the end of training.")
-print("Best accuracy: " + str(best_prec1))
-history_score[-1][0] = best_prec1
-np.savetxt(os.path.join(args.save, 'record.txt'), history_score, fmt='%10.5f', delimiter=',')
+print("Best accuracy: " + str(prec0))
+history_score[-1][0] = prec0
+np.savetxt(os.path.join(args.save, 'overall_record.txt'), history_score, fmt='%10.5f', delimiter=',')
 
-writer.close()
+#writer.close()
 
-print("Best accuracy: " + str(best_prec1))
+print("Best accuracy: " + str(prec0))
