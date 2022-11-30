@@ -830,7 +830,7 @@ if args.loss in {LossType.ITERATIVE}:
     pruning_step = args.pruning_step
     weight_valid_mask = None
     while weight_valid_mask is None or weight_valid_mask.float().mean() > remain_ratio+1e-6:
-        if weight_valid_mask is not None 
+        if weight_valid_mask is not None:
             print(weight_valid_mask.float())
             print(weight_valid_mask.float().mean())
         weight_valid_mask = iter_create_mask(model, weight_valid_mask, remain_ratio, pruning_step)
