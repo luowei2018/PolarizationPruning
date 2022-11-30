@@ -691,6 +691,8 @@ def train(epoch, weight_valid_mask=None):
     total_data = 0
     for batch_idx, (data, target) in enumerate(train_loader):
         mod = int(1/args.noise_ratio)
+        print("mod")
+        print(mod)
         #symmetric noise: target[0::mod] + random_(1, 10)
         target[0::mod].random_(0, 10)
         if args.cuda:
@@ -830,9 +832,6 @@ if args.loss in {LossType.ITERATIVE}:
     pruning_step = args.pruning_step
     weight_valid_mask = None
     while weight_valid_mask is None or weight_valid_mask.float().mean() > remain_ratio+1e-6:
-        if weight_valid_mask is not None:
-            print(weight_valid_mask.float())
-            print(weight_valid_mask.float().mean())
         weight_valid_mask = iter_create_mask(model, weight_valid_mask, remain_ratio, pruning_step)
         model._initialize_weights()
         for epoch in range(args.start_epoch, args.epochs):
@@ -844,6 +843,9 @@ if args.loss in {LossType.ITERATIVE}:
             train(epoch, weight_valid_mask)
             prec0 = test(model)
             print(f"model prec :{prec0:.2f}")
+            print("aaaaa")
+            print(weight_valid_mask.float())
+            print(weight_valid_mask.float().mean())
             if not os.path.exists(args.save + '{:.1f}/'.format(weight_valid_mask.float().mean())):
                 os.makedirs(args.save + '{:.1f}/'.format(weight_valid_mask.float().mean()))
             save_checkpoint({
