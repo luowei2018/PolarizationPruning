@@ -829,7 +829,7 @@ if args.loss in {LossType.ITERATIVE}:
     remain_ratio = args.remain_ratio
     pruning_step = args.pruning_step
     weight_valid_mask = None
-    while weight_valid_mask is None or weight_valid_mask.float().mean() > remain_ratio+1e-6:
+    while weight_valid_mask is None or weight_valid_mask.cpu().float().mean() > remain_ratio+1e-6:
         weight_valid_mask = iter_create_mask(model, weight_valid_mask, remain_ratio, pruning_step)
         model._initialize_weights()
         for epoch in range(args.start_epoch, args.epochs):
@@ -843,16 +843,16 @@ if args.loss in {LossType.ITERATIVE}:
             print(f"model prec :{prec0:.2f}")
             print("aaaaa")
             print(weight_valid_mask)
-            print(weight_valid_mask.float())
-            print(weight_valid_mask.float().mean())
-            if not os.path.exists(args.save + '{:.1f}/'.format(weight_valid_mask.float().mean())):
-                os.makedirs(args.save + '{:.1f}/'.format(weight_valid_mask.float().mean()))
+            print(weight_valid_mask.cpu().float())
+            print(weight_valid_mask.cpu().float().mean())
+            if not os.path.exists(args.save + '{:.1f}/'.format(weight_valid_mask.cpu().float().mean())):
+                os.makedirs(args.save + '{:.1f}/'.format(weight_valid_mask.cpu().float().mean()))
             save_checkpoint({
                 'epoch': epoch + 1,
                 'state_dict': model.state_dict(),
                 'best_prec0': prec0,
                 'optimizer': optimizer.state_dict(),
-            }, False, filepath= args.save + '{:.1f}/'.format(weight_valid_mask.float().mean()),
+            }, False, filepath= args.save + '{:.1f}/'.format(weight_valid_mask.cpu().float().mean()),
                 backup_path=args.backup_path,
                 backup=epoch % args.backup_freq == 0,
                 epoch=epoch,
