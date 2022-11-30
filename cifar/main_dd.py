@@ -691,8 +691,6 @@ def train(epoch, weight_valid_mask=None):
     total_data = 0
     for batch_idx, (data, target) in enumerate(train_loader):
         mod = int(1/args.noise_ratio)
-        print("mod")
-        print(mod)
         #symmetric noise: target[0::mod] + random_(1, 10)
         target[0::mod].random_(0, 10)
         if args.cuda:
