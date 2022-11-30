@@ -842,6 +842,7 @@ if args.loss in {LossType.ITERATIVE}:
             prec0 = test(model)
             print(f"model prec :{prec0:.2f}")
             print("aaaaa")
+            print(weight_valid_mask)
             print(weight_valid_mask.float())
             print(weight_valid_mask.float().mean())
             if not os.path.exists(args.save + '{:.1f}/'.format(weight_valid_mask.float().mean())):
