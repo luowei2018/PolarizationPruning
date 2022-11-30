@@ -518,7 +518,7 @@ def create_mask(model, remain_ratio=1.0):
     total_channels = len(all_scale_factors)
     _,ch_indices = all_scale_factors.sort(dim=0)
     
-    weight_valid_mask = torch.zeros(total_channels).long().cuda()
+    weight_valid_mask = torch.zeros(total_channels).long()
     weight_valid_mask[ch_indices[int(total_channels*(1 - remain_ratio)):]] = 1
     return weight_valid_mask
 
@@ -531,7 +531,7 @@ def iter_create_mask(model, weight_valid_mask, remain_ratio=1.0, pruning_step=0.
 
     total_channels = len(all_scale_factors)
     if weight_valid_mask is None:
-        weight_valid_mask = torch.ones(total_channels).long().cuda()
+        weight_valid_mask = torch.ones(total_channels).long()
         return weight_valid_mask
     print(weight_valid_mask)
     new_scale_factors_indices = torch.where(weight_valid_mask==1)
@@ -540,7 +540,7 @@ def iter_create_mask(model, weight_valid_mask, remain_ratio=1.0, pruning_step=0.
     print(new_factors)
     _, new_ch_indices = new_factors.sort(dim=0)
 
-    weight_valid_mask = torch.zeros(total_channels).long().cuda()
+    weight_valid_mask = torch.zeros(total_channels).long()
     print("hhhhhh")
     print(new_scale_factors_indices)
     print(new_ch_indices[int(total_channels*pruning_step):])
