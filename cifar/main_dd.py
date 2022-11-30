@@ -434,7 +434,6 @@ def set_bn_zero(model: nn.Module, threshold=0.0) -> (nn.Module, int):
 def bn_sparsity(model, loss_type, sparsity, t, alpha,
                 flops_weighted: bool, weight_min=None, weight_max=None):
     """
-
     :type model: torch.nn.Module
     :type alpha: float
     :type t: float
@@ -518,7 +517,7 @@ def create_mask(model, remain_ratio=1.0):
     total_channels = len(all_scale_factors)
     _,ch_indices = all_scale_factors.sort(dim=0)
     
-    weight_valid_mask = torch.zeros(total_channels).long()
+    weight_valid_mask = torch.zeros(total_channels).long().cuda()
     weight_valid_mask[ch_indices[int(total_channels*(1 - remain_ratio)):]] = 1
     return weight_valid_mask
 
@@ -531,7 +530,7 @@ def iter_create_mask(model, weight_valid_mask, remain_ratio=1.0, pruning_step=0.
 
     total_channels = len(all_scale_factors)
     if weight_valid_mask is None:
-        weight_valid_mask = torch.ones(total_channels).long()
+        weight_valid_mask = torch.ones(total_channels).long().cuda()
         return weight_valid_mask
     print(weight_valid_mask)
     new_scale_factors_indices = torch.where(weight_valid_mask==1)
@@ -540,7 +539,7 @@ def iter_create_mask(model, weight_valid_mask, remain_ratio=1.0, pruning_step=0.
     print(new_factors)
     _, new_ch_indices = new_factors.sort(dim=0)
 
-    weight_valid_mask = torch.zeros(total_channels).long()
+    weight_valid_mask = torch.zeros(total_channels).long().cuda()
     print("hhhhhh")
     print(new_scale_factors_indices)
     print(new_ch_indices[int(total_channels*pruning_step):])
@@ -829,7 +828,7 @@ if args.loss in {LossType.ITERATIVE}:
     remain_ratio = args.remain_ratio
     pruning_step = args.pruning_step
     weight_valid_mask = None
-    while weight_valid_mask is None or weight_valid_mask.cpu().float().mean() > remain_ratio+1e-6:
+    while weight_valid_mask is None or weight_valid_mask.float().mean() > remain_ratio+1e-6:
         weight_valid_mask = iter_create_mask(model, weight_valid_mask, remain_ratio, pruning_step)
         model._initialize_weights()
         for epoch in range(args.start_epoch, args.epochs):
@@ -841,18 +840,14 @@ if args.loss in {LossType.ITERATIVE}:
             train(epoch, weight_valid_mask)
             prec0 = test(model)
             print(f"model prec :{prec0:.2f}")
-            print("aaaaa")
-            print(weight_valid_mask)
-            print(weight_valid_mask.cpu().float())
-            print(weight_valid_mask.cpu().float().mean())
-            if not os.path.exists(args.save + '{:.1f}/'.format(weight_valid_mask.cpu().float().mean())):
-                os.makedirs(args.save + '{:.1f}/'.format(weight_valid_mask.cpu().float().mean()))
+            if not os.path.exists(args.save + '{:.1f}/'.format(weight_valid_mask.float().mean())):
+                os.makedirs(args.save + '{:.1f}/'.format(weight_valid_mask.float().mean()))
             save_checkpoint({
                 'epoch': epoch + 1,
                 'state_dict': model.state_dict(),
                 'best_prec0': prec0,
                 'optimizer': optimizer.state_dict(),
-            }, False, filepath= args.save + '{:.1f}/'.format(weight_valid_mask.cpu().float().mean()),
+            }, False, filepath= args.save + '{:.1f}/'.format(weight_valid_mask.float().mean()),
                 backup_path=args.backup_path,
                 backup=epoch % args.backup_freq == 0,
                 epoch=epoch,
