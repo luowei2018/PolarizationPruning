@@ -434,7 +434,6 @@ def set_bn_zero(model: nn.Module, threshold=0.0) -> (nn.Module, int):
 def bn_sparsity(model, loss_type, sparsity, t, alpha,
                 flops_weighted: bool, weight_min=None, weight_max=None):
     """
-
     :type model: torch.nn.Module
     :type alpha: float
     :type t: float
