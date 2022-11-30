@@ -829,6 +829,8 @@ if args.loss in {LossType.ITERATIVE}:
     remain_ratio = args.remain_ratio
     pruning_step = args.pruning_step
     weight_valid_mask = None
+    print(weight_valid_mask.float())
+    print(weight_valid_mask.float().mean())
     while weight_valid_mask is None or weight_valid_mask.float().mean() > remain_ratio+1e-6:
         weight_valid_mask = iter_create_mask(model, weight_valid_mask, remain_ratio, pruning_step)
         model._initialize_weights()
