@@ -540,7 +540,7 @@ def iter_create_mask(model, weight_valid_mask, remain_ratio=1.0, pruning_step=0.
     _, new_ch_indices = new_factors.sort(dim=0)
 
     weight_valid_mask = torch.zeros(total_channels).long().cuda()
-    print("hhhhhh")
+    print("new_scale_factors_indices")
     print(new_scale_factors_indices)
     print(new_ch_indices[int(total_channels*pruning_step):])
     weight_valid_mask[new_scale_factors_indices[0][new_ch_indices[int(total_channels*pruning_step):]]] = 1
@@ -828,6 +828,7 @@ if args.loss in {LossType.ITERATIVE}:
     remain_ratio = args.remain_ratio
     pruning_step = args.pruning_step
     weight_valid_mask = None
+    best_prec0 = 0
     while weight_valid_mask is None or weight_valid_mask.float().mean() > remain_ratio+1e-6:
         weight_valid_mask = iter_create_mask(model, weight_valid_mask, remain_ratio, pruning_step)
         model._initialize_weights()
@@ -839,13 +840,14 @@ if args.loss in {LossType.ITERATIVE}:
             weights, bias = bn_weights(model)
             train(epoch, weight_valid_mask)
             prec0 = test(model)
+            best_prec0 = max(prec0, best_prec0)
             print(f"model prec :{prec0:.2f}")
             if not os.path.exists(args.save + '{:.1f}/'.format(weight_valid_mask.float().mean())):
                 os.makedirs(args.save + '{:.1f}/'.format(weight_valid_mask.float().mean()))
             save_checkpoint({
                 'epoch': epoch + 1,
                 'state_dict': model.state_dict(),
-                'best_prec0': prec0,
+                'best_prec0': best_prec0,
                 'optimizer': optimizer.state_dict(),
             }, False, filepath= args.save + '{:.1f}/'.format(weight_valid_mask.float().mean()),
                 backup_path=args.backup_path,
@@ -853,14 +855,13 @@ if args.loss in {LossType.ITERATIVE}:
                 epoch=epoch,
                 max_backup=args.max_backup
             )
+            print("Epoch accuracy: " + str(best_prec0))
+            with open(os.path.join(args.save + '{:.1f}/'.format(weight_valid_mask.float().mean()) + 'Prec'), 'a+') as fp:
+                fp.write(f'{epoch} {best_prec0}\n')
 
-    if args.loss == LossType.POLARIZATION and args.target_flops and (
-        flops_grad / baseline_flops) > args.target_flops and args.gate:
-            print("WARNING: the FLOPs does not achieve the target FLOPs at the end of training.")
-    print("Best accuracy: " + str(prec0))
-    history_score[-1][0] = prec0
-    np.savetxt(os.path.join(args.save, 'overall_record.txt'), history_score, fmt='%10.5f', delimiter=',')
-    print("Best accuracy: " + str(prec0))
+        print("Best accuracy: " + str(best_prec0))
+        with open(os.path.join(args.save, 'Overall_Prec_Record.txt'), 'a+') as fp:
+            fp.write(f'{weight_valid_mask.float().mean():.1f} {best_prec0}\n')
 
 else:
     for epoch in range(args.start_epoch, args.epochs):
@@ -882,24 +883,8 @@ else:
         #                    sanity_check=False, prune_mode="default", num_classes=num_classes, inplace_prune=True)
         prec0 = test(orginal_model)
         prec1 = test(dynamic_model)
-        #baseline_flops = compute_conv_flops(model, cuda=True)
-        #flop = compute_conv_flops(pruned_model, cuda=True)
-        #saved_prec1s = prec1
-        #saved_flops = (1-flop / baseline_flops)*100
         print(f"original model prec0 :{prec0:.2f}")
         print(f"pruned model prec1 :{prec1:.2f}")
-        #print(f"FLOP %:{saved_flops:.2f}")
-        # if args.prune_scale = 1:
-        #     weight_valid_mask_pruned = create_mask(model, args.remain_ratio)
-        #     dynamic_model = sample_network_dynamic(model, weight_valid_mask_pruned, 1, eval=True)
-        #     prec1 = test(dynamic_model)
-        #     print(f"pruned model prec1 :{prec1:.2f}")
-        # if args.prune_scale = 2:
-        #     weight_valid_mask_original = create_mask(model, 1)
-        #     orginal_model = sample_network_dynamic(model, weight_valid_mask_original, 0, eval=True)
-        #     prec0 = test(orginal_model)
-        #     print(f"original model prec0 :{prec0:.2f}")
-
 
 
     history_score[epoch][2] = prec1
@@ -918,14 +903,6 @@ else:
         max_backup=args.max_backup
     )
 
-    # write the tensorboard
-    # writer.add_scalar("train/average_loss", history_score[epoch][0], epoch)
-    # writer.add_scalar("train/sparsity_loss", history_score[epoch][3], epoch)
-    # writer.add_scalar("train/train_acc", history_score[epoch][1], epoch)
-    # writer.add_scalar("train/lr", optimizer.param_groups[0]['lr'], epoch)
-    # writer.add_scalar("val/acc", prec1, epoch)
-    # writer.add_scalar("val/best_acc", best_prec1, epoch)
-
     # flops
     # peek the remaining flops
     if args.loss in {LossType.POLARIZATION, LossType.L2_POLARIZATION}:
@@ -934,10 +911,6 @@ else:
                                                                        num_classes=num_classes)
         print(f" --> FLOPs in epoch (grad) {epoch}: {flops_grad:,}, ratio: {flops_grad / baseline_flops}")
         print(f" --> FLOPs in epoch (fixed) {epoch}: {flops_fixed:,}, ratio: {flops_fixed / baseline_flops}")
-        #writer.add_scalar("train/flops", flops_grad, epoch)
-        #writer.add_scalar("train/flops_fixed", flops_fixed, epoch)
-        #writer.add_scalar("train/flops_grad_ratio", flops_grad / baseline_flops, epoch)
-        #writer.add_scalar("train/flops_fixed_ratio", flops_fixed / baseline_flops, epoch)
 
         if args.loss == LossType.POLARIZATION and args.target_flops and (
                 flops_grad / baseline_flops) <= args.target_flops and args.gate:
