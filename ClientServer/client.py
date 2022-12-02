@@ -76,7 +76,7 @@ if __name__ == '__main__':
     # with open('IMG_0077.jpg', 'r') as fp:
     #     image_data = fp.read()
     # data = str.encode(''.join(random.choices(string.ascii_uppercase + string.digits, k=args.size*1024)))
-    data = str.encode(''.join(random.choices(string.ascii_uppercase + string.digits, k=args.size*244)))
+    data = str.encode(''.join(random.choices(string.ascii_uppercase + string.digits, k=args.size*1024*244)))
     print(len(data))
     assert(len(data))
     for i in range(args.time):
