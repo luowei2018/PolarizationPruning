@@ -100,11 +100,11 @@ parser.add_argument('--width-multiplier', default=1.0, type=float,
                          "Unavailable for other networks. (default 1.0)")
 parser.add_argument('--debug', action='store_true',
                     help='Debug mode.')
-parser.add_argument('--randomize', action='store_true',
+parser.add_argument('--oneshot_ltr', action='store_true',
                     help='If use randomly initialized weights.')
 parser.add_argument('--remain_ratio', default=1.0, type=float,
                     help='The remaining network ratio after pruning.')
-parser.add_argument('--noise_ratio', default=1.0, type=float,
+parser.add_argument('--noise_ratio', default=0.0, type=float,
                     help='The noise added to the label.')
 # parser.add_argument('--prune_scale', type=int, default=0,
 #                     help='Whether the model is orginal(2) or pruned(1) or training w/ both(0).')
@@ -542,8 +542,8 @@ def iter_create_mask(model, weight_valid_mask, remain_ratio=1.0, pruning_step=0.
     weight_valid_mask = torch.zeros(total_channels).long().cuda()
     print("new_scale_factors_indices")
     print(new_scale_factors_indices)
-    print(new_ch_indices[int(total_channels*pruning_step):])
-    weight_valid_mask[new_scale_factors_indices[0][new_ch_indices[int(total_channels*pruning_step):]]] = 1
+    print(new_ch_indices[int(len(new_scale_factors_indices)*pruning_step):])
+    weight_valid_mask[new_scale_factors_indices[0][new_ch_indices[int(len(new_scale_factors_indices)*pruning_step):]]] = 1
 
     return weight_valid_mask
 
@@ -689,9 +689,13 @@ def train(epoch, weight_valid_mask=None):
     train_acc = 0.
     total_data = 0
     for batch_idx, (data, target) in enumerate(train_loader):
-        mod = int(1/args.noise_ratio)
-        #symmetric noise: target[0::mod] + random_(1, 10)
-        target[0::mod].random_(0, 10)
+        if args.noise_ratio == 0.0:
+            pass
+        else:
+            mod = int(1/args.noise_ratio)
+            #old random noise: target[0::mod].random_(0, 10)
+            #symmetric noise:
+            target[0::mod] = 9 - target[0::mod]
         if args.cuda:
             data, target = data.cuda(), target.cuda()
         optimizer.zero_grad()
@@ -784,8 +788,7 @@ def save_checkpoint(state, is_best, filepath, backup: bool, backup_path: str, ep
     if is_best:
         shutil.copyfile(os.path.join(filepath, 'checkpoint.pth.tar'), os.path.join(filepath, 'model_best.pth.tar'))
     if backup and backup_path is not None:
-        shutil.copyfile(os.path.join(filepath, 'checkpoint.pth.tar'),
-                        os.path.join(backup_path, 'checkpoint_{}.pth.tar'.format(epoch)))
+        shutil.copyfile(os.path.join(filepath, 'checkpoint.pth.tar'), os.path.join(backup_path, 'checkpoint_{}.pth.tar'.format(epoch)))
 
         if max_backup is not None:
             while True:
@@ -820,18 +823,39 @@ for module_name, bn_module in model.named_modules():
         bn_module.register_buffer(f"var{i}",bn_module.running_var.data.clone().detach())
 
 #weight_valid_mask = create_mask(model, args.remain_ratio)
-if args.randomize:
+if args.oneshot_ltr:
     model._initialize_weights()
+
+# debugging save checkpoint
+# is_best = True
+# if not os.path.exists(args.save + 'test/'):
+#     os.makedirs(args.save + 'test/')
+# save_checkpoint({
+#     'epoch': 0 + 1,
+#     'state_dict': model.state_dict(),
+#     'best_prec0': 0,
+#     'optimizer': optimizer.state_dict(),
+# }, is_best,
+#     filepath= args.save + 'test/',
+#     backup_path=args.backup_path,
+#     backup=0 % args.backup_freq == 0,
+#     epoch=0,
+#     max_backup=args.max_backup
+# )
+# ckpt=torch.load(args.save + 'test/checkpoint.pth.tar')
+# print(ckpt["epoch"])
+# exit(0)
+# debugging save checkpoint
 
 if args.loss in {LossType.ITERATIVE}:
     print("here")
     remain_ratio = args.remain_ratio
     pruning_step = args.pruning_step
     weight_valid_mask = None
-    best_prec0 = 0
     while weight_valid_mask is None or weight_valid_mask.float().mean() > remain_ratio+1e-6:
         weight_valid_mask = iter_create_mask(model, weight_valid_mask, remain_ratio, pruning_step)
         model._initialize_weights()
+        best_prec0 = 0
         for epoch in range(args.start_epoch, args.epochs):
             if args.max_epoch is not None and epoch >= args.max_epoch:
                 break
@@ -840,6 +864,7 @@ if args.loss in {LossType.ITERATIVE}:
             weights, bias = bn_weights(model)
             train(epoch, weight_valid_mask)
             prec0 = test(model)
+            is_best = prec0 > best_prec0
             best_prec0 = max(prec0, best_prec0)
             print(f"model prec :{prec0:.2f}")
             if not os.path.exists(args.save + '{:.1f}/'.format(weight_valid_mask.float().mean())):
@@ -847,17 +872,21 @@ if args.loss in {LossType.ITERATIVE}:
             save_checkpoint({
                 'epoch': epoch + 1,
                 'state_dict': model.state_dict(),
-                'best_prec0': best_prec0,
+                'best_prec0': prec0,
                 'optimizer': optimizer.state_dict(),
-            }, False, filepath= args.save + '{:.1f}/'.format(weight_valid_mask.float().mean()),
+            }, is_best, filepath= args.save + '{:.1f}/'.format(weight_valid_mask.float().mean()),
                 backup_path=args.backup_path,
                 backup=epoch % args.backup_freq == 0,
                 epoch=epoch,
                 max_backup=args.max_backup
             )
-            print("Epoch accuracy: " + str(best_prec0))
+            ##
+            #ckpt=torch.load(args.save + '{:.1f}/checkpoint.pth.tar'.format(weight_valid_mask.float().mean()))
+            #print(ckpt["epoch"])
+            ##
+            print("Epoch accuracy: " + str(best_prec0) + " " + str(prec0))
             with open(os.path.join(args.save + '{:.1f}/'.format(weight_valid_mask.float().mean()) + 'Prec'), 'a+') as fp:
-                fp.write(f'{epoch} {best_prec0}\n')
+                fp.write(f'{epoch} {best_prec0} {prec0}\n')
 
         print("Best accuracy: " + str(best_prec0))
         with open(os.path.join(args.save, 'Overall_Prec_Record.txt'), 'a+') as fp:
@@ -888,7 +917,7 @@ else:
 
 
     history_score[epoch][2] = prec1
-    np.savetxt(os.path.join(args.save, 'overall_record.txt'), history_score, fmt='%10.5f', delimiter=',')
+    np.savetxt(os.path.join(args.save, 'record.txt'), history_score, fmt='%10.5f', delimiter=',')
     is_best = prec1 > best_prec1
     best_prec1 = max(prec1, best_prec1)
     save_checkpoint({
