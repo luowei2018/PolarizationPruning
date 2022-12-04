@@ -542,9 +542,9 @@ def iter_create_mask(model, weight_valid_mask, remain_ratio=1.0, pruning_step=0.
     weight_valid_mask = torch.zeros(total_channels).long().cuda()
     print("new_scale_factors_indices")
     print(new_scale_factors_indices)
-    print(len(new_scale_factors_indices))
-    print(new_ch_indices[int(len(new_scale_factors_indices)*pruning_step):])
-    weight_valid_mask[new_scale_factors_indices[0][new_ch_indices[int(len(new_scale_factors_indices)*pruning_step):]]] = 1
+    print(len(new_scale_factors_indices[0]))
+    print(new_ch_indices[int(len(new_scale_factors_indices[0])*pruning_step):])
+    weight_valid_mask[new_scale_factors_indices[0][new_ch_indices[int(len(new_scale_factors_indices[0])*pruning_step):]]] = 1
 
     return weight_valid_mask
 
