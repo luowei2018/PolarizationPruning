@@ -540,9 +540,9 @@ def iter_create_mask(model, weight_valid_mask, remain_ratio=1.0, pruning_step=0.
     _, new_ch_indices = new_factors.sort(dim=0)
 
     weight_valid_mask = torch.zeros(total_channels).long().cuda()
-    print("new_scale_factors_indices")
-    print(new_scale_factors_indices)
-    print(len(new_scale_factors_indices[0]))
+    #print("new_scale_factors_indices")
+    #print(new_scale_factors_indices)
+    #print(len(new_scale_factors_indices[0]))
     print(new_ch_indices[int(len(new_scale_factors_indices[0])*pruning_step):])
     weight_valid_mask[new_scale_factors_indices[0][new_ch_indices[int(len(new_scale_factors_indices[0])*pruning_step):]]] = 1
 
@@ -863,7 +863,7 @@ if args.loss in {LossType.ITERATIVE}:
             current_learning_rate = adjust_learning_rate(optimizer, epoch, args.gammas, args.decay_epoch)
             print("Start epoch {}/{} with learning rate {}...".format(epoch, args.epochs, current_learning_rate))
             weights, bias = bn_weights(model)
-            #train(epoch, weight_valid_mask)
+            train(epoch, weight_valid_mask)
             prec0 = test(model)
             is_best = prec0 > best_prec0
             best_prec0 = max(prec0, best_prec0)
