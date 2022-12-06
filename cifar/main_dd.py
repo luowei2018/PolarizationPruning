@@ -867,15 +867,15 @@ if args.loss in {LossType.ITERATIVE}:
             prec0 = test(model)
             is_best = prec0 > best_prec0
             best_prec0 = max(prec0, best_prec0)
-            print(f"model prec :{prec0:.2f}")
-            if not os.path.exists(args.save + str(weight_valid_mask.float().mean())):
-                os.makedirs(args.save + str(weight_valid_mask.float().mean()))
+            print(f"model prec :{prec0:.4f}")
+            if not os.path.exists(args.save + '{:.5f}/'.format(weight_valid_mask.float().mean())):
+                os.makedirs(args.save + '{:.5f}/'.format(weight_valid_mask.float().mean()))
             save_checkpoint({
                 'epoch': epoch + 1,
                 'state_dict': model.state_dict(),
                 'best_prec0': prec0,
                 'optimizer': optimizer.state_dict(),
-            }, is_best, filepath= args.save + str(weight_valid_mask.float().mean()),
+            }, is_best, filepath= args.save + '{:.5f}/'.format(weight_valid_mask.float().mean()),
                 backup_path=args.backup_path,
                 backup=epoch % args.backup_freq == 0,
                 epoch=epoch,
@@ -886,12 +886,12 @@ if args.loss in {LossType.ITERATIVE}:
             #print(ckpt["epoch"])
             ##
             print("Epoch accuracy: " + str(best_prec0) + " " + str(prec0))
-            with open(os.path.join(args.save + str(weight_valid_mask.float().mean()) + 'Prec'), 'a+') as fp:
+            with open(os.path.join(args.save + '{:.5f}/'.format(weight_valid_mask.float().mean()) + 'Prec'), 'a+') as fp:
                 fp.write(f'{epoch} {best_prec0} {prec0}\n')
 
         print("Best accuracy: " + str(best_prec0))
         with open(os.path.join(args.save, 'Overall_Prec_Record.txt'), 'a+') as fp:
-            fp.write(f'{weight_valid_mask.float().mean()} {best_prec0}\n')
+            fp.write(f'{weight_valid_mask.float().mean():.5f} {best_prec0}\n')
 
 else:
     for epoch in range(args.start_epoch, args.epochs):
