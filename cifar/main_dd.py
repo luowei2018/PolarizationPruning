@@ -701,11 +701,13 @@ def train(epoch, weight_valid_mask=None):
             data, target = data.cuda(), target.cuda()
         optimizer.zero_grad()
         nonzero = np.array([1, args.remain_ratio])
-        #separation = int(nonzero[batch_idx%len(nonzero)])
-        separation = 1
-        if args.loss in {LossType.ONESHOT}:
+        # separation = int(nonzero[batch_idx%len(nonzero)]): intersect
+        separation = batch_idx%len(nonzero)
+        # separation = 0: original
+        # separation = 1: pruned
+        if args.loss in {LossType.ONESHOT, LossType.PROGRESSIVE_SHRINKING}:
             if separation == 0:
-                remain_ratio = 1
+                remain_ratio = 1.0
             else:
                 remain_ratio = args.remain_ratio
             weight_valid_mask = create_mask(model, remain_ratio)
