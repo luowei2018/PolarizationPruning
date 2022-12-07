@@ -3,7 +3,7 @@
 # python3 client.py --host 155.98.38.150 --port 9007 --size 3072 --time 10000
 # python3 client.py --host 155.98.38.150 --port 9007 --size 6144 --time 10000
 # python3 client.py --host 155.98.38.150 --port 9007 --size 12288 --time 10000
-python3 client.py --host 155.98.38.150 --port 9008 --size 24576 --time 4960
+python3 client.py --host 155.98.38.150 --port 9008 --size 24576 --time 2123
 python3 client.py --host 155.98.38.150 --port 9008 --size 49152 --time 10000
 # python3 client.py --host 155.98.38.150 --port 9007 --size 22 --time 10000
 # python3 client.py --host 155.98.38.150 --port 9007 --size 44 --time 10000
