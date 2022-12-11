@@ -693,10 +693,12 @@ def train(epoch, weight_valid_mask=None):
         if args.noise_ratio == 0.0:
             pass
         else:
-            mod = int(1/args.noise_ratio)
-            #old random noise: target[0::mod].random_(0, 10)
+            rand = torch.rand(target.size(0))
+            #old random noise: target[0::mod].random_(0, 10) / mod = int(1/args.noise_ratio)
             #symmetric noise:
-            target[0::mod] = 9 - target[0::mod]
+            print(sum(rand < args.noise_ratio))
+            print(1.0 *  sum(rand < args.noise_ratio)/len(rand < args.noise_ratio))
+            target[rand < args.noise_ratio] = 9 - target[rand < args.noise_ratio]
         if args.cuda:
             data, target = data.cuda(), target.cuda()
         optimizer.zero_grad()

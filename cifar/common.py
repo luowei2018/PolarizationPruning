@@ -13,6 +13,7 @@ class LossType(Enum):
     PROGRESSIVE_SHRINKING = 10
     ITERATIVE = 9
     ONESHOT = 7
+    INTERSECT = 5
 
     @staticmethod
     def from_string(desc: str):
@@ -29,6 +30,7 @@ class LossType(Enum):
                 "ps": LossType.PROGRESSIVE_SHRINKING,
                 "it": LossType.ITERATIVE,
                 "os": LossType.ONESHOT,
+                "is": LossType.INTERSECT,
                 }
 
 
